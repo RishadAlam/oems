@@ -35,6 +35,7 @@ final class HomeController extends Controller
                 'category' => 'Creative workshop',
                 'date' => 'August 22',
                 'time' => '10:00 AM',
+                'datetime' => '2026-08-22T10:00:00+06:00',
                 'venue' => 'Dhanmondi, Dhaka',
                 'price' => 'Free',
                 'image' => '/assets/images/event-creative.webp',
@@ -45,6 +46,7 @@ final class HomeController extends Controller
                 'category' => 'Music and culture',
                 'date' => 'August 29',
                 'time' => '7:30 PM',
+                'datetime' => '2026-08-29T19:30:00+06:00',
                 'venue' => 'Banani, Dhaka',
                 'price' => 'From ৳600',
                 'image' => '/assets/images/event-community.webp',
@@ -53,4 +55,3 @@ final class HomeController extends Controller
         ];
     }
 }
-

@@ -65,6 +65,17 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-eye"'));
     }
 
+    public function testEventDiscoveryExposesSearchAndSemanticEventMetadata(): void
+    {
+        $html = $this->renderHome();
+
+        $this->assertTrue(str_contains($html, 'role="search" aria-label="Search events"'));
+        $this->assertTrue(str_contains($html, '<time datetime="2026-08-22T10:00:00+06:00">'));
+        $this->assertTrue(str_contains($html, '<address>Dhanmondi, Dhaka</address>'));
+        $this->assertTrue(str_contains($html, 'href="/events" class="button button--primary"'));
+        $this->assertTrue(str_contains($html, 'href="/register?role=organizer" class="button button--quiet"'));
+    }
+
     private function renderHome(): string
     {
         $view = new View(base_path('app/Views'));
@@ -79,6 +90,7 @@ final class UiLayoutTest extends TestCase
                     'title' => 'Designing for public life',
                     'category' => 'Creative workshop',
                     'date' => 'August 22',
+                    'datetime' => '2026-08-22T10:00:00+06:00',
                     'time' => '10:00 AM',
                     'venue' => 'Dhanmondi, Dhaka',
                     'price' => 'Free',
