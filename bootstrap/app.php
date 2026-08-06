@@ -7,6 +7,7 @@ use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
+use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Services\AuthService;
 use OEMS\Core\Auth;
@@ -57,6 +58,12 @@ $container->singleton(Session::class, static fn (): Session => new Session(true,
     'name' => $appConfig['session_name'],
 ]));
 $container->singleton(Database::class, static fn (): Database => new Database($databaseConfig));
+$container->singleton(
+    DashboardMetricsRepository::class,
+    static fn (Container $container): DashboardMetricsRepository => new DashboardMetricsRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
 $container->singleton(
     RateLimiter::class,
     static fn (): RateLimiter => new RateLimiter($basePath . '/storage/cache/rate-limits'),
