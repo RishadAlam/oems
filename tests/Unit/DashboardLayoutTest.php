@@ -11,9 +11,26 @@ final class DashboardLayoutTest extends TestCase
 {
     public function testPlacesDashboardContentInSecondDesktopGridColumn(): void
     {
-        $view = new View(base_path('app/Views'));
+        $html = $this->renderAdminDashboard();
 
-        $html = $view->render('dashboard/admin', [
+        $this->assertTrue(
+            str_contains($html, 'class="min-w-0 lg:col-start-2"'),
+            'Dashboard content must start in the second desktop grid column beside the fixed sidebar.',
+        );
+    }
+
+    public function testAdminDashboardOmitsPlaceholderPanels(): void
+    {
+        $html = $this->renderAdminDashboard();
+
+        $this->assertFalse(str_contains($html, 'Foundation readiness'));
+        $this->assertFalse(str_contains($html, 'Next delivery'));
+    }
+
+    private function renderAdminDashboard(array $overrides = []): string
+    {
+        $view = new View(base_path('app/Views'));
+        $data = array_merge([
             'app' => ['name' => 'OEMS'],
             'csrfToken' => 'test-token',
             'currentUser' => [
@@ -23,11 +40,8 @@ final class DashboardLayoutTest extends TestCase
             ],
             'flash' => [],
             'pageTitle' => 'Platform overview',
-        ], 'dashboard');
+        ], $overrides);
 
-        $this->assertTrue(
-            str_contains($html, 'class="min-w-0 lg:col-start-2"'),
-            'Dashboard content must start in the second desktop grid column beside the fixed sidebar.',
-        );
+        return $view->render('dashboard/admin', $data, 'dashboard');
     }
 }
