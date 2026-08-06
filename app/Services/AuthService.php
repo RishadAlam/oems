@@ -155,7 +155,13 @@ final class AuthService
         $user = $this->users->findByEmail($normalizedEmail);
 
         if ($user === null || ($user['status'] ?? 'inactive') !== 'active') {
-            return ['success' => true, 'reset_token' => null];
+            return [
+                'success' => true,
+                'reset_token' => null,
+                'user_id' => null,
+                'name' => null,
+                'email' => null,
+            ];
         }
 
         $token = bin2hex(random_bytes(32));
@@ -166,7 +172,13 @@ final class AuthService
             (new DateTimeImmutable())->add(new DateInterval('PT1H')),
         );
 
-        return ['success' => true, 'reset_token' => $token];
+        return [
+            'success' => true,
+            'reset_token' => $token,
+            'user_id' => (int) $user['id'],
+            'name' => (string) $user['name'],
+            'email' => (string) $user['email'],
+        ];
     }
 
     public function resetPassword(string $token, string $password): bool

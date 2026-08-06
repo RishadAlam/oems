@@ -10,5 +10,13 @@ return [
     'timezone' => env('APP_TIMEZONE', 'Asia/Dhaka'),
     'session_name' => env('SESSION_NAME', 'OEMS_SESSION'),
     'remember_cookie' => env('REMEMBER_COOKIE', 'OEMS_REMEMBER'),
+    'mail' => [
+        'host' => env('MAIL_HOST', 'localhost'),
+        'port' => (int) env('MAIL_PORT', 2525),
+        'username' => env('MAIL_USERNAME', ''),
+        'password' => env('MAIL_PASSWORD', ''),
+        'encryption' => env('MAIL_ENCRYPTION', 'tls'),
+        'from_address' => env('MAIL_FROM_ADDRESS', 'no-reply@oems.local'),
+        'from_name' => env('MAIL_FROM_NAME', 'OEMS'),
+    ],
 ];
-

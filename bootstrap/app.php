@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
-use OEMS\App\Contracts\UserRepositoryInterface;
+use OEMS\App\Contracts\EmailLogRepositoryInterface;
+use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\App\Contracts\ProfileRepositoryInterface;
+use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
+use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
+use OEMS\App\Mail\PhpMailerTransport;
+use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -78,6 +83,26 @@ $container->singleton(
     ProfileRepositoryInterface::class,
     static fn (Container $container): ProfileRepository => new ProfileRepository(
         $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    EmailLogRepositoryInterface::class,
+    static fn (Container $container): EmailLogRepository => new EmailLogRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    MailTransportInterface::class,
+    static fn (Container $container): PhpMailerTransport => new PhpMailerTransport(
+        $container->get(Config::class),
+    ),
+);
+$container->singleton(
+    AccountMailer::class,
+    static fn (Container $container): AccountMailer => new AccountMailer(
+        $container->get(MailTransportInterface::class),
+        $container->get(EmailLogRepositoryInterface::class),
+        $container->get(Config::class),
     ),
 );
 $container->singleton(

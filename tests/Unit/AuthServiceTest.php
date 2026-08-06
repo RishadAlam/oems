@@ -181,4 +181,43 @@ final class AuthServiceTest extends TestCase
         }
         rmdir($directory);
     }
+
+    public function testPasswordResetReturnsTheEligibleMailRecipient(): void
+    {
+        $id = $this->users->create([
+            'name' => 'Raihan Ahmed',
+            'email' => 'raihan@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+        ]);
+        $service = new AuthService($this->users, $this->session);
+
+        $result = $service->requestPasswordReset(' RAIHAN@example.com ');
+
+        $this->assertTrue($result['success']);
+        $this->assertArrayHasKey('user_id', $result);
+        $this->assertArrayHasKey('name', $result);
+        $this->assertArrayHasKey('email', $result);
+        $this->assertSame($id, $result['user_id']);
+        $this->assertSame('Raihan Ahmed', $result['name']);
+        $this->assertSame('raihan@example.com', $result['email']);
+        $this->assertSame(64, strlen((string) $result['reset_token']));
+    }
+
+    public function testPasswordResetKeepsAnUnknownAccountGeneric(): void
+    {
+        $service = new AuthService($this->users, $this->session);
+
+        $result = $service->requestPasswordReset('unknown@example.com');
+
+        $this->assertTrue($result['success']);
+        $this->assertNull($result['reset_token']);
+        $this->assertArrayHasKey('user_id', $result);
+        $this->assertArrayHasKey('name', $result);
+        $this->assertArrayHasKey('email', $result);
+        $this->assertNull($result['user_id']);
+        $this->assertNull($result['name']);
+        $this->assertNull($result['email']);
+    }
 }
