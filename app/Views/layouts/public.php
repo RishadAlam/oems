@@ -4,13 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Discover and host memorable events with OEMS.">
-    <meta name="theme-color" content="#f3f4ef">
+    <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? $app['name']) ?> | <?= e($app['name']) ?></title>
     <script>
         (function () {
-            const saved = localStorage.getItem('oems-theme');
+            let saved = null;
+            try { saved = localStorage.getItem('oems-theme'); } catch (error) {}
             const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.dataset.theme = saved || (dark ? 'dark' : 'light');
+            document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
         }());
     </script>
     <link rel="stylesheet" href="/assets/css/app.css">
@@ -21,24 +22,23 @@
 
     <header class="site-header">
         <div class="page-shell flex h-[72px] items-center justify-between gap-5">
-            <a class="brand-mark" href="/" aria-label="OEMS home">
-                <span class="brand-mark__symbol" aria-hidden="true">O</span>
-                <span>OEMS</span>
-            </a>
+            <?php require base_path('app/Views/components/brand.php'); ?>
 
             <nav class="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
                 <a class="nav-link" href="/events">Explore events</a>
                 <a class="nav-link" href="/register?role=organizer">For organizers</a>
-                <a class="nav-link" href="#how-it-works">How it works</a>
+                <a class="nav-link" href="/#how-it-works">How it works</a>
             </nav>
 
             <div class="hidden items-center gap-3 lg:flex">
-                <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change color theme">Theme</button>
+                <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme">
+                    <i class="ph ph-moon" data-theme-icon aria-hidden="true"></i>
+                </button>
                 <?php if ($currentUser !== null): ?>
-                    <a class="button button--primary button--compact" href="/dashboard">Dashboard</a>
+                    <a class="button button--primary button--compact" href="/dashboard"><span>Dashboard</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php else: ?>
                     <a class="button button--quiet button--compact" href="/login">Log in</a>
-                    <a class="button button--primary button--compact" href="/register">Get started</a>
+                    <a class="button button--primary button--compact" href="/register"><span>Get started</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php endif; ?>
             </div>
 
@@ -50,21 +50,23 @@
                 aria-controls="mobile-menu"
             >
                 <span>Menu</span>
-                <span class="menu-button__lines" aria-hidden="true"><i></i><i></i></span>
+                <i class="ph ph-list" aria-hidden="true"></i>
             </button>
         </div>
 
         <div id="mobile-menu" class="mobile-menu" data-mobile-menu hidden>
             <nav class="page-shell grid gap-2 py-5" aria-label="Mobile navigation">
-                <a class="mobile-menu__link" href="/events">Explore events</a>
-                <a class="mobile-menu__link" href="/register?role=organizer">For organizers</a>
-                <a class="mobile-menu__link" href="#how-it-works">How it works</a>
-                <button class="mobile-menu__link text-left" type="button" data-theme-toggle>Change theme</button>
+                <a class="mobile-menu__link" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
+                <a class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>
+                <a class="mobile-menu__link" href="/#how-it-works"><i class="ph ph-path" aria-hidden="true"></i><span>How it works</span></a>
+                <button class="mobile-menu__link text-left" type="button" data-theme-toggle aria-label="Switch to dark theme">
+                    <i class="ph ph-moon" data-theme-icon aria-hidden="true"></i><span data-theme-label>Switch to dark theme</span>
+                </button>
                 <?php if ($currentUser !== null): ?>
-                    <a class="button button--primary mt-3" href="/dashboard">Dashboard</a>
+                    <a class="button button--primary mt-3" href="/dashboard"><span>Dashboard</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php else: ?>
                     <a class="button button--quiet mt-3" href="/login">Log in</a>
-                    <a class="button button--primary" href="/register">Get started</a>
+                    <a class="button button--primary" href="/register"><span>Get started</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php endif; ?>
             </nav>
         </div>
@@ -79,10 +81,7 @@
     <footer class="site-footer">
         <div class="page-shell grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr]">
             <div>
-                <a class="brand-mark" href="/" aria-label="OEMS home">
-                    <span class="brand-mark__symbol" aria-hidden="true">O</span>
-                    <span>OEMS</span>
-                </a>
+                <?php require base_path('app/Views/components/brand.php'); ?>
                 <p class="mt-4 max-w-sm text-sm leading-6 text-[var(--ink-muted)]">
                     Better tools for finding a crowd, filling a room, and running an event people remember.
                 </p>
@@ -111,4 +110,3 @@
     </footer>
 </body>
 </html>
-

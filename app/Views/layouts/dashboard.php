@@ -3,13 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f3f4ef">
+    <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($app['name']) ?></title>
     <script>
         (function () {
-            const saved = localStorage.getItem('oems-theme');
+            let saved = null;
+            try { saved = localStorage.getItem('oems-theme'); } catch (error) {}
             const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.dataset.theme = saved || (dark ? 'dark' : 'light');
+            document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
         }());
     </script>
     <link rel="stylesheet" href="/assets/css/app.css">
@@ -24,21 +25,18 @@
     ?>
     <a class="skip-link" href="#dashboard-content">Skip to content</a>
     <div class="min-h-[100dvh] lg:grid lg:grid-cols-[264px_1fr]">
-        <aside class="dashboard-sidebar" data-dashboard-sidebar>
+        <aside id="dashboard-sidebar" class="dashboard-sidebar" data-dashboard-sidebar>
             <div class="flex h-[72px] items-center justify-between">
-                <a class="brand-mark" href="/" aria-label="OEMS home">
-                    <span class="brand-mark__symbol" aria-hidden="true">O</span>
-                    <span>OEMS</span>
-                </a>
-                <button class="menu-button lg:hidden" type="button" data-dashboard-close aria-label="Close navigation">Close</button>
+                <?php require base_path('app/Views/components/brand.php'); ?>
+                <button class="icon-button lg:hidden" type="button" data-dashboard-close aria-controls="dashboard-sidebar" aria-label="Close navigation" title="Close navigation"><i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
             <div class="mt-6">
                 <p class="dashboard-sidebar__label">Workspace</p>
                 <nav class="mt-3 grid gap-1" aria-label="Dashboard navigation">
-                    <a class="dashboard-nav-link<?= $overviewActive ? ' dashboard-nav-link--active' : '' ?>" href="/dashboard"<?= $overviewActive ? ' aria-current="page"' : '' ?>>Overview</a>
-                    <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>>Explore events</a>
-                    <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>>Profile</a>
-                    <a class="dashboard-nav-link<?= $currentPath === '/settings/password' ? ' dashboard-nav-link--active' : '' ?>" href="/settings/password"<?= $currentPath === '/settings/password' ? ' aria-current="page"' : '' ?>>Security</a>
+                    <a class="dashboard-nav-link<?= $overviewActive ? ' dashboard-nav-link--active' : '' ?>" href="/dashboard"<?= $overviewActive ? ' aria-current="page"' : '' ?>><i class="ph ph-squares-four" aria-hidden="true"></i><span>Overview</span></a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/settings/password' ? ' dashboard-nav-link--active' : '' ?>" href="/settings/password"<?= $currentPath === '/settings/password' ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-check" aria-hidden="true"></i><span>Security</span></a>
                 </nav>
             </div>
             <div class="mt-auto border-t border-[var(--line)] pt-5">
@@ -46,16 +44,16 @@
                 <p class="mt-1 truncate text-xs text-[var(--ink-muted)]"><?= e($currentUser['email'] ?? '') ?></p>
                 <form action="/logout" method="post" class="mt-4">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-                    <button class="button button--quiet w-full" type="submit">Log out</button>
+                    <button class="button button--quiet w-full" type="submit"><i class="ph ph-sign-out" aria-hidden="true"></i><span>Log out</span></button>
                 </form>
             </div>
         </aside>
 
         <div class="min-w-0 lg:col-start-2">
             <header class="dashboard-header">
-                <button class="menu-button lg:hidden" type="button" data-dashboard-open aria-label="Open navigation">Menu</button>
+                <button class="menu-button lg:hidden" type="button" data-dashboard-open aria-label="Open navigation" aria-controls="dashboard-sidebar" aria-expanded="false"><i class="ph ph-list" aria-hidden="true"></i><span>Menu</span></button>
                 <div class="ml-auto flex items-center gap-3">
-                    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Change color theme">Theme</button>
+                    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme"><i class="ph ph-moon" data-theme-icon aria-hidden="true"></i></button>
                     <span class="role-badge"><?= e($currentUser['role_name'] ?? 'Member') ?></span>
                 </div>
             </header>
