@@ -32,6 +32,12 @@ OEMS is a custom PHP MVC foundation for an online event management platform. Wee
    mysql -u root -p oems < database/seed.sql
    ```
 
+   To add the optional local demo dataset, import the repeatable demo seed after the base seed.
+
+   ```bash
+   mysql -u root -p oems < database/demo_seed.sql
+   ```
+
 4. Build the Tailwind stylesheet.
 
    ```bash
@@ -52,6 +58,15 @@ With `APP_DEBUG=true`, registration and password-reset screens expose local-only
 - Password: `ChangeMe!2026`
 
 Change this password immediately outside isolated local development.
+
+## Demo accounts
+
+The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, events, registrations, payments, tickets, and activity data. Every demo account uses the password `DemoPass!2026`.
+
+- Organizer: `ayesha.organizer@oems.local`
+- Participant: `tahmid.participant@oems.local`
+
+Never import the demo dataset into a production database.
 
 ## Week 1 deliverables
 
