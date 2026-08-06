@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\AccountMailer;
 use OEMS\Core\Config;
+use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeEmailLogRepository;
 use OEMS\Tests\Support\FakeMailTransport;
 use OEMS\Tests\Support\TestCase;
@@ -77,6 +78,89 @@ final class AccountMailerTest extends TestCase
         $this->assertFalse(str_contains($error, "\n"));
         $this->assertFalse(str_contains($error, "\x00"));
         $this->assertNull($logs->records[0]['provider_message_id']);
+    }
+
+    public function testEmailLogFailureRaisesAnOperationalSignalWithoutLeakingTheToken(): void
+    {
+        $transport = new FakeMailTransport('<accepted-message-id>');
+        $logs = new FakeEmailLogRepository();
+        $logs->failure = new RuntimeException('database unavailable');
+        $path = sys_get_temp_dir() . '/oems-mail-log-' . bin2hex(random_bytes(5)) . '.log';
+        $token = str_repeat('d', 64);
+        $mailer = new AccountMailer(
+            $transport,
+            $logs,
+            new Config(['url' => 'http://localhost:8000']),
+            new Logger($path),
+        );
+
+        $sent = $mailer->sendVerification(28, 'ops@example.test', 'Ops User', $token);
+        $contents = file_get_contents($path) ?: '';
+
+        $this->assertTrue($sent);
+        $this->assertTrue(str_contains($contents, 'Email delivery outcome could not be recorded.'));
+        $this->assertFalse(str_contains($contents, $token));
+
+        unlink($path);
+    }
+
+    public function testPrivacyProbeUsesTheConfiguredSinkAndAResetShapedMessage(): void
+    {
+        $transport = new FakeMailTransport('<privacy-probe-id>');
+        $logs = new FakeEmailLogRepository();
+        $mailer = new AccountMailer(
+            $transport,
+            $logs,
+            new Config([
+                'url' => 'http://localhost:8000',
+                'mail' => [
+                    'privacy_sink_address' => 'privacy-sink@example.test',
+                    'from_name' => 'OEMS',
+                ],
+            ]),
+        );
+
+        $sent = $mailer->sendPasswordResetPrivacyProbe();
+
+        $this->assertTrue($sent);
+        $this->assertSame('privacy-sink@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertSame('Reset your OEMS password', $transport->messages[0]->subject);
+        $this->assertTrue(str_contains($transport->messages[0]->htmlBody, '/reset-password/'));
+        $this->assertSame('password_reset_probe', $logs->records[0]['template']);
+        $this->assertNull($logs->records[0]['user_id']);
+    }
+
+    public function testBothDeliveryLogsFailWithoutEscapingTheMailBoundary(): void
+    {
+        $transport = new FakeMailTransport('<accepted-message-id>');
+        $logs = new FakeEmailLogRepository();
+        $logs->failure = new RuntimeException('database unavailable');
+        $directory = sys_get_temp_dir() . '/oems-unwritable-mail-log-' . bin2hex(random_bytes(5));
+        mkdir($directory, 0555, true);
+        chmod($directory, 0555);
+        $mailer = new AccountMailer(
+            $transport,
+            $logs,
+            new Config(['url' => 'http://localhost:8000']),
+            new Logger($directory . '/mail.log'),
+        );
+
+        set_error_handler(static fn (): bool => true);
+
+        try {
+            $sent = $mailer->sendVerification(
+                31,
+                'resilient@example.test',
+                'Resilient User',
+                str_repeat('e', 64),
+            );
+        } finally {
+            restore_error_handler();
+            chmod($directory, 0755);
+            rmdir($directory);
+        }
+
+        $this->assertTrue($sent);
     }
 
     private function mailer(

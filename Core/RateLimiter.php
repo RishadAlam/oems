@@ -34,6 +34,24 @@ final class RateLimiter
         });
     }
 
+    public function consumeAttempt(string $key): bool
+    {
+        return $this->withExclusiveLock($key, function (array $record, int $now, mixed $handle): bool {
+            if (($record['expires_at'] ?? 0) <= $now) {
+                $record = ['attempts' => 0, 'expires_at' => $now + $this->decaySeconds];
+            }
+
+            if ((int) ($record['attempts'] ?? 0) >= $this->maxAttempts) {
+                return false;
+            }
+
+            $record['attempts'] = (int) ($record['attempts'] ?? 0) + 1;
+            $this->writeRecord($handle, $record);
+
+            return true;
+        });
+    }
+
     public function tooManyAttempts(string $key): bool
     {
         return $this->readRecord($key)['attempts'] >= $this->maxAttempts;

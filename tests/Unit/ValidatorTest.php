@@ -63,5 +63,26 @@ final class ValidatorTest extends TestCase
 
         $this->assertSame([], $errors);
     }
-}
 
+    public function testRejectsNonIsoAndImpossibleDates(): void
+    {
+        foreach (['tomorrow', '2026-02-30', '2026-8-6'] as $value) {
+            $errors = Validator::validate(
+                ['date_of_birth' => $value],
+                ['date_of_birth' => 'date'],
+            );
+
+            $this->assertArrayHasKey('date_of_birth', $errors);
+        }
+    }
+
+    public function testAcceptsAnExactIsoCalendarDate(): void
+    {
+        $errors = Validator::validate(
+            ['date_of_birth' => '2024-02-29'],
+            ['date_of_birth' => 'date'],
+        );
+
+        $this->assertSame([], $errors);
+    }
+}

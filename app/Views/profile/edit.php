@@ -2,6 +2,19 @@
 $profileValue = static fn (string $key): string => old_value($old, $key, (string) ($profile[$key] ?? ''));
 $selectedValue = static fn (string $key): string => (string) ($old[$key] ?? $profile[$key] ?? '');
 $invalid = static fn (string $key): string => field_error($errors, $key) === null ? '' : ' aria-invalid="true"';
+$describedBy = static function (
+    string $key,
+    ?string $helpId = null,
+    ?string $errorId = null,
+) use ($errors): string {
+    $ids = $helpId === null ? [] : [$helpId];
+
+    if (field_error($errors, $key) !== null) {
+        $ids[] = $errorId ?? str_replace('_', '-', $key) . '-error';
+    }
+
+    return $ids === [] ? '' : ' aria-describedby="' . implode(' ', $ids) . '"';
+};
 ?>
 
 <div class="dashboard-page-heading">
@@ -24,14 +37,14 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="name">Full name</label>
-                    <input id="name" name="name" type="text" value="<?= $profileValue('name') ?>" autocomplete="name" maxlength="100" required<?= $invalid('name') ?> aria-describedby="name-error">
+                    <input id="name" name="name" type="text" value="<?= $profileValue('name') ?>" autocomplete="name" maxlength="100" required<?= $invalid('name') ?><?= $describedBy('name') ?>>
                     <?php if ($error = field_error($errors, 'name')): ?>
                         <p id="name-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="phone">Phone <span class="field-label-note">Optional</span></label>
-                    <input id="phone" name="phone" type="tel" value="<?= $profileValue('phone') ?>" autocomplete="tel" maxlength="30"<?= $invalid('phone') ?> aria-describedby="phone-help phone-error">
+                    <input id="phone" name="phone" type="tel" value="<?= $profileValue('phone') ?>" autocomplete="tel" maxlength="30"<?= $invalid('phone') ?><?= $describedBy('phone', 'phone-help') ?>>
                     <p id="phone-help" class="field-help">Include the country code when possible.</p>
                     <?php if ($error = field_error($errors, 'phone')): ?>
                         <p id="phone-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -57,7 +70,7 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             </div>
             <div class="field-group">
                 <label for="bio">Bio <span class="field-label-note">Optional</span></label>
-                <textarea id="bio" name="bio" maxlength="2000" rows="5"<?= $invalid('bio') ?> aria-describedby="bio-help bio-error"><?= $profileValue('bio') ?></textarea>
+                <textarea id="bio" name="bio" maxlength="2000" rows="5"<?= $invalid('bio') ?><?= $describedBy('bio', 'bio-help') ?>><?= $profileValue('bio') ?></textarea>
                 <p id="bio-help" class="field-help">A short introduction for event activity.</p>
                 <?php if ($error = field_error($errors, 'bio')): ?>
                     <p id="bio-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -66,14 +79,14 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="date_of_birth">Date of birth <span class="field-label-note">Optional</span></label>
-                    <input id="date_of_birth" name="date_of_birth" type="date" value="<?= $profileValue('date_of_birth') ?>" max="<?= e(date('Y-m-d')) ?>"<?= $invalid('date_of_birth') ?> aria-describedby="date-of-birth-error">
+                    <input id="date_of_birth" name="date_of_birth" type="date" value="<?= $profileValue('date_of_birth') ?>" max="<?= e(date('Y-m-d')) ?>"<?= $invalid('date_of_birth') ?><?= $describedBy('date_of_birth') ?>>
                     <?php if ($error = field_error($errors, 'date_of_birth')): ?>
                         <p id="date-of-birth-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="gender">Gender <span class="field-label-note">Optional</span></label>
-                    <select id="gender" name="gender"<?= $invalid('gender') ?> aria-describedby="gender-error">
+                    <select id="gender" name="gender"<?= $invalid('gender') ?><?= $describedBy('gender') ?>>
                         <option value="">Choose an option</option>
                         <option value="female" <?= $selectedValue('gender') === 'female' ? 'selected' : '' ?>>Female</option>
                         <option value="male" <?= $selectedValue('gender') === 'male' ? 'selected' : '' ?>>Male</option>
@@ -94,7 +107,7 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             </div>
             <div class="field-group">
                 <label for="address_line">Street address</label>
-                <input id="address_line" name="address_line" type="text" value="<?= $profileValue('address_line') ?>" autocomplete="street-address" maxlength="190"<?= $invalid('address_line') ?> aria-describedby="address-line-error">
+                <input id="address_line" name="address_line" type="text" value="<?= $profileValue('address_line') ?>" autocomplete="street-address" maxlength="190"<?= $invalid('address_line') ?><?= $describedBy('address_line') ?>>
                 <?php if ($error = field_error($errors, 'address_line')): ?>
                     <p id="address-line-error" class="field-error" role="alert"><?= e($error) ?></p>
                 <?php endif; ?>
@@ -102,21 +115,21 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="grid gap-5 sm:grid-cols-3">
                 <div class="field-group">
                     <label for="city">City</label>
-                    <input id="city" name="city" type="text" value="<?= $profileValue('city') ?>" autocomplete="address-level2" maxlength="100"<?= $invalid('city') ?> aria-describedby="city-error">
+                    <input id="city" name="city" type="text" value="<?= $profileValue('city') ?>" autocomplete="address-level2" maxlength="100"<?= $invalid('city') ?><?= $describedBy('city') ?>>
                     <?php if ($error = field_error($errors, 'city')): ?>
                         <p id="city-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="country">Country</label>
-                    <input id="country" name="country" type="text" value="<?= $profileValue('country') ?>" autocomplete="country-name" maxlength="100"<?= $invalid('country') ?> aria-describedby="country-error">
+                    <input id="country" name="country" type="text" value="<?= $profileValue('country') ?>" autocomplete="country-name" maxlength="100"<?= $invalid('country') ?><?= $describedBy('country') ?>>
                     <?php if ($error = field_error($errors, 'country')): ?>
                         <p id="country-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="postal_code">Postal code</label>
-                    <input id="postal_code" name="postal_code" type="text" value="<?= $profileValue('postal_code') ?>" autocomplete="postal-code" maxlength="30"<?= $invalid('postal_code') ?> aria-describedby="postal-code-error">
+                    <input id="postal_code" name="postal_code" type="text" value="<?= $profileValue('postal_code') ?>" autocomplete="postal-code" maxlength="30"<?= $invalid('postal_code') ?><?= $describedBy('postal_code') ?>>
                     <?php if ($error = field_error($errors, 'postal_code')): ?>
                         <p id="postal-code-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
@@ -131,7 +144,7 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             </div>
             <div class="field-group">
                 <label for="website">Website <span class="field-label-note">Optional</span></label>
-                <input id="website" name="website" type="url" value="<?= $profileValue('website') ?>" autocomplete="url" maxlength="255" placeholder="https://example.com"<?= $invalid('website') ?> aria-describedby="website-error">
+                <input id="website" name="website" type="url" value="<?= $profileValue('website') ?>" autocomplete="url" maxlength="255" placeholder="https://example.com"<?= $invalid('website') ?><?= $describedBy('website') ?>>
                 <?php if ($error = field_error($errors, 'website')): ?>
                     <p id="website-error" class="field-error" role="alert"><?= e($error) ?></p>
                 <?php endif; ?>
@@ -139,7 +152,7 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="locale">Language</label>
-                    <select id="locale" name="locale" required<?= $invalid('locale') ?> aria-describedby="locale-error">
+                    <select id="locale" name="locale" required<?= $invalid('locale') ?><?= $describedBy('locale') ?>>
                         <option value="en" <?= $selectedValue('locale') === 'en' ? 'selected' : '' ?>>English</option>
                         <option value="bn" <?= $selectedValue('locale') === 'bn' ? 'selected' : '' ?>>Bangla</option>
                     </select>
@@ -149,7 +162,7 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
                 </div>
                 <div class="field-group">
                     <label for="timezone">Timezone</label>
-                    <select id="timezone" name="timezone" required<?= $invalid('timezone') ?> aria-describedby="timezone-error">
+                    <select id="timezone" name="timezone" required<?= $invalid('timezone') ?><?= $describedBy('timezone') ?>>
                         <option value="Asia/Dhaka" <?= $selectedValue('timezone') === 'Asia/Dhaka' ? 'selected' : '' ?>>Asia/Dhaka</option>
                         <option value="UTC" <?= $selectedValue('timezone') === 'UTC' ? 'selected' : '' ?>>UTC</option>
                     </select>

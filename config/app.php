@@ -18,5 +18,9 @@ return [
         'encryption' => env('MAIL_ENCRYPTION', 'tls'),
         'from_address' => env('MAIL_FROM_ADDRESS', 'no-reply@oems.local'),
         'from_name' => env('MAIL_FROM_NAME', 'OEMS'),
+        'privacy_sink_address' => env(
+            'MAIL_PRIVACY_SINK_ADDRESS',
+            env('MAIL_FROM_ADDRESS', 'no-reply@oems.local'),
+        ),
     ],
 ];

@@ -6,6 +6,8 @@
     "require": {
         "php": "^8.2",
         "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-openssl": "*",
         "ext-pdo": "*",
         "phpmailer/phpmailer": "^7.0"
     },

@@ -86,6 +86,21 @@ final class ProfileControllerTest extends TestCase
         $this->assertSame([], $this->profiles->updates);
     }
 
+    public function testEditOnlyReferencesValidationMessagesThatAreRendered(): void
+    {
+        $this->session->flash('errors', ['name' => ['Name is required.']]);
+
+        $body = $this->controller->edit(Request::create('GET', '/profile'))->body();
+
+        $this->assertTrue(str_contains(
+            $body,
+            'required aria-invalid="true" aria-describedby="name-error"',
+        ));
+        $this->assertTrue(str_contains($body, 'id="name-error"'));
+        $this->assertFalse(str_contains($body, 'aria-describedby="city-error"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="phone-help"'));
+    }
+
     public function testUpdateUsesTheAuthenticatedIdAndNormalizesOptionalValues(): void
     {
         $input = $this->validInput();

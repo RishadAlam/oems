@@ -144,7 +144,7 @@ final class AuthController extends Controller
             return $this->redirectWithErrors('/forgot-password', $errors, $data);
         }
 
-        $result = $this->authService->requestPasswordReset((string) $data['email']);
+        $result = $this->authService->requestPasswordReset((string) $data['email'], $request->ip());
 
         if (is_string($result['reset_token'])
             && is_int($result['user_id'])
@@ -156,6 +156,8 @@ final class AuthController extends Controller
                 $result['name'],
                 $result['reset_token'],
             );
+        } elseif (($result['mail_dispatch'] ?? null) === 'probe') {
+            $this->accountMailer->sendPasswordResetPrivacyProbe();
         }
 
         $this->session->flash('success', 'If that account exists, a password reset link has been prepared.');

@@ -10,6 +10,7 @@ use OEMS\App\Services\AuthService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
@@ -66,7 +67,7 @@ final class AuthControllerMailTest extends TestCase
         $this->assertSame('Reset your OEMS password', $transport->messages[0]->subject);
     }
 
-    public function testUnknownPasswordResetAddressDoesNotSendAMessage(): void
+    public function testUnknownPasswordResetUsesThePrivacySinkInsteadOfTheSubmittedAddress(): void
     {
         [$controller, $transport] = $this->controller();
 
@@ -75,10 +76,49 @@ final class AuthControllerMailTest extends TestCase
         ]));
 
         $this->assertSame('/forgot-password', $response->header('Location'));
-        $this->assertSame(0, count($transport->messages));
+        $this->assertSame(1, count($transport->messages));
+        $this->assertSame('privacy-sink@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertNotSame('unknown@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertSame('Reset your OEMS password', $transport->messages[0]->subject);
     }
 
-    private function controller(?FakeUserRepository $users = null): array
+    public function testThrottledPasswordResetDispatchesNoAdditionalMessage(): void
+    {
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Limited User',
+            'email' => 'limited-reset@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-controller-reset-rate-' . bin2hex(random_bytes(5));
+        [$controller, $transport] = $this->controller(
+            $users,
+            new RateLimiter($directory, 1, 900),
+        );
+        $request = static fn (): Request => Request::create(
+            'POST',
+            '/forgot-password',
+            input: ['email' => 'limited-reset@example.test'],
+            server: ['REMOTE_ADDR' => '192.0.2.60'],
+        );
+
+        $controller->sendResetLink($request());
+        $controller->sendResetLink($request());
+
+        $this->assertSame(1, count($transport->messages));
+
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+        rmdir($directory);
+    }
+
+    private function controller(
+        ?FakeUserRepository $users = null,
+        ?RateLimiter $rateLimiter = null,
+    ): array
     {
         $users ??= new FakeUserRepository();
         $session = new Session(false);
@@ -87,6 +127,11 @@ final class AuthControllerMailTest extends TestCase
             'url' => 'http://localhost:8000',
             'debug' => true,
             'remember_cookie' => 'OEMS_REMEMBER',
+            'mail' => [
+                'privacy_sink_address' => 'privacy-sink@example.test',
+                'from_address' => 'no-reply@example.test',
+                'from_name' => 'OEMS',
+            ],
         ]);
         $transport = new FakeMailTransport('<mailtrap-message-id>');
         $accountMailer = new AccountMailer($transport, new FakeEmailLogRepository(), $config);
@@ -97,7 +142,7 @@ final class AuthControllerMailTest extends TestCase
             new Security($session),
             $auth,
             $config,
-            new AuthService($users, $session),
+            new AuthService($users, $session, $rateLimiter),
             $accountMailer,
         );
 

@@ -8,6 +8,7 @@ use OEMS\App\Contracts\EmailLogRepositoryInterface;
 use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\App\Mail\EmailMessage;
 use OEMS\Core\Config;
+use OEMS\Core\Logger;
 use Throwable;
 
 final class AccountMailer
@@ -16,6 +17,7 @@ final class AccountMailer
         private readonly MailTransportInterface $transport,
         private readonly EmailLogRepositoryInterface $logs,
         private readonly Config $config,
+        private readonly ?Logger $logger = null,
     ) {
     }
 
@@ -49,10 +51,40 @@ final class AccountMailer
         string $name,
         string $token,
     ): bool {
+        return $this->deliver(
+            $userId,
+            'password_reset',
+            $this->passwordResetMessage($recipient, $name, $token),
+            $token,
+        );
+    }
+
+    public function sendPasswordResetPrivacyProbe(): bool
+    {
+        $recipient = trim((string) $this->config->get('mail.privacy_sink_address', ''));
+
+        if ($recipient === '') {
+            $recipient = (string) $this->config->get('mail.from_address', 'no-reply@oems.local');
+        }
+
+        $name = (string) $this->config->get('mail.from_name', 'OEMS') . ' privacy sink';
+        $token = bin2hex(random_bytes(32));
+
+        return $this->deliver(
+            null,
+            'password_reset_probe',
+            $this->passwordResetMessage($recipient, $name, $token),
+            $token,
+        );
+    }
+
+    private function passwordResetMessage(string $recipient, string $name, string $token): EmailMessage
+    {
         $url = $this->url('/reset-password/' . rawurlencode($token));
         $safeName = $this->escape($name);
         $safeUrl = $this->escape($url);
-        $message = new EmailMessage(
+
+        return new EmailMessage(
             $recipient,
             $name,
             'Reset your OEMS password',
@@ -63,11 +95,9 @@ final class AccountMailer
             "Hello {$name},\n\nUse this link to choose a new OEMS password. It expires in one hour:\n{$url}\n\n"
                 . 'If you did not request a reset, you can ignore this message.',
         );
-
-        return $this->deliver($userId, 'password_reset', $message, $token);
     }
 
-    private function deliver(int $userId, string $template, EmailMessage $message, string $token): bool
+    private function deliver(?int $userId, string $template, EmailMessage $message, string $token): bool
     {
         try {
             $messageId = $this->transport->send($message);
@@ -105,6 +135,15 @@ final class AccountMailer
         try {
             $this->logs->record($attributes);
         } catch (Throwable) {
+            try {
+                $this->logger?->error('Email delivery outcome could not be recorded.', [
+                    'template' => $attributes['template'] ?? 'unknown',
+                    'status' => $attributes['status'] ?? 'unknown',
+                    'user_id' => $attributes['user_id'] ?? null,
+                ]);
+            } catch (Throwable) {
+                // Delivery already completed; audit fallbacks must not change the account response.
+            }
         }
     }
 

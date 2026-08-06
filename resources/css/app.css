@@ -390,7 +390,9 @@
         @apply min-h-12 w-full rounded-[10px] border border-[var(--line-strong)] bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] transition focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--accent)_28%,transparent)];
     }
 
-    .field-group input[aria-invalid="true"] {
+    .field-group input[aria-invalid="true"],
+    .field-group select[aria-invalid="true"],
+    .field-group textarea[aria-invalid="true"] {
         @apply border-[var(--error)];
     }
 

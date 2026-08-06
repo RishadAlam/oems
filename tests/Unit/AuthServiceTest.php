@@ -202,6 +202,7 @@ final class AuthServiceTest extends TestCase
         $this->assertSame($id, $result['user_id']);
         $this->assertSame('Raihan Ahmed', $result['name']);
         $this->assertSame('raihan@example.com', $result['email']);
+        $this->assertSame('reset', $result['mail_dispatch']);
         $this->assertSame(64, strlen((string) $result['reset_token']));
     }
 
@@ -219,5 +220,93 @@ final class AuthServiceTest extends TestCase
         $this->assertNull($result['user_id']);
         $this->assertNull($result['name']);
         $this->assertNull($result['email']);
+        $this->assertSame('probe', $result['mail_dispatch']);
+    }
+
+    public function testRepeatedPasswordResetRequestsAreRateLimitedWithoutReplacingTheToken(): void
+    {
+        $this->users->create([
+            'name' => 'Reset Limited User',
+            'email' => 'reset-limited@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-reset-rate-' . bin2hex(random_bytes(5));
+        $limiter = new RateLimiter($directory, 1, 900);
+        $service = new AuthService($this->users, $this->session, $limiter);
+
+        $first = $service->requestPasswordReset('reset-limited@example.com', '192.0.2.30');
+        $firstResets = $this->users->passwordResets;
+        $second = $service->requestPasswordReset('reset-limited@example.com', '192.0.2.30');
+
+        $this->assertTrue(is_string($first['reset_token']));
+        $this->assertNull($second['reset_token']);
+        $this->assertSame($firstResets, $this->users->passwordResets);
+
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+        rmdir($directory);
+    }
+
+    public function testPasswordResetRateLimitFollowsTheEmailAcrossIpAddresses(): void
+    {
+        $this->users->create([
+            'name' => 'Distributed Target',
+            'email' => 'distributed-target@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-reset-email-rate-' . bin2hex(random_bytes(5));
+        $service = new AuthService(
+            $this->users,
+            $this->session,
+            new RateLimiter($directory, 1, 900),
+        );
+
+        $first = $service->requestPasswordReset('distributed-target@example.com', '192.0.2.31');
+        $second = $service->requestPasswordReset('distributed-target@example.com', '192.0.2.32');
+
+        $this->assertTrue(is_string($first['reset_token']));
+        $this->assertNull($second['reset_token']);
+        $this->assertSame('none', $second['mail_dispatch']);
+
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+        rmdir($directory);
+    }
+
+    public function testPasswordResetRateLimitFollowsTheIpAcrossEmailAddresses(): void
+    {
+        foreach (['first@example.com', 'second@example.com'] as $email) {
+            $this->users->create([
+                'name' => 'IP Limited User',
+                'email' => $email,
+                'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+                'role_id' => 3,
+                'status' => 'active',
+            ]);
+        }
+        $directory = sys_get_temp_dir() . '/oems-reset-ip-rate-' . bin2hex(random_bytes(5));
+        $service = new AuthService(
+            $this->users,
+            $this->session,
+            new RateLimiter($directory, 1, 900),
+        );
+
+        $first = $service->requestPasswordReset('first@example.com', '192.0.2.33');
+        $second = $service->requestPasswordReset('second@example.com', '192.0.2.33');
+
+        $this->assertTrue(is_string($first['reset_token']));
+        $this->assertNull($second['reset_token']);
+        $this->assertSame('none', $second['mail_dispatch']);
+
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+        rmdir($directory);
     }
 }

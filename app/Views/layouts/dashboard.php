@@ -17,7 +17,8 @@
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface-soft)] text-[var(--ink)] antialiased">
     <?php
-    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $currentPath = '/' . trim((string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/');
+    $currentPath = $currentPath === '//' ? '/' : $currentPath;
     $overviewPaths = ['/dashboard', '/participant/dashboard', '/organizer/dashboard', '/admin/dashboard'];
     $overviewActive = in_array($currentPath, $overviewPaths, true);
     ?>

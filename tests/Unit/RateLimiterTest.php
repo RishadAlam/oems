@@ -50,5 +50,14 @@ final class RateLimiterTest extends TestCase
         $this->assertFalse($limiter->tooManyAttempts('login:user@example.com:192.0.2.1'));
         $this->assertSame(0, $limiter->availableIn('login:user@example.com:192.0.2.1'));
     }
-}
 
+    public function testConsumesAnAttemptWithTheLimitCheckUnderOneLock(): void
+    {
+        $limiter = new RateLimiter($this->directory, 2, 900);
+
+        $this->assertTrue($limiter->consumeAttempt('password-reset:email:user@example.com'));
+        $this->assertTrue($limiter->consumeAttempt('password-reset:email:user@example.com'));
+        $this->assertFalse($limiter->consumeAttempt('password-reset:email:user@example.com'));
+        $this->assertTrue($limiter->tooManyAttempts('password-reset:email:user@example.com'));
+    }
+}

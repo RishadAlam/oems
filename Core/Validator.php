@@ -103,13 +103,11 @@ final class Validator
             return false;
         }
 
-        try {
-            new DateTimeImmutable($value);
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        $errors = DateTimeImmutable::getLastErrors();
 
-            return true;
-        } catch (\Exception) {
-            return false;
-        }
+        return $date !== false
+            && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
+            && $date->format('Y-m-d') === $value;
     }
 }
-

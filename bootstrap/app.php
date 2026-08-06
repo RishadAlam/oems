@@ -103,6 +103,7 @@ $container->singleton(
         $container->get(MailTransportInterface::class),
         $container->get(EmailLogRepositoryInterface::class),
         $container->get(Config::class),
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(

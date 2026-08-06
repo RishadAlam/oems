@@ -75,7 +75,7 @@ final class AuthService
         $normalizedEmail = strtolower(trim($email));
         $rateLimitKey = 'login:' . $normalizedEmail . ':' . $ipAddress;
 
-        if ($this->rateLimiter?->tooManyAttempts($rateLimitKey) === true) {
+        if ($this->rateLimiter !== null && !$this->rateLimiter->consumeAttempt($rateLimitKey)) {
             return [
                 'success' => false,
                 'errors' => ['email' => ['Too many sign-in attempts. Try again in a few minutes.']],
@@ -86,8 +86,6 @@ final class AuthService
         $passwordHash = $user['password'] ?? '$2y$12$06S5Gr2.KdQ50DsOf9k6kOnrGocFbBbKR2dR6N6qPQ8nD5Q4/3LxW';
 
         if ($user === null || !password_verify($password, (string) $passwordHash)) {
-            $this->rateLimiter?->hit($rateLimitKey);
-
             return [
                 'success' => false,
                 'errors' => ['email' => ['The email or password is incorrect.']],
@@ -149,19 +147,21 @@ final class AuthService
         return $this->users->markEmailVerified(hash('sha256', $token)) !== null;
     }
 
-    public function requestPasswordReset(string $email): array
+    public function requestPasswordReset(string $email, string $ipAddress = '127.0.0.1'): array
     {
         $normalizedEmail = strtolower(trim($email));
+        $emailRateLimitKey = 'password-reset:email:' . $normalizedEmail;
+        $ipRateLimitKey = 'password-reset:ip:' . $ipAddress;
+
+        if ($this->rateLimiter !== null
+            && (!$this->rateLimiter->consumeAttempt($ipRateLimitKey)
+                || !$this->rateLimiter->consumeAttempt($emailRateLimitKey))) {
+            return $this->genericPasswordResetResult('none');
+        }
         $user = $this->users->findByEmail($normalizedEmail);
 
         if ($user === null || ($user['status'] ?? 'inactive') !== 'active') {
-            return [
-                'success' => true,
-                'reset_token' => null,
-                'user_id' => null,
-                'name' => null,
-                'email' => null,
-            ];
+            return $this->genericPasswordResetResult('probe');
         }
 
         $token = bin2hex(random_bytes(32));
@@ -178,6 +178,19 @@ final class AuthService
             'user_id' => (int) $user['id'],
             'name' => (string) $user['name'],
             'email' => (string) $user['email'],
+            'mail_dispatch' => 'reset',
+        ];
+    }
+
+    private function genericPasswordResetResult(string $mailDispatch = 'probe'): array
+    {
+        return [
+            'success' => true,
+            'reset_token' => null,
+            'user_id' => null,
+            'name' => null,
+            'email' => null,
+            'mail_dispatch' => $mailDispatch,
         ];
     }
 

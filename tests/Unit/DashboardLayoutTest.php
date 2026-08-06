@@ -51,6 +51,24 @@ final class DashboardLayoutTest extends TestCase
         ));
     }
 
+    public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void
+    {
+        $previousUri = $_SERVER['REQUEST_URI'] ?? null;
+        $_SERVER['REQUEST_URI'] = '/profile/';
+        $html = $this->renderAdminDashboard();
+
+        if ($previousUri === null) {
+            unset($_SERVER['REQUEST_URI']);
+        } else {
+            $_SERVER['REQUEST_URI'] = $previousUri;
+        }
+
+        $this->assertTrue(str_contains(
+            $html,
+            'class="dashboard-nav-link dashboard-nav-link--active" href="/profile" aria-current="page"',
+        ));
+    }
+
     private function renderAdminDashboard(array $overrides = []): string
     {
         $view = new View(base_path('app/Views'));

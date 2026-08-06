@@ -7,6 +7,7 @@ use OEMS\Core\Auth;
 use OEMS\Core\Logger;
 use OEMS\Core\Request;
 use OEMS\Core\Response;
+use OEMS\Core\SensitiveDataRedactor;
 
 $app = require dirname(__DIR__) . '/bootstrap/app.php';
 $router = $app['router'];
@@ -32,7 +33,7 @@ try {
     $app['container']->get(Logger::class)->error('Unhandled application exception.', [
         'exception' => $exception::class,
         'message' => $exception->getMessage(),
-        'path' => $request->path(),
+        'path' => SensitiveDataRedactor::requestPath($request->path()),
     ]);
 
     $body = (bool) $app['config']['debug']
@@ -40,4 +41,3 @@ try {
         : '<h1>Something went wrong</h1><p>Please try again shortly.</p>';
     Response::html($body, 500)->send();
 }
-

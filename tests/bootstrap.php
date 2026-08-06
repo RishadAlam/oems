@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/Helpers/helpers.php';
+require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 spl_autoload_register(static function (string $class): void {
     $prefixes = [
-        'OEMS\\Core\\' => dirname(__DIR__) . '/Core/',
-        'OEMS\\App\\' => dirname(__DIR__) . '/app/',
         'OEMS\\Tests\\' => __DIR__ . '/',
     ];
 

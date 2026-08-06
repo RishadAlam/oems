@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\App\Mail;
 
+use Closure;
 use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\Core\Config;
 use PHPMailer\PHPMailer\Exception as PhpMailerException;
@@ -12,13 +13,16 @@ use RuntimeException;
 
 final class PhpMailerTransport implements MailTransportInterface
 {
-    public function __construct(private readonly Config $config)
+    private readonly Closure $mailerFactory;
+
+    public function __construct(private readonly Config $config, ?Closure $mailerFactory = null)
     {
+        $this->mailerFactory = $mailerFactory ?? static fn (): PHPMailer => new PHPMailer(true);
     }
 
     public function send(EmailMessage $message): ?string
     {
-        $mailer = new PHPMailer(true);
+        $mailer = ($this->mailerFactory)();
 
         try {
             $mailer->isSMTP();
