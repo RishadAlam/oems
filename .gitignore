@@ -1,0 +1,15 @@
+/.env
+/.idea/
+/.vscode/
+/.DS_Store
+/node_modules/
+/vendor/
+/storage/logs/*.log
+/storage/cache/*
+/public/uploads/*
+/public/tickets/*
+!/storage/logs/.gitkeep
+!/storage/cache/.gitkeep
+!/public/uploads/.gitkeep
+!/public/tickets/.gitkeep
+

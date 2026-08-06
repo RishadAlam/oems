@@ -1,0 +1,29 @@
+{
+    "name": "oems/platform",
+    "description": "Online Event Management System built with a custom PHP MVC architecture.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "ext-pdo": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "OEMS\\App\\": "app/",
+            "OEMS\\Core\\": "Core/"
+        },
+        "files": [
+            "app/Helpers/helpers.php"
+        ]
+    },
+    "scripts": {
+        "test": "php tests/run.php",
+        "check:syntax": "find app Core bootstrap config public routes tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
+
