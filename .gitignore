@@ -4,6 +4,7 @@
 /.DS_Store
 /node_modules/
 /vendor/
+/.worktrees/
 /storage/logs/*.log
 /storage/cache/*
 /public/uploads/*
@@ -12,4 +13,3 @@
 !/storage/cache/.gitkeep
 !/public/uploads/.gitkeep
 !/public/tickets/.gitkeep
-
