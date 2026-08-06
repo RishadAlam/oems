@@ -66,6 +66,28 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, '>Explore events</span>'));
     }
 
+    public function testAdminMetricsExposeAccessibleSummariesForSuppliedValues(): void
+    {
+        $html = $this->renderAdminDashboard([
+            'metrics' => ['users' => 12, 'organizers' => 3, 'events' => 6],
+        ]);
+
+        $this->assertTrue(str_contains($html, 'aria-label="Users: 12"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Organizers: 3"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Events: 6"'));
+    }
+
+    public function testRoleDashboardActionsPreserveTheirCurrentAvailability(): void
+    {
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer');
+
+        $this->assertTrue(str_contains($participant, 'href="/events"'));
+        $this->assertTrue(str_contains($participant, 'Find an event'));
+        $this->assertTrue(str_contains($organizer, 'type="button" disabled'));
+        $this->assertTrue(str_contains($organizer, 'Create event'));
+    }
+
     public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void
     {
         $previousUri = $_SERVER['REQUEST_URI'] ?? null;
@@ -105,5 +127,22 @@ final class DashboardLayoutTest extends TestCase
         ], $overrides);
 
         return $view->render('dashboard/admin', $data, 'dashboard');
+    }
+
+    private function renderRoleDashboard(string $template, string $roleName): string
+    {
+        $view = new View(base_path('app/Views'));
+
+        return $view->render($template, [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'currentUser' => [
+                'name' => $roleName . ' User',
+                'email' => strtolower($roleName) . '@oems.local',
+                'role_name' => $roleName,
+            ],
+            'flash' => [],
+            'pageTitle' => $roleName . ' dashboard',
+        ], 'dashboard');
     }
 }

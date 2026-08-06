@@ -15,24 +15,40 @@ $describedBy = static function (
 
     return $ids === [] ? '' : ' aria-describedby="' . implode(' ', $ids) . '"';
 };
+$profileNameParts = preg_split('/\s+/', trim((string) $profile['name'])) ?: [];
+$profileInitials = implode('', array_map(
+    static fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)),
+    array_slice(array_filter($profileNameParts), 0, 2),
+));
 ?>
 
 <div class="dashboard-page-heading">
     <div>
-        <p class="dashboard-kicker">Account settings</p>
+        <p class="dashboard-kicker"><i class="ph ph-user-circle" aria-hidden="true"></i><span>Account settings</span></p>
         <h1>Your profile</h1>
         <p>Keep your contact details and preferences current.</p>
     </div>
 </div>
 
-<section class="dashboard-panel mt-8 max-w-5xl">
+<div class="profile-layout mt-8">
+    <aside class="profile-identity" aria-label="<?= e($profile['name']) ?> profile summary">
+        <span class="profile-identity__avatar" aria-hidden="true"><?= e($profileInitials !== '' ? $profileInitials : 'O') ?></span>
+        <div><h2><?= e($profile['name']) ?></h2><p><?= e($profile['email']) ?></p></div>
+        <span class="role-badge"><?= e($profile['role_name']) ?></span>
+        <dl>
+            <div><dt>Account</dt><dd><i class="ph ph-check-circle" aria-hidden="true"></i>Active</dd></div>
+            <div><dt>Email</dt><dd><i class="ph ph-seal-check" aria-hidden="true"></i>Verified</dd></div>
+        </dl>
+    </aside>
+
+<section class="dashboard-panel profile-form-panel">
     <form class="form-stack" action="/profile" method="post" novalidate>
         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
 
-        <div class="profile-form-section">
+        <div class="profile-form-section" aria-labelledby="profile-account-heading">
             <div class="profile-form-section__heading">
-                <h2>Account details</h2>
-                <p>Your email and role are managed by the platform.</p>
+                <span><i class="ph ph-identification-card" aria-hidden="true"></i></span>
+                <div><h2 id="profile-account-heading">Account details</h2><p>Your email and role are managed by the platform.</p></div>
             </div>
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
@@ -63,10 +79,10 @@ $describedBy = static function (
             </div>
         </div>
 
-        <div class="profile-form-section">
+        <div class="profile-form-section" aria-labelledby="profile-personal-heading">
             <div class="profile-form-section__heading">
-                <h2>Personal details</h2>
-                <p>Share only the information you want associated with your account.</p>
+                <span><i class="ph ph-user" aria-hidden="true"></i></span>
+                <div><h2 id="profile-personal-heading">Personal details</h2><p>Share only the information you want associated with your account.</p></div>
             </div>
             <div class="field-group">
                 <label for="bio">Bio <span class="field-label-note">Optional</span></label>
@@ -100,10 +116,10 @@ $describedBy = static function (
             </div>
         </div>
 
-        <div class="profile-form-section">
+        <div class="profile-form-section" aria-labelledby="profile-address-heading">
             <div class="profile-form-section__heading">
-                <h2>Address</h2>
-                <p>These fields are optional.</p>
+                <span><i class="ph ph-map-pin" aria-hidden="true"></i></span>
+                <div><h2 id="profile-address-heading">Address</h2><p>These fields are optional.</p></div>
             </div>
             <div class="field-group">
                 <label for="address_line">Street address</label>
@@ -137,10 +153,10 @@ $describedBy = static function (
             </div>
         </div>
 
-        <div class="profile-form-section">
+        <div class="profile-form-section" aria-labelledby="profile-regional-heading">
             <div class="profile-form-section__heading">
-                <h2>Regional preferences</h2>
-                <p>Choose how dates and times should be presented.</p>
+                <span><i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i></span>
+                <div><h2 id="profile-regional-heading">Regional preferences</h2><p>Choose how dates and times should be presented.</p></div>
             </div>
             <div class="field-group">
                 <label for="website">Website <span class="field-label-note">Optional</span></label>
@@ -174,7 +190,9 @@ $describedBy = static function (
         </div>
 
         <div class="profile-form-actions">
-            <button class="button button--primary w-full sm:w-auto" type="submit">Save profile</button>
+            <p><i class="ph ph-info" aria-hidden="true"></i><span>Your changes apply to this account only.</span></p>
+            <button class="button button--primary w-full sm:w-auto" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span>Save profile</span></button>
         </div>
     </form>
 </section>
+</div>

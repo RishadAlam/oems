@@ -73,6 +73,17 @@ final class ProfileControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'dashboard-nav-link--active'));
     }
 
+    public function testEditRendersAnIdentitySummaryAndNamedFormSections(): void
+    {
+        $body = $this->controller->edit(Request::create('GET', '/profile'))->body();
+
+        $this->assertTrue(str_contains($body, 'class="profile-identity"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Nusrat Jahan profile summary"'));
+        $this->assertTrue(str_contains($body, 'aria-labelledby="profile-account-heading"'));
+        $this->assertTrue(str_contains($body, 'id="profile-account-heading"'));
+        $this->assertTrue(str_contains($body, 'aria-labelledby="profile-regional-heading"'));
+    }
+
     public function testUpdateRejectsAMissingNameWithoutPersisting(): void
     {
         $input = $this->validInput();

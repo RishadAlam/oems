@@ -713,6 +713,14 @@
         @apply text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--ink-muted)];
     }
 
+    .dashboard-kicker {
+        @apply flex items-center gap-2;
+    }
+
+    .dashboard-kicker .ph {
+        @apply text-base text-[var(--accent)];
+    }
+
     .dashboard-nav-link {
         @apply flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm font-semibold text-[var(--ink-muted)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--ink)];
     }
@@ -729,6 +737,31 @@
         @apply sticky top-0 z-30 flex h-[72px] items-center border-b border-[var(--line)] bg-[color-mix(in_srgb,var(--surface-raised)_92%,transparent)] px-5 backdrop-blur-xl sm:px-8 lg:px-10;
     }
 
+    .dashboard-header__context {
+        @apply items-center gap-2 text-sm font-semibold text-[var(--ink-muted)];
+    }
+
+    .dashboard-user {
+        @apply flex items-center gap-3;
+    }
+
+    .dashboard-user__avatar {
+        @apply grid size-10 shrink-0 place-items-center rounded-full bg-[var(--accent-soft)] text-xs font-extrabold text-[var(--accent)];
+    }
+
+    .dashboard-user strong,
+    .dashboard-user small {
+        @apply block truncate;
+    }
+
+    .dashboard-user strong {
+        @apply text-sm font-semibold;
+    }
+
+    .dashboard-user small {
+        @apply mt-0.5 text-xs text-[var(--ink-muted)];
+    }
+
     .role-badge {
         @apply rounded-full border border-[var(--line)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-bold text-[var(--ink-muted)];
     }
@@ -742,7 +775,7 @@
     }
 
     .dashboard-page-heading h1 {
-        @apply mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl;
+        @apply mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl;
     }
 
     .dashboard-page-heading p:not(.dashboard-kicker) {
@@ -754,7 +787,15 @@
     }
 
     .dashboard-metric-grid article {
-        @apply rounded-[16px] border border-[var(--line)] bg-[var(--surface-raised)] p-5;
+        @apply rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 transition hover:border-[var(--line-strong)] hover:shadow-[var(--shadow-soft)];
+    }
+
+    .metric-card__top {
+        @apply flex items-center justify-between gap-3;
+    }
+
+    .metric-card__top .ph {
+        @apply grid size-10 place-items-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
     }
 
     .dashboard-metric-grid span {
@@ -762,7 +803,7 @@
     }
 
     .dashboard-metric-grid strong {
-        @apply mt-4 block text-3xl font-semibold tracking-[-0.04em];
+        @apply mt-5 block text-4xl font-semibold tracking-[-0.05em];
     }
 
     .dashboard-metric-grid small {
@@ -770,7 +811,15 @@
     }
 
     .dashboard-panel {
-        @apply rounded-[16px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6;
+        @apply rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6;
+    }
+
+    .dashboard-panel__heading {
+        @apply flex items-start gap-3;
+    }
+
+    .dashboard-panel__icon {
+        @apply grid size-10 shrink-0 place-items-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
     }
 
     .dashboard-panel__heading h2 {
@@ -782,7 +831,15 @@
     }
 
     .profile-form-section {
-        @apply grid gap-5 border-b border-[var(--line)] pb-7 last:border-b-0 last:pb-0;
+        @apply grid gap-5 border-b border-[var(--line)] pb-8 last:border-b-0 last:pb-0;
+    }
+
+    .profile-form-section__heading {
+        @apply flex items-start gap-3;
+    }
+
+    .profile-form-section__heading > span {
+        @apply grid size-10 shrink-0 place-items-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
     }
 
     .profile-form-section__heading h2 {
@@ -794,11 +851,68 @@
     }
 
     .profile-form-actions {
-        @apply border-t border-[var(--line)] pt-6;
+        @apply relative z-10 flex flex-col gap-4 border-t border-[var(--line)] bg-[color-mix(in_srgb,var(--surface-raised)_94%,transparent)] py-4 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between xl:sticky xl:bottom-0;
+    }
+
+    .profile-form-actions p {
+        @apply flex items-center gap-2 text-xs text-[var(--ink-muted)];
+    }
+
+    .profile-layout {
+        @apply grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)];
+    }
+
+    .profile-identity {
+        @apply rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-6 xl:sticky xl:top-24;
+    }
+
+    .profile-identity__avatar {
+        @apply grid size-16 place-items-center rounded-[18px] bg-[var(--accent-soft)] text-xl font-extrabold text-[var(--accent)];
+    }
+
+    .profile-identity h2 {
+        @apply mt-5 text-lg font-semibold tracking-[-0.025em];
+    }
+
+    .profile-identity p {
+        @apply mt-1 break-all text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .profile-identity > .role-badge {
+        @apply mt-4 inline-flex;
+    }
+
+    .profile-identity dl {
+        @apply mt-6 grid gap-3 border-t border-[var(--line)] pt-5;
+    }
+
+    .profile-identity dl div {
+        @apply flex items-center justify-between gap-3;
+    }
+
+    .profile-identity dt,
+    .profile-identity dd {
+        @apply text-xs font-semibold;
+    }
+
+    .profile-identity dt {
+        @apply text-[var(--ink-muted)];
+    }
+
+    .profile-identity dd {
+        @apply flex items-center gap-1.5 text-[var(--success)];
+    }
+
+    .profile-form-panel {
+        @apply min-w-0;
     }
 
     .empty-state {
-        @apply flex min-h-56 flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--line-strong)] p-6 text-center;
+        @apply mt-6 flex min-h-56 flex-col items-center justify-center rounded-[14px] bg-[var(--surface)] p-6 text-center;
+    }
+
+    .empty-state__icon {
+        @apply mb-4 grid size-12 place-items-center rounded-[14px] bg-[var(--accent-soft)] text-2xl text-[var(--accent)];
     }
 
     .empty-state strong {
@@ -809,8 +923,8 @@
         @apply mt-2 max-w-md text-sm leading-6 text-[var(--ink-muted)];
     }
 
-    .empty-state .text-link {
-        @apply mt-5 text-sm;
+    .empty-state .button {
+        @apply mt-5;
     }
 
     .action-list {
@@ -818,15 +932,27 @@
     }
 
     .action-list a {
-        @apply grid rounded-[10px] border border-[var(--line)] p-4 transition hover:border-[var(--line-strong)] hover:bg-[var(--surface-soft)];
+        @apply grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-[12px] border border-[var(--line)] p-4 transition hover:border-[var(--line-strong)] hover:bg-[var(--surface-soft)];
+    }
+
+    .action-list a > .ph:first-child {
+        @apply grid size-9 place-items-center rounded-[10px] bg-[var(--accent-soft)] text-lg text-[var(--accent)];
+    }
+
+    .action-list a > .ph:last-child {
+        @apply text-base text-[var(--ink-muted)];
     }
 
     .action-list span {
+        @apply grid min-w-0;
+    }
+
+    .action-list strong {
         @apply text-sm font-semibold;
     }
 
     .action-list small {
-        @apply mt-1 text-xs text-[var(--ink-muted)];
+        @apply mt-0.5 text-xs text-[var(--ink-muted)];
     }
 
     .status-list,
@@ -836,17 +962,41 @@
 
     .status-list div,
     .readiness-grid div {
-        @apply flex items-center justify-between gap-4 rounded-[10px] bg-[var(--surface-soft)] px-4 py-3;
+        @apply flex items-center justify-between gap-4 rounded-[10px] bg-[var(--surface)] px-4 py-3;
     }
 
     .status-list dt,
     .readiness-grid dt {
-        @apply text-xs font-semibold text-[var(--ink-muted)];
+        @apply flex items-center gap-2 text-xs font-semibold text-[var(--ink-muted)];
     }
 
     .status-list dd,
     .readiness-grid dd {
-        @apply text-xs font-bold;
+        @apply rounded-full bg-[var(--success-soft)] px-2 py-1 text-xs font-bold text-[var(--success)];
+    }
+
+    .status-list dd.status-list__pending {
+        @apply bg-[var(--warning-soft)] text-[var(--warning)];
+    }
+
+    .security-layout {
+        @apply grid max-w-5xl items-start gap-6 lg:grid-cols-[0.72fr_1.28fr];
+    }
+
+    .security-note {
+        @apply rounded-[18px] bg-[#101a36] p-6 text-white shadow-[var(--shadow-soft)];
+    }
+
+    .security-note > span {
+        @apply grid size-11 place-items-center rounded-[12px] bg-white/10 text-xl text-[#a7baff];
+    }
+
+    .security-note h2 {
+        @apply mt-5 text-xl font-semibold leading-snug tracking-[-0.025em];
+    }
+
+    .security-note p {
+        @apply mt-3 text-sm leading-6 text-white/65;
     }
 }
 

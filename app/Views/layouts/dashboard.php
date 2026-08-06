@@ -22,6 +22,12 @@
     $currentPath = $currentPath === '//' ? '/' : $currentPath;
     $overviewPaths = ['/dashboard', '/participant/dashboard', '/organizer/dashboard', '/admin/dashboard'];
     $overviewActive = in_array($currentPath, $overviewPaths, true);
+    $userName = (string) ($currentUser['name'] ?? 'OEMS user');
+    $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
+    $userInitials = implode('', array_map(
+        static fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)),
+        array_slice(array_filter($nameParts), 0, 2),
+    ));
     ?>
     <a class="skip-link" href="#dashboard-content">Skip to content</a>
     <div class="min-h-[100dvh] lg:grid lg:grid-cols-[264px_1fr]">
@@ -40,8 +46,10 @@
                 </nav>
             </div>
             <div class="mt-auto border-t border-[var(--line)] pt-5">
-                <p class="truncate text-sm font-semibold"><?= e($currentUser['name'] ?? 'OEMS user') ?></p>
-                <p class="mt-1 truncate text-xs text-[var(--ink-muted)]"><?= e($currentUser['email'] ?? '') ?></p>
+                <div class="dashboard-user">
+                    <span class="dashboard-user__avatar" aria-hidden="true"><?= e($userInitials !== '' ? $userInitials : 'O') ?></span>
+                    <span class="min-w-0"><strong><?= e($userName) ?></strong><small><?= e($currentUser['email'] ?? '') ?></small></span>
+                </div>
                 <form action="/logout" method="post" class="mt-4">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <button class="button button--quiet w-full" type="submit"><i class="ph ph-sign-out" aria-hidden="true"></i><span>Log out</span></button>
@@ -52,6 +60,7 @@
         <div class="min-w-0 lg:col-start-2">
             <header class="dashboard-header">
                 <button class="menu-button lg:hidden" type="button" data-dashboard-open aria-label="Open navigation" aria-controls="dashboard-sidebar" aria-expanded="false"><i class="ph ph-list" aria-hidden="true"></i><span>Menu</span></button>
+                <p class="dashboard-header__context hidden lg:flex"><i class="ph ph-buildings" aria-hidden="true"></i><span>OEMS workspace</span></p>
                 <div class="ml-auto flex items-center gap-3">
                     <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme"><i class="ph ph-moon" data-theme-icon aria-hidden="true"></i></button>
                     <span class="role-badge"><?= e($currentUser['role_name'] ?? 'Member') ?></span>
