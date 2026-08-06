@@ -2,7 +2,7 @@
     "name": "oems/platform",
     "description": "Online Event Management System built with a custom PHP MVC architecture.",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": "^8.2",
         "ext-json": "*",
@@ -26,4 +26,3 @@
         "sort-packages": true
     }
 }
-

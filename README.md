@@ -90,3 +90,7 @@ tests/                  Dependency-free unit test suite
 ```
 
 The Week 1 design and implementation records are in `docs/superpowers/`.
+
+## License
+
+OEMS is open-source software licensed under the [MIT License](LICENSE).
