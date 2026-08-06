@@ -16,6 +16,11 @@
     <script src="/assets/js/app.js" defer></script>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface-soft)] text-[var(--ink)] antialiased">
+    <?php
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $overviewPaths = ['/dashboard', '/participant/dashboard', '/organizer/dashboard', '/admin/dashboard'];
+    $overviewActive = in_array($currentPath, $overviewPaths, true);
+    ?>
     <a class="skip-link" href="#dashboard-content">Skip to content</a>
     <div class="min-h-[100dvh] lg:grid lg:grid-cols-[264px_1fr]">
         <aside class="dashboard-sidebar" data-dashboard-sidebar>
@@ -29,9 +34,10 @@
             <div class="mt-6">
                 <p class="dashboard-sidebar__label">Workspace</p>
                 <nav class="mt-3 grid gap-1" aria-label="Dashboard navigation">
-                    <a class="dashboard-nav-link dashboard-nav-link--active" href="/dashboard">Overview</a>
-                    <a class="dashboard-nav-link" href="/events">Explore events</a>
-                    <a class="dashboard-nav-link" href="/settings/password">Security</a>
+                    <a class="dashboard-nav-link<?= $overviewActive ? ' dashboard-nav-link--active' : '' ?>" href="/dashboard"<?= $overviewActive ? ' aria-current="page"' : '' ?>>Overview</a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>>Explore events</a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>>Profile</a>
+                    <a class="dashboard-nav-link<?= $currentPath === '/settings/password' ? ' dashboard-nav-link--active' : '' ?>" href="/settings/password"<?= $currentPath === '/settings/password' ? ' aria-current="page"' : '' ?>>Security</a>
                 </nav>
             </div>
             <div class="mt-auto border-t border-[var(--line)] pt-5">

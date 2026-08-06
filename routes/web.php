@@ -5,6 +5,7 @@ declare(strict_types=1);
 use OEMS\App\Controllers\AuthController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
+use OEMS\App\Controllers\ProfileController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
@@ -23,10 +24,11 @@ return static function (Router $router): void {
 
     $router->post('/logout', [AuthController::class, 'logout'], ['auth', 'csrf'], 'logout');
     $router->get('/dashboard', [DashboardController::class, 'index'], ['auth'], 'dashboard');
+    $router->get('/profile', [ProfileController::class, 'edit'], ['auth'], 'profile.edit');
+    $router->post('/profile', [ProfileController::class, 'update'], ['auth', 'csrf'], 'profile.update');
     $router->get('/participant/dashboard', [DashboardController::class, 'participant'], ['role:participant'], 'participant.dashboard');
     $router->get('/organizer/dashboard', [DashboardController::class, 'organizer'], ['role:organizer'], 'organizer.dashboard');
     $router->get('/admin/dashboard', [DashboardController::class, 'admin'], ['role:super-admin'], 'admin.dashboard');
     $router->get('/settings/password', [AuthController::class, 'showChangePassword'], ['auth'], 'password.change');
     $router->post('/settings/password', [AuthController::class, 'changePassword'], ['auth', 'csrf'], 'password.change.submit');
 };
-

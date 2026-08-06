@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use OEMS\App\Contracts\UserRepositoryInterface;
+use OEMS\App\Contracts\ProfileRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\UserRepository;
+use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Services\AuthService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -71,6 +73,12 @@ $container->singleton(
 $container->singleton(
     UserRepositoryInterface::class,
     static fn (Container $container): UserRepository => new UserRepository($container->get(Database::class)),
+);
+$container->singleton(
+    ProfileRepositoryInterface::class,
+    static fn (Container $container): ProfileRepository => new ProfileRepository(
+        $container->get(Database::class)->connection(),
+    ),
 );
 $container->singleton(
     Auth::class,
