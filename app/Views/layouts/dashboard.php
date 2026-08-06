@@ -44,7 +44,7 @@
             </div>
         </aside>
 
-        <div class="min-w-0">
+        <div class="min-w-0 lg:col-start-2">
             <header class="dashboard-header">
                 <button class="menu-button lg:hidden" type="button" data-dashboard-open aria-label="Open navigation">Menu</button>
                 <div class="ml-auto flex items-center gap-3">
@@ -64,4 +64,3 @@
     <div class="dashboard-overlay" data-dashboard-overlay hidden></div>
 </body>
 </html>
-
