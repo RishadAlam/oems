@@ -39,7 +39,7 @@
                 required
                 <?= field_error($errors, 'password') ? 'aria-invalid="true" aria-describedby="password-error"' : '' ?>
             >
-            <button type="button" data-password-toggle aria-controls="password">Show</button>
+            <button type="button" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
         </div>
         <?php if ($error = field_error($errors, 'password')): ?>
             <p id="password-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -55,4 +55,3 @@
 </form>
 
 <p class="auth-switch">New to OEMS? <a href="/register">Create an account</a></p>
-

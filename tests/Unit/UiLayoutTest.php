@@ -46,6 +46,25 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'data-theme-icon'));
     }
 
+    public function testPasswordVisibilityControlStartsHiddenWithAccurateState(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $html = $view->render('auth/login', [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'flash' => [],
+            'errors' => [],
+            'old' => [],
+            'pageTitle' => 'Sign in',
+        ], 'auth');
+
+        $this->assertTrue(str_contains($html, 'data-password-toggle'));
+        $this->assertTrue(str_contains($html, 'aria-controls="password"'));
+        $this->assertTrue(str_contains($html, 'aria-pressed="false"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Show password"'));
+        $this->assertTrue(str_contains($html, 'class="ph ph-eye"'));
+    }
+
     private function renderHome(): string
     {
         $view = new View(base_path('app/Views'));

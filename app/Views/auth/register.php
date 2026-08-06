@@ -63,7 +63,7 @@
             <label for="password">Password</label>
             <div class="password-field">
                 <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
-                <button type="button" data-password-toggle aria-controls="password">Show</button>
+                <button type="button" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
             </div>
             <p class="field-help">Use at least 8 characters.</p>
             <?php if ($error = field_error($errors, 'password')): ?>
@@ -74,7 +74,7 @@
             <label for="password_confirmation">Confirm password</label>
             <div class="password-field">
                 <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
-                <button type="button" data-password-toggle aria-controls="password_confirmation">Show</button>
+                <button type="button" data-password-toggle data-password-label="password confirmation" aria-controls="password_confirmation" aria-pressed="false" aria-label="Show password confirmation" title="Show password confirmation"><i class="ph ph-eye" aria-hidden="true"></i></button>
             </div>
         </div>
     </div>
@@ -91,4 +91,3 @@
 </form>
 
 <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
-
