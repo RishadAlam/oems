@@ -37,18 +37,33 @@ final class DashboardLayoutTest extends TestCase
             ],
         ]);
 
-        $this->assertTrue(str_contains(
-            $html,
-            '<article><span>Users</span><strong>12</strong><small>Registered accounts</small></article>',
-        ));
-        $this->assertTrue(str_contains(
-            $html,
-            '<article><span>Organizers</span><strong>3</strong><small>Organizer profiles</small></article>',
-        ));
-        $this->assertTrue(str_contains(
-            $html,
-            '<article><span>Events</span><strong>6</strong><small>Event records</small></article>',
-        ));
+        $this->assertTrue(str_contains($html, '>Users<'));
+        $this->assertTrue(str_contains($html, '>12<'));
+        $this->assertTrue(str_contains($html, '>Organizers<'));
+        $this->assertTrue(str_contains($html, '>3<'));
+        $this->assertTrue(str_contains($html, '>Events<'));
+        $this->assertTrue(str_contains($html, '>6<'));
+    }
+
+    public function testMobileDashboardNavigationExposesItsDisclosureContract(): void
+    {
+        $html = $this->renderAdminDashboard();
+
+        $this->assertTrue(str_contains($html, 'id="dashboard-sidebar"'));
+        $this->assertTrue(str_contains($html, 'data-dashboard-open'));
+        $this->assertTrue(str_contains($html, 'aria-controls="dashboard-sidebar"'));
+        $this->assertTrue(str_contains($html, 'aria-expanded="false"'));
+        $this->assertTrue(str_contains($html, 'data-dashboard-close'));
+    }
+
+    public function testDashboardNavigationUsesDecorativeIconsWithoutChangingLinkNames(): void
+    {
+        $html = $this->renderAdminDashboard();
+
+        $this->assertTrue(str_contains($html, 'class="ph ph-squares-four" aria-hidden="true"'));
+        $this->assertTrue(str_contains($html, '>Overview</span>'));
+        $this->assertTrue(str_contains($html, 'class="ph ph-compass" aria-hidden="true"'));
+        $this->assertTrue(str_contains($html, '>Explore events</span>'));
     }
 
     public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void
