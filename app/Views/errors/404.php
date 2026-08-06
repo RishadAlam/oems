@@ -1,2 +1,11 @@
-<section class="section-space"><div class="page-shell max-w-2xl"><h1 class="hero-title">This page is not here.</h1><p class="hero-copy">The link may be old, or the page may have moved.</p><a class="button button--primary mt-8" href="/">Return home</a></div></section>
-
+<section class="error-page">
+    <div class="page-shell">
+        <div class="error-state">
+            <span class="error-state__icon"><i class="ph ph-map-trifold" aria-hidden="true"></i></span>
+            <p class="error-state__code">Error 404</p>
+            <h1>This page is not here.</h1>
+            <p>The link may be old, or the page may have moved. Start again from the event home page.</p>
+            <a class="button button--primary" href="/"><i class="ph ph-house" aria-hidden="true"></i><span>Return home</span></a>
+        </div>
+    </div>
+</section>

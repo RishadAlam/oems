@@ -97,6 +97,22 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-microphone-stage" aria-hidden="true"'));
     }
 
+    public function testErrorPagesOfferARecognizableRecoveryAction(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $html = $view->render('errors/404', [
+            'app' => ['name' => 'OEMS'],
+            'currentUser' => null,
+            'flash' => [],
+            'pageTitle' => 'Page not found',
+        ], 'public');
+
+        $this->assertTrue(str_contains($html, 'class="error-state"'));
+        $this->assertTrue(str_contains($html, 'class="ph ph-map-trifold" aria-hidden="true"'));
+        $this->assertTrue(str_contains($html, 'href="/"'));
+        $this->assertTrue(str_contains($html, 'Return home'));
+    }
+
     private function renderHome(): string
     {
         $view = new View(base_path('app/Views'));

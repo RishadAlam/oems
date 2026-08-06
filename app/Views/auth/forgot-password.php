@@ -1,7 +1,7 @@
 <div class="auth-heading">
     <p class="auth-kicker"><i class="ph ph-key" aria-hidden="true"></i><span>Account recovery</span></p>
     <h1>Reset your password</h1>
-    <p>Enter your email and we will prepare a secure reset link.</p>
+    <p>Enter your email and we will send you a secure reset link.</p>
 </div>
 
 <form class="form-stack mt-9" action="/forgot-password" method="post" novalidate>
@@ -16,7 +16,7 @@
             <p id="email-error" class="field-error" role="alert"><?= e($error) ?></p>
         <?php endif; ?>
     </div>
-    <button class="button button--primary w-full" type="submit"><span>Prepare reset link</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+    <button class="button button--primary w-full" type="submit"><span>Send reset link</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
 </form>
 
 <p class="auth-switch"><a href="/login">Return to sign in</a></p>

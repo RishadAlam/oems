@@ -20,10 +20,29 @@ final class HomeController extends Controller
 
     public function events(Request $request): Response
     {
+        $search = trim((string) $request->query('search', ''));
+        $featuredEvents = $this->featuredEvents();
+
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $featuredEvents = array_values(array_filter(
+                $featuredEvents,
+                static function (array $event) use ($needle): bool {
+                    $searchable = implode(' ', [
+                        $event['title'],
+                        $event['category'],
+                        $event['venue'],
+                    ]);
+
+                    return str_contains(mb_strtolower($searchable), $needle);
+                },
+            ));
+        }
+
         return $this->render('events/index', [
             'pageTitle' => 'Explore events',
-            'featuredEvents' => $this->featuredEvents(),
-            'search' => trim((string) $request->query('search', '')),
+            'featuredEvents' => $featuredEvents,
+            'search' => $search,
         ]);
     }
 

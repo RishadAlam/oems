@@ -98,7 +98,7 @@ if (menuButton && mobileMenu) {
 
     document.addEventListener('click', (event) => {
         if (!mobileMenu.hidden && !mobileMenu.contains(event.target) && !menuButton.contains(event.target)) {
-            closeMobileMenu();
+            closeMobileMenu(false);
         }
     });
 

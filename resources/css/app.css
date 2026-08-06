@@ -420,6 +420,10 @@
         @apply overflow-hidden rounded-[24px] bg-[#101a36] text-white shadow-[var(--shadow)] lg:grid lg:grid-cols-[0.82fr_1.18fr];
     }
 
+    #how-it-works {
+        scroll-margin-top: 88px;
+    }
+
     .how-grid__intro {
         @apply p-7 sm:p-10 lg:p-14;
     }
@@ -509,8 +513,61 @@
         @apply mt-5 flex items-center gap-2 text-sm text-[var(--ink-muted)];
     }
 
+    .search-preview .ph {
+        @apply text-lg text-[var(--success)];
+    }
+
+    .event-empty-state {
+        @apply mt-10 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] px-5 py-14 text-center shadow-[var(--shadow-soft)];
+    }
+
+    .event-empty-state > span {
+        @apply mx-auto grid size-12 place-items-center rounded-[14px] bg-[var(--accent-soft)] text-2xl text-[var(--accent)];
+    }
+
+    .event-empty-state h2 {
+        @apply mt-5 text-xl font-semibold tracking-[-0.025em];
+    }
+
+    .event-empty-state p {
+        @apply mt-2 text-sm text-[var(--ink-muted)];
+    }
+
+    .event-empty-state .button {
+        @apply mt-6;
+    }
+
     .preview-badge {
         @apply rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--accent)];
+    }
+
+    .error-page {
+        @apply grid min-h-[calc(100dvh-72px)] place-items-center py-16;
+        background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 28rem);
+    }
+
+    .error-state {
+        @apply mx-auto max-w-2xl text-center;
+    }
+
+    .error-state__icon {
+        @apply mx-auto grid size-16 place-items-center rounded-[18px] bg-[var(--accent-soft)] text-3xl text-[var(--accent)];
+    }
+
+    .error-state__code {
+        @apply mt-6 text-xs font-bold uppercase tracking-[0.16em] text-[var(--accent)];
+    }
+
+    .error-state h1 {
+        @apply mt-3 text-4xl font-semibold tracking-[-0.045em] sm:text-5xl;
+    }
+
+    .error-state > p:last-of-type {
+        @apply mx-auto mt-4 max-w-lg text-sm leading-6 text-[var(--ink-muted)];
+    }
+
+    .error-state .button {
+        @apply mt-8;
     }
 
     .auth-visual {
