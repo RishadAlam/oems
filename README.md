@@ -4,7 +4,7 @@ OEMS is a custom PHP MVC foundation for an online event management platform. Wee
 
 ## Requirements
 
-- PHP 8.2 or newer with PDO MySQL
+- PHP 8.2 or newer with PDO MySQL, mbstring, and OpenSSL
 - MySQL 8.0 or newer
 - Composer 2
 - Node.js 20 or newer
@@ -24,7 +24,22 @@ OEMS is a custom PHP MVC foundation for an online event management platform. Wee
    cp .env.example .env
    ```
 
-3. Create a MySQL database, then import the schema and development seed data.
+3. Configure SMTP in `.env`. Mailtrap Sandbox is suitable for local development because it captures messages instead of delivering them to real inboxes.
+
+   ```dotenv
+   MAIL_HOST=sandbox.smtp.mailtrap.io
+   MAIL_PORT=2525
+   MAIL_USERNAME=your-mailtrap-username
+   MAIL_PASSWORD=your-mailtrap-password
+   MAIL_ENCRYPTION=tls
+   MAIL_FROM_ADDRESS=no-reply@oems.local
+   MAIL_FROM_NAME=OEMS
+   MAIL_PRIVACY_SINK_ADDRESS=security@example.com
+   ```
+
+   Keep SMTP credentials in `.env` only. Never commit them to the repository. The privacy sink receives reset-shaped probe messages for unknown addresses, keeping the public response behavior uniform without emailing the submitted unknown address.
+
+4. Create a MySQL database, then import the schema and development seed data.
 
    ```bash
    mysql -u root -p -e "CREATE DATABASE oems CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
@@ -38,19 +53,23 @@ OEMS is a custom PHP MVC foundation for an online event management platform. Wee
    mysql -u root -p oems < database/demo_seed.sql
    ```
 
-4. Build the Tailwind stylesheet.
+5. Build the Tailwind stylesheet.
 
    ```bash
    npm run build:css
    ```
 
-5. Start the local server and visit `http://localhost:8000`.
+6. Start the local server and visit `http://localhost:8000`.
 
    ```bash
    php -S 127.0.0.1:8000 -t public public/router.php
    ```
 
-With `APP_DEBUG=true`, registration and password-reset screens expose local-only verification links. Production delivery will require an SMTP mail transport.
+Registration and password-reset messages are sent through the configured SMTP transport. With `APP_DEBUG=true`, the screens also expose local development links so account flows can be tested without opening the mail sandbox.
+
+In production, set `APP_URL` to the externally reachable HTTPS origin so account email links open the correct secure site.
+
+The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
 ## Development administrator
 
@@ -72,8 +91,9 @@ Never import the demo dataset into a production database.
 
 - Dependency-injected custom MVC core with routing, middleware, sessions, validation, views, configuration, database transactions, logging, and error responses
 - MySQL schema for accounts, permissions, organizers, events, schedules, registrations, payments, tickets, attendance, notifications, reviews, CMS, reporting support, and audit data
-- Participant and organizer registration, email verification, login, logout, remember-me sessions, password reset, and password change
-- CSRF protection, prepared database statements, escaped views, session rotation, password hashing, token hashing, and file-backed login throttling
+- Participant and organizer registration, SMTP email verification, login, logout, remember-me sessions, password reset, and password change
+- Authenticated profile management for contact details, personal details, address, locale, and timezone
+- CSRF protection, prepared database statements, escaped views, session rotation, password hashing, token hashing, and file-backed login and password-reset throttling
 - Role guards and separate participant, organizer, and super-admin dashboard shells
 - Responsive public, authentication, events, and dashboard interfaces with light and dark themes
 - Self-hosted Manrope font and original generated event imagery
@@ -86,6 +106,7 @@ Event creation, registration checkout, payments, QR tickets, attendance, reviews
 composer test
 composer check:syntax
 composer validate --strict
+composer audit
 npm run build:css
 ```
 
@@ -101,7 +122,7 @@ public/                 Web root and compiled assets
 resources/              Tailwind source stylesheet
 routes/web.php          Route definitions
 storage/                Runtime cache and log files
-tests/                  Dependency-free unit test suite
+tests/                  Custom PHP unit test suite
 ```
 
 The Week 1 design and implementation records are in `docs/superpowers/`.
