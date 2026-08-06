@@ -65,6 +65,8 @@ const menuButton = document.querySelector('[data-menu-toggle]');
 const mobileMenu = document.querySelector('[data-mobile-menu]');
 
 if (menuButton && mobileMenu) {
+    const desktopMenuQuery = window.matchMedia('(min-width: 64rem)');
+
     const closeMobileMenu = (restoreFocus = true) => {
         if (mobileMenu.hidden) {
             return;
@@ -93,8 +95,16 @@ if (menuButton && mobileMenu) {
     });
 
     mobileMenu.querySelectorAll('a').forEach((link) => {
-        link.addEventListener('click', () => closeMobileMenu(false));
+        link.addEventListener('click', () => closeMobileMenu());
     });
+
+    const syncMenuToViewport = (event) => {
+        if (event.matches) {
+            closeMobileMenu(false);
+        }
+    };
+
+    desktopMenuQuery.addEventListener?.('change', syncMenuToViewport);
 
     document.addEventListener('click', (event) => {
         if (!mobileMenu.hidden && !mobileMenu.contains(event.target) && !menuButton.contains(event.target)) {

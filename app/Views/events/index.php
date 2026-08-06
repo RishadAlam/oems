@@ -10,6 +10,9 @@
         </div>
 
         <form class="event-search-panel" action="/events" method="get" role="search" aria-label="Search events">
+            <?php if ($category !== ''): ?>
+                <input type="hidden" name="category" value="<?= e($category) ?>">
+            <?php endif; ?>
             <div class="event-search-panel__field">
                 <label for="event-search">What are you looking for?</label>
                 <div><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="event-search" name="search" type="search" value="<?= e($search) ?>" placeholder="Try design or music"></div>
@@ -17,16 +20,24 @@
             <button class="button button--primary" type="submit"><span>Search events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
         </form>
 
-        <?php if ($search !== '' && $featuredEvents !== []): ?>
-            <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Found <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> for “<?= e($search) ?>”.</span></p>
+        <?php if (($search !== '' || $category !== '') && $featuredEvents !== []): ?>
+            <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>
+                <?php if ($search !== '' && $category !== ''): ?>
+                    Found <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> for “<?= e($search) ?>” in <strong><?= e($categoryLabel) ?> events</strong>.
+                <?php elseif ($search !== ''): ?>
+                    Found <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> for “<?= e($search) ?>”.
+                <?php else: ?>
+                    Showing <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> in <strong><?= e($categoryLabel) ?> events</strong>.
+                <?php endif; ?>
+            </span></p>
         <?php endif; ?>
 
         <?php if ($featuredEvents === []): ?>
             <div class="event-empty-state">
                 <span><i class="ph ph-calendar-x" aria-hidden="true"></i></span>
-                <h2>No preview events match “<?= e($search) ?>”.</h2>
+                <h2>No preview events match<?= $search !== '' ? ' “' . e($search) . '”' : '' ?><?= $category !== '' ? ' in ' . e($categoryLabel) : '' ?>.</h2>
                 <p>Try a broader topic, category, or Dhaka location.</p>
-                <a class="button button--quiet button--compact" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear search</span></a>
+                <a class="button button--quiet button--compact" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear search and filters</span></a>
             </div>
         <?php else: ?>
             <div class="mt-10 grid gap-6 md:grid-cols-2">

@@ -14,14 +14,28 @@ final class HomeController extends Controller
     {
         return $this->render('home/index', [
             'pageTitle' => 'Events worth showing up for',
-            'featuredEvents' => $this->featuredEvents(),
+            'featuredEvents' => array_slice($this->featuredEvents(), 0, 2),
         ]);
     }
 
     public function events(Request $request): Response
     {
         $search = trim((string) $request->query('search', ''));
+        $category = mb_strtolower(trim((string) $request->query('category', '')));
+        $categoryLabels = [
+            'technology' => 'Technology',
+            'arts-culture' => 'Arts and culture',
+            'business' => 'Business',
+            'community' => 'Community',
+        ];
         $featuredEvents = $this->featuredEvents();
+
+        if ($category !== '') {
+            $featuredEvents = array_values(array_filter(
+                $featuredEvents,
+                static fn (array $event): bool => in_array($category, $event['categorySlugs'], true),
+            ));
+        }
 
         if ($search !== '') {
             $needle = mb_strtolower($search);
@@ -43,6 +57,8 @@ final class HomeController extends Controller
             'pageTitle' => 'Explore events',
             'featuredEvents' => $featuredEvents,
             'search' => $search,
+            'category' => $category,
+            'categoryLabel' => $categoryLabels[$category] ?? ucwords(str_replace('-', ' ', $category)),
         ]);
     }
 
@@ -52,6 +68,7 @@ final class HomeController extends Controller
             [
                 'title' => 'Designing for public life',
                 'category' => 'Creative workshop',
+                'categorySlugs' => ['arts-culture'],
                 'date' => 'August 22',
                 'time' => '10:00 AM',
                 'datetime' => '2026-08-22T10:00:00+06:00',
@@ -63,6 +80,7 @@ final class HomeController extends Controller
             [
                 'title' => 'Rooftop sessions',
                 'category' => 'Music and culture',
+                'categorySlugs' => ['arts-culture', 'community'],
                 'date' => 'August 29',
                 'time' => '7:30 PM',
                 'datetime' => '2026-08-29T19:30:00+06:00',
@@ -70,6 +88,30 @@ final class HomeController extends Controller
                 'price' => 'From ৳600',
                 'image' => '/assets/images/event-community.webp',
                 'alt' => 'A rooftop music gathering at blue hour',
+            ],
+            [
+                'title' => 'Product builders Dhaka',
+                'category' => 'Technology meetup',
+                'categorySlugs' => ['technology', 'business'],
+                'date' => 'September 4',
+                'time' => '6:30 PM',
+                'datetime' => '2026-09-04T18:30:00+06:00',
+                'venue' => 'Gulshan, Dhaka',
+                'price' => 'Free',
+                'image' => '/assets/images/event-creative.webp',
+                'alt' => 'People collaborating around a studio table at a product meetup',
+            ],
+            [
+                'title' => 'Social impact mixer',
+                'category' => 'Business and community',
+                'categorySlugs' => ['business', 'community'],
+                'date' => 'September 12',
+                'time' => '5:00 PM',
+                'datetime' => '2026-09-12T17:00:00+06:00',
+                'venue' => 'Uttara, Dhaka',
+                'price' => 'From ৳300',
+                'image' => '/assets/images/event-community.webp',
+                'alt' => 'People gathering outdoors at blue hour for a community event',
             ],
         ];
     }

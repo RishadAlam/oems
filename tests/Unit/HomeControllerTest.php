@@ -52,4 +52,26 @@ final class HomeControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'No preview events match'));
         $this->assertTrue(str_contains($response->body(), 'Clear search'));
     }
+
+    public function testEventCategoryFiltersTheCuratedPreviews(): void
+    {
+        $response = $this->controller->events(Request::create('GET', '/events', ['category' => 'technology']));
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($response->body(), 'Product builders Dhaka'));
+        $this->assertFalse(str_contains($response->body(), 'Rooftop sessions'));
+        $this->assertTrue(str_contains($response->body(), 'Technology events'));
+    }
+
+    public function testEventSearchKeepsTheSelectedCategory(): void
+    {
+        $response = $this->controller->events(Request::create('GET', '/events', [
+            'category' => 'community',
+            'search' => 'impact',
+        ]));
+
+        $this->assertTrue(str_contains($response->body(), 'Social impact mixer'));
+        $this->assertFalse(str_contains($response->body(), 'Rooftop sessions'));
+        $this->assertTrue(str_contains($response->body(), 'name="category" value="community"'));
+    }
 }

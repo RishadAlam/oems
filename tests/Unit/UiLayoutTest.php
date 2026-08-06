@@ -35,6 +35,17 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'aria-expanded="false"'));
         $this->assertTrue(str_contains($html, 'aria-controls="mobile-menu"'));
         $this->assertTrue(str_contains($html, 'id="mobile-menu"'));
+        $this->assertTrue(str_contains($html, 'class="mobile-menu lg:hidden"'));
+    }
+
+    public function testMobileNavigationRestoresFocusAndClosesAtTheDesktopBreakpoint(): void
+    {
+        $javascript = file_get_contents(base_path('public/assets/js/app.js'));
+
+        $this->assertTrue($javascript !== false);
+        $this->assertTrue(str_contains($javascript, "link.addEventListener('click', () => closeMobileMenu());"));
+        $this->assertTrue(str_contains($javascript, "window.matchMedia('(min-width: 64rem)')"));
+        $this->assertTrue(str_contains($javascript, "desktopMenuQuery.addEventListener?.('change', syncMenuToViewport);"));
     }
 
     public function testThemeControlsExposeAnIconStateHookAndAccessibleLabel(): void

@@ -54,7 +54,7 @@
             </button>
         </div>
 
-        <div id="mobile-menu" class="mobile-menu" data-mobile-menu hidden>
+        <div id="mobile-menu" class="mobile-menu lg:hidden" data-mobile-menu hidden>
             <nav class="page-shell grid gap-2 py-5" aria-label="Mobile navigation">
                 <a class="mobile-menu__link" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                 <a class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>
