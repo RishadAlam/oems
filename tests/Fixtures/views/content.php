@@ -1,0 +1,2 @@
+<main><?= e($name) ?></main>
+
