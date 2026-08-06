@@ -1,4 +1,5 @@
 <div class="auth-heading">
+    <p class="auth-kicker"><i class="ph ph-sign-in" aria-hidden="true"></i><span>Account access</span></p>
     <h1>Welcome back</h1>
     <p>Sign in to reach your events, tickets, and workspace.</p>
 </div>
@@ -8,17 +9,10 @@
 
     <div class="field-group">
         <label for="email">Email address</label>
-        <input
-            id="email"
-            name="email"
-            type="email"
-            value="<?= old_value($old, 'email') ?>"
-            autocomplete="email"
-            inputmode="email"
-            required
-            aria-describedby="email-help<?= field_error($errors, 'email') ? ' email-error' : '' ?>"
-            <?= field_error($errors, 'email') ? 'aria-invalid="true"' : '' ?>
-        >
+        <div class="input-with-icon">
+            <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" required aria-describedby="email-help<?= field_error($errors, 'email') ? ' email-error' : '' ?>" <?= field_error($errors, 'email') ? 'aria-invalid="true"' : '' ?>>
+        </div>
         <p id="email-help" class="field-help">Use the email connected to your OEMS account.</p>
         <?php if ($error = field_error($errors, 'email')): ?>
             <p id="email-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -30,7 +24,8 @@
             <label for="password">Password</label>
             <a class="text-link text-xs" href="/forgot-password">Forgot password?</a>
         </div>
-        <div class="password-field">
+        <div class="password-field input-with-icon">
+            <i class="ph ph-lock-key" aria-hidden="true"></i>
             <input
                 id="password"
                 name="password"
@@ -51,7 +46,7 @@
         <span>Keep me signed in on this device</span>
     </label>
 
-    <button class="button button--primary w-full" type="submit">Sign in</button>
+    <button class="button button--primary w-full" type="submit"><span>Sign in</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
 </form>
 
 <p class="auth-switch">New to OEMS? <a href="/register">Create an account</a></p>

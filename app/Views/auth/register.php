@@ -1,5 +1,6 @@
 <?php $selectedRole = old_value($old, 'role', ($_GET['role'] ?? 'participant') === 'organizer' ? 'organizer' : 'participant'); ?>
 <div class="auth-heading">
+    <p class="auth-kicker"><i class="ph ph-user-plus" aria-hidden="true"></i><span>Join the community</span></p>
     <h1>Create your account</h1>
     <p>Start as an attendee, or open a workspace for your events.</p>
 </div>
@@ -11,12 +12,12 @@
         <legend>How will you use OEMS?</legend>
         <div class="account-type-grid">
             <label>
-                <input type="radio" name="role" value="participant" <?= $selectedRole === 'participant' ? 'checked' : '' ?>>
-                <span><strong>Attend events</strong><small>Discover, register, and manage tickets.</small></span>
+                <input type="radio" name="role" value="participant" aria-describedby="participant-role-description" <?= $selectedRole === 'participant' ? 'checked' : '' ?>>
+                <span><i class="ph ph-ticket" aria-hidden="true"></i><strong>Attend events</strong><small id="participant-role-description">Discover, register, and manage tickets.</small><i class="ph ph-check-circle account-type-grid__check" aria-hidden="true"></i></span>
             </label>
             <label>
-                <input type="radio" name="role" value="organizer" <?= $selectedRole === 'organizer' ? 'checked' : '' ?>>
-                <span><strong>Host events</strong><small>Create events and manage participants.</small></span>
+                <input type="radio" name="role" value="organizer" aria-describedby="organizer-role-description" <?= $selectedRole === 'organizer' ? 'checked' : '' ?>>
+                <span><i class="ph ph-microphone-stage" aria-hidden="true"></i><strong>Host events</strong><small id="organizer-role-description">Create events and manage participants.</small><i class="ph ph-check-circle account-type-grid__check" aria-hidden="true"></i></span>
             </label>
         </div>
         <?php if ($error = field_error($errors, 'role')): ?>
@@ -26,16 +27,10 @@
 
     <div class="field-group">
         <label for="name">Full name</label>
-        <input
-            id="name"
-            name="name"
-            type="text"
-            value="<?= old_value($old, 'name') ?>"
-            autocomplete="name"
-            maxlength="100"
-            required
-            <?= field_error($errors, 'name') ? 'aria-invalid="true" aria-describedby="name-error"' : '' ?>
-        >
+        <div class="input-with-icon">
+            <i class="ph ph-user" aria-hidden="true"></i>
+            <input id="name" name="name" type="text" value="<?= old_value($old, 'name') ?>" autocomplete="name" maxlength="100" required <?= field_error($errors, 'name') ? 'aria-invalid="true" aria-describedby="name-error"' : '' ?>>
+        </div>
         <?php if ($error = field_error($errors, 'name')): ?>
             <p id="name-error" class="field-error" role="alert"><?= e($error) ?></p>
         <?php endif; ?>
@@ -43,16 +38,10 @@
 
     <div class="field-group">
         <label for="email">Email address</label>
-        <input
-            id="email"
-            name="email"
-            type="email"
-            value="<?= old_value($old, 'email') ?>"
-            autocomplete="email"
-            inputmode="email"
-            required
-            <?= field_error($errors, 'email') ? 'aria-invalid="true" aria-describedby="email-error"' : '' ?>
-        >
+        <div class="input-with-icon">
+            <i class="ph ph-envelope-simple" aria-hidden="true"></i>
+            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" required <?= field_error($errors, 'email') ? 'aria-invalid="true" aria-describedby="email-error"' : '' ?>>
+        </div>
         <?php if ($error = field_error($errors, 'email')): ?>
             <p id="email-error" class="field-error" role="alert"><?= e($error) ?></p>
         <?php endif; ?>
@@ -61,7 +50,8 @@
     <div class="grid gap-5 sm:grid-cols-2">
         <div class="field-group">
             <label for="password">Password</label>
-            <div class="password-field">
+            <div class="password-field input-with-icon">
+                <i class="ph ph-lock-key" aria-hidden="true"></i>
                 <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
                 <button type="button" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
             </div>
@@ -72,7 +62,8 @@
         </div>
         <div class="field-group">
             <label for="password_confirmation">Confirm password</label>
-            <div class="password-field">
+            <div class="password-field input-with-icon">
+                <i class="ph ph-lock-key" aria-hidden="true"></i>
                 <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
                 <button type="button" data-password-toggle data-password-label="password confirmation" aria-controls="password_confirmation" aria-pressed="false" aria-label="Show password confirmation" title="Show password confirmation"><i class="ph ph-eye" aria-hidden="true"></i></button>
             </div>
@@ -87,7 +78,7 @@
         <p class="field-error -mt-3" role="alert"><?= e($error) ?></p>
     <?php endif; ?>
 
-    <button class="button button--primary w-full" type="submit">Create account</button>
+    <button class="button button--primary w-full" type="submit"><span>Create account</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
 </form>
 
 <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>

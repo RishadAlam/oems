@@ -18,16 +18,17 @@
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">
     <a class="skip-link" href="#auth-content">Skip to form</a>
-    <div class="grid min-h-[100dvh] lg:grid-cols-[minmax(360px,0.9fr)_minmax(520px,1.1fr)]">
+    <div class="grid min-h-[100dvh] lg:grid-cols-[minmax(380px,0.92fr)_minmax(540px,1.08fr)]">
         <aside class="auth-visual hidden lg:flex">
-            <?php $brandVariant = 'inverse'; require base_path('app/Views/components/brand.php'); ?>
-            <div class="relative z-10 max-w-md">
-                <p class="text-3xl font-semibold leading-tight tracking-[-0.03em] text-white">
-                    Good events begin before anyone enters the room.
-                </p>
-                <p class="mt-4 max-w-sm text-sm leading-6 text-white/75">
-                    Build the account that helps you discover, organize, and remember what matters.
-                </p>
+            <div class="auth-visual__top"><?php $brandVariant = 'inverse'; require base_path('app/Views/components/brand.php'); ?></div>
+            <div class="auth-visual__content">
+                <p class="eyebrow eyebrow--inverse"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Made for real communities</span></p>
+                <p class="auth-visual__title">Good events begin before anyone enters the room.</p>
+                <p class="auth-visual__copy">Build the account that helps you discover, organize, and remember what matters.</p>
+                <div class="auth-visual__list" aria-label="OEMS account benefits">
+                    <span><i class="ph ph-ticket" aria-hidden="true"></i>One account for every ticket</span>
+                    <span><i class="ph ph-shield-check" aria-hidden="true"></i>Secure role-based workspaces</span>
+                </div>
             </div>
         </aside>
 
@@ -41,7 +42,7 @@
                     <a class="button button--quiet button--compact" href="/"><i class="ph ph-arrow-left" aria-hidden="true"></i><span class="hidden sm:inline">Back to events</span><span class="sm:hidden">Back</span></a>
                 </div>
             </header>
-            <div class="mx-auto flex w-full max-w-[520px] flex-1 flex-col justify-center px-5 py-10 sm:px-8">
+            <div class="auth-form-shell">
                 <?php require base_path('app/Views/components/flash.php'); ?>
                 <?= $content ?>
             </div>

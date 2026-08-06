@@ -76,6 +76,27 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'href="/register?role=organizer" class="button button--quiet"'));
     }
 
+    public function testRegistrationRoleChoicesAreNativeAndSelfDescribing(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $html = $view->render('auth/register', [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'flash' => [],
+            'errors' => [],
+            'old' => [],
+            'pageTitle' => 'Create account',
+        ], 'auth');
+
+        $this->assertTrue(str_contains($html, 'type="radio" name="role" value="participant"'));
+        $this->assertTrue(str_contains($html, 'aria-describedby="participant-role-description"'));
+        $this->assertTrue(str_contains($html, 'id="participant-role-description"'));
+        $this->assertTrue(str_contains($html, 'class="ph ph-ticket" aria-hidden="true"'));
+        $this->assertTrue(str_contains($html, 'type="radio" name="role" value="organizer"'));
+        $this->assertTrue(str_contains($html, 'aria-describedby="organizer-role-description"'));
+        $this->assertTrue(str_contains($html, 'class="ph ph-microphone-stage" aria-hidden="true"'));
+    }
+
     private function renderHome(): string
     {
         $view = new View(base_path('app/Views'));
