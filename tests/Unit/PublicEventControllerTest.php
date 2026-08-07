@@ -55,6 +55,7 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
 
     public function organizerSummary(int $userId): array { return []; }
     public function forOrganizerUser(int $userId, ?string $status): array { return []; }
+    public function recentForOrganizerUser(int $userId, int $limit): array { return []; }
     public function findOwned(int $userId, int $eventId): ?array { return null; }
     public function slugExists(string $slug, ?int $exceptId): bool { return false; }
     public function createForUser(int $userId, array $attributes): ?int { return null; }

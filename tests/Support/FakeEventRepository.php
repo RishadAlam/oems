@@ -65,6 +65,24 @@ final class FakeEventRepository implements EventRepositoryInterface
         ));
     }
 
+    public function recentForOrganizerUser(int $userId, int $limit): array
+    {
+        $events = $this->forOrganizerUser($userId, null);
+        usort($events, static function (array $left, array $right): int {
+            foreach (['updated_at', 'created_at', 'id'] as $key) {
+                $comparison = ($right[$key] ?? '') <=> ($left[$key] ?? '');
+
+                if ($comparison !== 0) {
+                    return $comparison;
+                }
+            }
+
+            return 0;
+        });
+
+        return array_slice($events, 0, max(0, $limit));
+    }
+
     public function findOwned(int $userId, int $eventId): ?array
     {
         $event = $this->events[$eventId] ?? null;

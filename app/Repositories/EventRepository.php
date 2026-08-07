@@ -225,6 +225,27 @@ final class EventRepository implements EventRepositoryInterface
         return $this->decodeEvents($statement->fetchAll());
     }
 
+    public function recentForOrganizerUser(int $userId, int $limit): array
+    {
+        if ($limit <= 0) {
+            return [];
+        }
+
+        $statement = $this->connection->prepare(
+            $this->eventSelect()
+            . ' INNER JOIN organizers AS owner_organizers ON owner_organizers.id = events.organizer_id
+                WHERE owner_organizers.user_id = :user_id
+                  AND events.deleted_at IS NULL
+                ORDER BY events.updated_at DESC, events.created_at DESC, events.id DESC
+                LIMIT :limit',
+        );
+        $statement->bindValue('user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $this->decodeEvents($statement->fetchAll());
+    }
+
     public function findOwned(int $userId, int $eventId): ?array
     {
         $statement = $this->connection->prepare(

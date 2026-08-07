@@ -150,6 +150,31 @@ final class EventRepositoryTest extends TestCase
         $this->assertNull($this->repository->findOwned(20, 502));
     }
 
+    public function testRecentOrganizerEventsUseUpdatedOrderLimitAndUserScope(): void
+    {
+        $this->connection->exec(
+            "UPDATE events
+             SET updated_at = CASE id
+                 WHEN 501 THEN '2026-08-01 10:00:00'
+                 WHEN 502 THEN '2026-08-04 10:00:00'
+                 WHEN 503 THEN '2026-08-10 10:00:00'
+                 WHEN 504 THEN '2026-08-03 10:00:00'
+                 WHEN 505 THEN '2026-08-09 10:00:00'
+                 WHEN 506 THEN '2026-08-02 10:00:00'
+                 WHEN 507 THEN '2026-08-05 10:00:00'
+                 WHEN 508 THEN '2026-08-01 10:00:00'
+                 WHEN 509 THEN '2026-08-05 10:00:00'
+                 ELSE updated_at
+             END",
+        );
+
+        $events = $this->repository->recentForOrganizerUser(10, 3);
+
+        $this->assertSame([509, 507, 502], array_column($events, 'id'));
+        $this->assertSame(3, count($events));
+        $this->assertSame([], $this->repository->recentForOrganizerUser(20, 0));
+    }
+
     public function testOrganizerCannotLoadOrUpdateAnotherOrganizersEvent(): void
     {
         $this->assertNull($this->repository->findOwned(20, 502));

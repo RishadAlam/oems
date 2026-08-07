@@ -80,7 +80,7 @@ Change this password immediately outside isolated local development.
 
 ## Demo accounts
 
-The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, lifecycle events, schedules, and media references. It also contains full-schema reference rows for later milestones; the current product does not expose registration, payment, revenue, or ticket workflows until Week 3. Every non-administrator demo account uses the password `DemoPass!2026`.
+The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, lifecycle events, schedules, and event media references. It also contains full-schema reference rows for later milestones; ticket rows intentionally keep their nullable QR and PDF paths empty until Week 3 generates real files. The current product does not expose registration, payment, revenue, or ticket workflows until Week 3. Every non-administrator demo account uses the password `DemoPass!2026`.
 
 - Super administrator: `admin@oems.local` / `ChangeMe!2026`
 - Approved organizer: `ayesha.organizer@oems.local` / `DemoPass!2026`

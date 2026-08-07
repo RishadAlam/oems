@@ -20,6 +20,8 @@ interface EventRepositoryInterface
 
     public function forOrganizerUser(int $userId, ?string $status): array;
 
+    public function recentForOrganizerUser(int $userId, int $limit): array;
+
     public function findOwned(int $userId, int $eventId): ?array;
 
     public function slugExists(string $slug, ?int $exceptId): bool;

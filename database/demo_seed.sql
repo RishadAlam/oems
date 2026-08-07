@@ -83,24 +83,30 @@ SET @nusrat_organizer_id = (SELECT id FROM organizers WHERE user_id = @nusrat_us
 INSERT INTO venues (organizer_id, name, address_line, city, country, postal_code, capacity)
 SELECT @ayesha_organizer_id, 'Bangabandhu International Conference Center', 'Sher-e-Bangla Nagar', 'Dhaka', 'Bangladesh', '1207', 1200
 WHERE NOT EXISTS (
-    SELECT 1 FROM venues WHERE name = 'Bangabandhu International Conference Center'
+    SELECT 1 FROM venues
+    WHERE name = 'Bangabandhu International Conference Center'
+      AND organizer_id = @ayesha_organizer_id
 );
 
 INSERT INTO venues (organizer_id, name, address_line, city, country, postal_code, capacity)
 SELECT @farhan_organizer_id, 'EMK Center', 'Midas Center, Dhanmondi', 'Dhaka', 'Bangladesh', '1209', 180
 WHERE NOT EXISTS (
-    SELECT 1 FROM venues WHERE name = 'EMK Center'
+    SELECT 1 FROM venues
+    WHERE name = 'EMK Center'
+      AND organizer_id = @farhan_organizer_id
 );
 
 INSERT INTO venues (organizer_id, name, address_line, city, country, postal_code, capacity)
 SELECT @nusrat_organizer_id, 'Bengal Shilpalay', 'Dhanmondi 27', 'Dhaka', 'Bangladesh', '1209', 300
 WHERE NOT EXISTS (
-    SELECT 1 FROM venues WHERE name = 'Bengal Shilpalay'
+    SELECT 1 FROM venues
+    WHERE name = 'Bengal Shilpalay'
+      AND organizer_id = @nusrat_organizer_id
 );
 
-SET @bic_center_id = (SELECT id FROM venues WHERE name = 'Bangabandhu International Conference Center' LIMIT 1);
-SET @emk_center_id = (SELECT id FROM venues WHERE name = 'EMK Center' LIMIT 1);
-SET @bengal_shilpalay_id = (SELECT id FROM venues WHERE name = 'Bengal Shilpalay' LIMIT 1);
+SET @bic_center_id = (SELECT id FROM venues WHERE name = 'Bangabandhu International Conference Center' AND organizer_id = @ayesha_organizer_id LIMIT 1);
+SET @emk_center_id = (SELECT id FROM venues WHERE name = 'EMK Center' AND organizer_id = @farhan_organizer_id LIMIT 1);
+SET @bengal_shilpalay_id = (SELECT id FROM venues WHERE name = 'Bengal Shilpalay' AND organizer_id = @nusrat_organizer_id LIMIT 1);
 SET @technology_category_id = (SELECT id FROM categories WHERE slug = 'technology');
 SET @business_category_id = (SELECT id FROM categories WHERE slug = 'business');
 SET @arts_category_id = (SELECT id FROM categories WHERE slug = 'arts-culture');
@@ -134,7 +140,7 @@ INSERT INTO events (
         @admin_user_id, '2026-06-15 14:00:00', '2026-06-16 09:00:00', TRUE
     ),
     (
-        @nusrat_organizer_id, @arts_category_id, @bengal_shilpalay_id,
+        @ayesha_organizer_id, @arts_category_id, @bic_center_id,
         'Community Arts Night 2026', 'community-arts-night-2026',
         'An evening of local visual art, short film, music, and conversation.',
         '/assets/images/event-community.webp',
@@ -164,7 +170,7 @@ INSERT INTO events (
         NULL, NULL, NULL, FALSE
     ),
     (
-        @ayesha_organizer_id, @business_category_id, @emk_center_id,
+        @ayesha_organizer_id, @business_category_id, @bic_center_id,
         'Product Leaders Meetup July 2026', 'product-leaders-meetup-july-2026',
         'A completed roundtable on product strategy, research, and team leadership.',
         '/assets/images/event-creative.webp',
@@ -312,14 +318,14 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO tickets (
     registration_id, ticket_number, qr_payload_hash, qr_path, pdf_path, status, issued_at
 ) VALUES
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-001'), 'OEMS-DEMO-TKT-001', SHA2('OEMS-DEMO-TKT-001', 256), 'demo/qr/001.png', 'demo/tickets/001.pdf', 'valid', '2026-07-05 10:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-002'), 'OEMS-DEMO-TKT-002', SHA2('OEMS-DEMO-TKT-002', 256), 'demo/qr/002.png', 'demo/tickets/002.pdf', 'valid', '2026-07-06 11:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-003'), 'OEMS-DEMO-TKT-003', SHA2('OEMS-DEMO-TKT-003', 256), 'demo/qr/003.png', 'demo/tickets/003.pdf', 'valid', '2026-07-07 12:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-004'), 'OEMS-DEMO-TKT-004', SHA2('OEMS-DEMO-TKT-004', 256), 'demo/qr/004.png', 'demo/tickets/004.pdf', 'valid', '2026-07-08 09:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-005'), 'OEMS-DEMO-TKT-005', SHA2('OEMS-DEMO-TKT-005', 256), 'demo/qr/005.png', 'demo/tickets/005.pdf', 'valid', '2026-07-09 13:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-006'), 'OEMS-DEMO-TKT-006', SHA2('OEMS-DEMO-TKT-006', 256), 'demo/qr/006.png', 'demo/tickets/006.pdf', 'valid', '2026-07-10 15:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-007'), 'OEMS-DEMO-TKT-007', SHA2('OEMS-DEMO-TKT-007', 256), 'demo/qr/007.png', 'demo/tickets/007.pdf', 'valid', '2026-07-11 16:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), 'OEMS-DEMO-TKT-008', SHA2('OEMS-DEMO-TKT-008', 256), 'demo/qr/008.png', 'demo/tickets/008.pdf', 'used', '2026-07-12 17:06:00')
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-001'), 'OEMS-DEMO-TKT-001', SHA2('OEMS-DEMO-TKT-001', 256), NULL, NULL, 'valid', '2026-07-05 10:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-002'), 'OEMS-DEMO-TKT-002', SHA2('OEMS-DEMO-TKT-002', 256), NULL, NULL, 'valid', '2026-07-06 11:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-003'), 'OEMS-DEMO-TKT-003', SHA2('OEMS-DEMO-TKT-003', 256), NULL, NULL, 'valid', '2026-07-07 12:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-004'), 'OEMS-DEMO-TKT-004', SHA2('OEMS-DEMO-TKT-004', 256), NULL, NULL, 'valid', '2026-07-08 09:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-005'), 'OEMS-DEMO-TKT-005', SHA2('OEMS-DEMO-TKT-005', 256), NULL, NULL, 'valid', '2026-07-09 13:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-006'), 'OEMS-DEMO-TKT-006', SHA2('OEMS-DEMO-TKT-006', 256), NULL, NULL, 'valid', '2026-07-10 15:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-007'), 'OEMS-DEMO-TKT-007', SHA2('OEMS-DEMO-TKT-007', 256), NULL, NULL, 'valid', '2026-07-11 16:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), 'OEMS-DEMO-TKT-008', SHA2('OEMS-DEMO-TKT-008', 256), NULL, NULL, 'used', '2026-07-12 17:06:00')
 ON DUPLICATE KEY UPDATE
     registration_id = VALUES(registration_id),
     qr_payload_hash = VALUES(qr_payload_hash),

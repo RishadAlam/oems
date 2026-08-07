@@ -55,7 +55,7 @@ final class DashboardController extends Controller
         return $this->render('dashboard/organizer', [
             'pageTitle' => 'Organizer workspace',
             'summary' => $this->events->organizerSummary($userId),
-            'events' => array_slice($this->events->forOrganizerUser($userId, null), 0, 5),
+            'events' => $this->events->recentForOrganizerUser($userId, 5),
         ], 'dashboard');
     }
 
