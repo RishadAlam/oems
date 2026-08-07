@@ -14,6 +14,14 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public bool $failUpdate = false;
 
+    public bool $throwCreate = false;
+
+    public bool $throwUpdate = false;
+
+    public bool $throwDelete = false;
+
+    public int $deleteOwnedCalls = 0;
+
     public array $venues = [
         1 => ['id' => 1, 'user_id' => 10, 'name' => 'Owned Hall', 'capacity' => 100],
         2 => ['id' => 2, 'user_id' => 20, 'name' => 'Foreign Hall', 'capacity' => 500],
@@ -37,6 +45,10 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function createForUser(int $userId, array $attributes): ?int
     {
+        if ($this->throwCreate) {
+            throw new \RuntimeException('SQL secret venue create failure.');
+        }
+
         if ($this->failCreate) {
             return null;
         }
@@ -49,6 +61,10 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function updateOwned(int $userId, int $venueId, array $attributes): bool
     {
+        if ($this->throwUpdate) {
+            throw new \RuntimeException('SQL secret venue update failure.');
+        }
+
         if ($this->failUpdate || $this->findOwned($userId, $venueId) === null) {
             return false;
         }
@@ -60,6 +76,12 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function deleteOwnedIfUnused(int $userId, int $venueId): bool
     {
+        $this->deleteOwnedCalls++;
+
+        if ($this->throwDelete) {
+            throw new \RuntimeException('SQL secret venue delete failure.');
+        }
+
         if ($this->findOwned($userId, $venueId) === null
             || in_array($venueId, $this->referencedVenueIds, true)) {
             return false;

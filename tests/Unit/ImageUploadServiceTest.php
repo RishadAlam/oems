@@ -56,6 +56,22 @@ final class ImageUploadServiceTest extends TestCase
         $this->assertTrue(is_file($source));
     }
 
+    public function testStoresGeneratedPngAndWebpImagesWithTheirDetectedExtensions(): void
+    {
+        foreach ([
+            'png' => TestImage::writePng($this->temporaryDirectory . '/valid.png'),
+            'webp' => TestImage::writeWebp($this->temporaryDirectory . '/valid.webp'),
+        ] as $extension => $source) {
+            $result = $this->serviceForLocalFiles()->store(
+                $this->upload($source, 'event.' . $extension, filesize($source)),
+            );
+
+            $this->assertTrue($result['success'], "Expected valid {$extension} upload to succeed.");
+            $this->assertTrue(str_ends_with((string) $result['path'], '.' . $extension));
+            $this->assertTrue(is_file($this->uploadRoot . '/' . basename((string) $result['path'])));
+        }
+    }
+
     public function testRejectsTextDisguisedAsAJpegWithoutMovingIt(): void
     {
         $source = $this->temporaryDirectory . '/disguised.jpg';

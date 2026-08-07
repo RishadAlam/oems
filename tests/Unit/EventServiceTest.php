@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeCategoryRepository;
 use OEMS\Tests\Support\FakeEventRepository;
 use OEMS\Tests\Support\FakeOrganizerRepository;
@@ -182,6 +183,38 @@ final class EventServiceTest extends TestCase
         $this->assertSame([], $this->events->events);
         $this->assertFalse($this->events->slugExists('atomic-create-failure', null));
         $this->assertSame([], $this->storedUploadFiles());
+    }
+
+    public function testCaughtEventPersistenceExceptionsLogOnlySanitizedOperationContext(): void
+    {
+        $logPath = $this->temporaryDirectory . '/event-persistence.log';
+        file_put_contents($logPath, '');
+        $service = new EventService(
+            $this->events,
+            $this->categories,
+            $this->venues,
+            new ImageUploadService($this->uploadRoot, '/uploads/events', 5 * 1024 * 1024, false),
+            new FakeOrganizerRepository(),
+            new Logger($logPath),
+        );
+        $this->events->failGalleryReplacement = true;
+
+        $created = $service->createDraft(10, $this->validInput(), null, []);
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft');
+        $updated = $service->update(10, 1, $this->validInput(['title' => 'Logged Update']), null, []);
+        $log = file_get_contents($logPath);
+
+        $this->assertFalse($created['success']);
+        $this->assertFalse($updated['success']);
+        $this->assertTrue(is_string($log));
+        $this->assertTrue(str_contains($log, 'Event persistence operation failed.'));
+        $this->assertTrue(str_contains($log, '"operation":"create"'));
+        $this->assertTrue(str_contains($log, '"operation":"update"'));
+        $this->assertTrue(str_contains($log, '"user_id":10'));
+        $this->assertTrue(str_contains($log, '"event_id":1'));
+        $this->assertFalse(str_contains($log, 'Gallery persistence failed'));
+        $this->assertFalse(str_contains($log, 'password'));
+        $this->assertFalse(str_contains($log, $this->uploadRoot));
     }
 
     public function testAtomicUpdateFailurePreservesOldEventGalleryAndMediaAndRemovesNewFiles(): void

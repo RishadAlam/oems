@@ -16,6 +16,8 @@ interface EventRepositoryInterface
 
     public function gallery(int $eventId): array;
 
+    public function galleryForOwned(int $userId, int $eventId): array;
+
     public function organizerSummary(int $userId): array;
 
     public function forOrganizerUser(int $userId, ?string $status): array;
@@ -44,6 +46,8 @@ interface EventRepositoryInterface
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool;
 
     public function forAdmin(?string $status): array;
+
+    public function countPendingForAdmin(): int;
 
     public function findForAdmin(int $eventId): ?array;
 

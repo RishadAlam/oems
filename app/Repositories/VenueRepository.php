@@ -87,7 +87,7 @@ final class VenueRepository implements VenueRepositoryInterface
         $parameters['venue_id'] = $venueId;
         $statement->execute($parameters);
 
-        return $statement->rowCount() > 0;
+        return $statement->rowCount() > 0 || $this->findOwned($userId, $venueId) !== null;
     }
 
     public function deleteOwnedIfUnused(int $userId, int $venueId): bool

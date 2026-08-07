@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Services;
 
 use OEMS\App\Contracts\CategoryRepositoryInterface;
+use OEMS\Core\Logger;
 use OEMS\Core\Validator;
 use Throwable;
 
@@ -19,8 +20,10 @@ final class CategoryService
         'sort_order',
     ];
 
-    public function __construct(private readonly CategoryRepositoryInterface $categories)
-    {
+    public function __construct(
+        private readonly CategoryRepositoryInterface $categories,
+        private readonly ?Logger $logger = null,
+    ) {
     }
 
     public function create(array $data): array
@@ -36,6 +39,8 @@ final class CategoryService
         try {
             $categoryId = $this->categories->create($attributes);
         } catch (Throwable) {
+            $this->logPersistenceFailure('create');
+
             return $this->failure(['category' => ['The category could not be created.']]);
         }
 
@@ -63,6 +68,7 @@ final class CategoryService
         try {
             $updated = $this->categories->update($categoryId, $attributes);
         } catch (Throwable) {
+            $this->logPersistenceFailure('update', $categoryId);
             $updated = false;
         }
 
@@ -94,6 +100,7 @@ final class CategoryService
         try {
             $updated = $this->categories->setActive($categoryId, $isActive);
         } catch (Throwable) {
+            $this->logPersistenceFailure('set_active', $categoryId);
             $updated = false;
         }
 
@@ -198,6 +205,25 @@ final class CategoryService
         $slug = preg_replace('/[^a-z0-9]+/', '-', $value);
 
         return trim(is_string($slug) ? $slug : '', '-');
+    }
+
+    private function logPersistenceFailure(string $operation, ?int $categoryId = null): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $context = ['operation' => $operation];
+
+        if ($categoryId !== null) {
+            $context['category_id'] = $categoryId;
+        }
+
+        try {
+            $this->logger->error('Category persistence operation failed.', $context);
+        } catch (Throwable) {
+            // Logging must not replace the stable user-facing persistence error.
+        }
     }
 
     private function success(array $data = []): array

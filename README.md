@@ -118,7 +118,8 @@ Every organizer mutation is scoped to the authenticated organizer. Every organiz
 
 Organizer actions:
 
-- `draft` or `rejected` → `pending` by submitting for review. Only an approved organizer account may submit.
+- `rejected` → `draft` by saving edits that address the administrator's review note.
+- `draft` → `pending` by submitting for review. Only an approved organizer account may submit.
 - `approved` or `published` → `cancelled`.
 - `draft`, `rejected`, or `cancelled` → soft-deleted.
 

@@ -53,6 +53,8 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
         return $this->galleries[$eventId] ?? [];
     }
 
+    public function galleryForOwned(int $userId, int $eventId): array { return []; }
+
     public function organizerSummary(int $userId): array { return []; }
     public function forOrganizerUser(int $userId, ?string $status): array { return []; }
     public function recentForOrganizerUser(int $userId, int $limit): array { return []; }
@@ -65,6 +67,7 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool { return false; }
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool { return false; }
     public function forAdmin(?string $status): array { return []; }
+    public function countPendingForAdmin(): int { return 0; }
     public function findForAdmin(int $eventId): ?array { return null; }
     public function galleryForAdmin(int $eventId): array { return []; }
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool { return false; }
@@ -224,7 +227,11 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, '<script type="application/ld+json">'));
         $this->assertTrue(str_contains($body, '\\u003C/script\\u003E\\u003Cscript\\u003E'));
         $this->assertTrue(str_contains($body, '\\u0026 Friends'));
-        $this->assertTrue(str_contains($body, '"availabilityEnds":"2026-08-21T18:00:00+06:00"'));
+        $this->assertTrue(str_contains($body, '৳600'));
+        $this->assertFalse(str_contains($body, '"offers"'));
+        $this->assertFalse(str_contains($body, '"@type":"Offer"'));
+        $this->assertFalse(str_contains($body, '"availability"'));
+        $this->assertFalse(str_contains($body, '"availabilityEnds"'));
         $this->assertFalse(str_contains($body, '"validFrom"'));
         $this->assertFalse(str_contains($body, '</script><script>alert'));
     }

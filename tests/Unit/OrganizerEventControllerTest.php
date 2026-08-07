@@ -114,6 +114,61 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertFalse(str_contains($show->body(), 'Checkout'));
     }
 
+    public function testOwnedShowAndEditRenderEscapedBannerGalleryTagsAndMapEvidence(): void
+    {
+        $this->events->events[11] = array_merge($this->events->events[11], [
+            'title' => 'Hostile <script>alert(1)</script> event',
+            'description' => 'Description <img src=x onerror=alert(2)> evidence.',
+            'banner' => '/uploads/events/banner&quot;-literal.webp',
+            'map_url' => 'https://example.test/map?place=one&mode=walk',
+            'tags' => ['design', '<script>alert(3)</script>'],
+        ]);
+        $this->events->galleries[11] = [[
+            'image_path' => '/uploads/events/gallery-one.png',
+            'alt_text' => '"><script>alert(4)</script>',
+        ]];
+
+        $show = $this->controller->show($this->routed('GET', '/organizer/events/11', '11'));
+        $edit = $this->controller->edit($this->routed('GET', '/organizer/events/11/edit', '11'));
+        $body = $show->body();
+
+        $this->assertSame(200, $show->status());
+        $this->assertTrue(str_contains($body, 'Hostile &lt;script&gt;alert(1)&lt;/script&gt; event'));
+        $this->assertTrue(str_contains($body, 'Description &lt;img src=x onerror=alert(2)&gt; evidence.'));
+        $this->assertTrue(str_contains($body, '/uploads/events/banner&amp;quot;-literal.webp'));
+        $this->assertTrue(str_contains($body, '/uploads/events/gallery-one.png'));
+        $this->assertTrue(str_contains($body, '&quot;&gt;&lt;script&gt;alert(4)&lt;/script&gt;'));
+        $this->assertTrue(str_contains($body, '&lt;script&gt;alert(3)&lt;/script&gt;'));
+        $this->assertTrue(str_contains($body, 'https://example.test/map?place=one&amp;mode=walk'));
+        $this->assertFalse(str_contains($body, '<script>alert'));
+
+        $this->assertSame(200, $edit->status());
+        $this->assertTrue(str_contains($edit->body(), 'Current banner'));
+        $this->assertTrue(str_contains($edit->body(), '/uploads/events/banner&amp;quot;-literal.webp'));
+        $this->assertTrue(str_contains($edit->body(), 'Current gallery'));
+        $this->assertTrue(str_contains($edit->body(), '/uploads/events/gallery-one.png'));
+        $this->assertTrue(str_contains($edit->body(), 'New gallery images replace the current gallery.'));
+    }
+
+    public function testEventHelpTextIdsMergeWithSimultaneousValidationErrors(): void
+    {
+        $this->session->flash('errors', [
+            'description' => ['Describe the event.'],
+            'tags' => ['Enter fewer tags.'],
+            'gallery' => ['Choose fewer images.'],
+        ]);
+
+        $body = $this->controller->create(Request::create('GET', '/organizer/events/create'))->body();
+
+        $this->assertTrue(str_contains($body, 'id="description-help"'));
+        $this->assertTrue(str_contains($body, 'id="description" name="description"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="description-help description-error"'));
+        $this->assertTrue(str_contains($body, 'id="tags-help"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="tags-help tags-error"'));
+        $this->assertTrue(str_contains($body, 'id="gallery-help"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="gallery-help gallery-error"'));
+    }
+
     public function testIndexAcceptsOnlyKnownStatusFilters(): void
     {
         $filtered = $this->controller->index(Request::create(
@@ -179,6 +234,7 @@ final class OrganizerEventControllerTest extends TestCase
             $this->validInput(),
         ));
         $this->assertSame(404, $response->status());
+        $this->assertSame([], $this->events->galleryForOwned(10, 12));
     }
 
     public function testSuccessfulCreateAndUpdateFlashConfirmation(): void

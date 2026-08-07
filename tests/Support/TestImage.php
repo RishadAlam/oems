@@ -19,12 +19,39 @@ final class TestImage
         . 'OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT'
         . '1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8A8ar+tT8kCgD/2Q==';
 
+    private const PNG_BASE64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+    private const WEBP_BASE64 =
+        'UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEAAUAmJaQAA3AA/vuUAAA=';
+
     public static function writeJpeg(string $path): string
     {
         $bytes = base64_decode(self::JPEG_BASE64, true);
 
         if ($bytes === false || file_put_contents($path, $bytes) === false) {
             throw new RuntimeException('Unable to write the embedded JPEG fixture.');
+        }
+
+        return $path;
+    }
+
+    public static function writePng(string $path): string
+    {
+        return self::writeFixture($path, self::PNG_BASE64);
+    }
+
+    public static function writeWebp(string $path): string
+    {
+        return self::writeFixture($path, self::WEBP_BASE64);
+    }
+
+    private static function writeFixture(string $path, string $base64): string
+    {
+        $bytes = base64_decode($base64, true);
+
+        if ($bytes === false || file_put_contents($path, $bytes) === false) {
+            throw new RuntimeException('Unable to write the embedded image fixture.');
         }
 
         return $path;

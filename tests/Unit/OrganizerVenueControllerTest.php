@@ -160,11 +160,17 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertSame('Updated Hall', $this->venues->venues[1]['name']);
     }
 
-    public function testDeletionReturnsNotFoundForForeignVenueAndBlocksReferencedVenue(): void
+    public function testDeletionReturnsNotFoundForForeignVenueWithoutConsultingInUseGuard(): void
     {
         $foreign = $this->controller->delete($this->routed('POST', '/organizer/venues/2/delete', '2'));
         $this->assertSame(404, $foreign->status());
+        $this->assertSame(0, $this->venues->deleteOwnedCalls);
+        $this->assertSame([], $this->venues->referencedVenueIds);
+        $this->assertArrayHasKey(2, $this->venues->venues);
+    }
 
+    public function testDeletionBlocksAnOwnedReferencedVenue(): void
+    {
         $this->venues->referencedVenueIds = [1];
         $blocked = $this->controller->delete($this->routed('POST', '/organizer/venues/1/delete', '1'));
 

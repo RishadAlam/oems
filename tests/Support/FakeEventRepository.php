@@ -19,6 +19,10 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public bool $failGalleryReplacement = false;
 
+    public int $forAdminCalls = 0;
+
+    public int $countPendingForAdminCalls = 0;
+
     public function featured(int $limit): array
     {
         return array_slice(array_values($this->events), 0, $limit);
@@ -48,6 +52,11 @@ final class FakeEventRepository implements EventRepositoryInterface
     public function gallery(int $eventId): array
     {
         return $this->galleries[$eventId] ?? [];
+    }
+
+    public function galleryForOwned(int $userId, int $eventId): array
+    {
+        return $this->findOwned($userId, $eventId) === null ? [] : ($this->galleries[$eventId] ?? []);
     }
 
     public function organizerSummary(int $userId): array
@@ -227,9 +236,22 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public function forAdmin(?string $status): array
     {
+        $this->forAdminCalls++;
+
         return array_values(array_filter(
             $this->events,
             static fn (array $event): bool => $status === null || $event['status'] === $status,
+        ));
+    }
+
+    public function countPendingForAdmin(): int
+    {
+        $this->countPendingForAdminCalls++;
+
+        return count(array_filter(
+            $this->events,
+            static fn (array $event): bool => ($event['status'] ?? null) === 'pending'
+                && empty($event['deleted_at']),
         ));
     }
 

@@ -92,6 +92,42 @@ final class DemoSeedIntegrityTest extends TestCase
         ));
     }
 
+    public function testDemoAccountCommentAndLifecycleDocumentationMatchBehavior(): void
+    {
+        $readme = file_get_contents(base_path('README.md'));
+
+        $this->assertTrue(str_contains(
+            $this->seed,
+            '-- Every non-administrator demo account uses the password: DemoPass!2026',
+        ));
+        $this->assertTrue(is_string($readme));
+        $this->assertTrue(str_contains($readme, '`rejected` → `draft` by saving edits'));
+        $this->assertTrue(str_contains($readme, '`draft` → `pending` by submitting for review'));
+    }
+
+    public function testTechSummitAvailableSeatsMatchItsSeededConfirmedRegistrations(): void
+    {
+        $eventRows = $this->insertRows('events');
+        $registrationRows = $this->insertRows('registrations');
+        $techEvent = null;
+
+        foreach ($eventRows as $row) {
+            if ($this->literal($row[4] ?? '') === 'dhaka-tech-summit-2026') {
+                $techEvent = $row;
+                break;
+            }
+        }
+
+        $confirmed = count(array_filter(
+            $registrationRows,
+            fn (array $row): bool => ($row[0] ?? null) === '@tech_event_id'
+                && $this->literal($row[3] ?? '') === 'confirmed',
+        ));
+
+        $this->assertNotNull($techEvent);
+        $this->assertSame((int) $techEvent[11] - $confirmed, (int) $techEvent[12]);
+    }
+
     public function testFutureTicketRowsDoNotClaimGeneratedMediaFiles(): void
     {
         $ticketRows = $this->insertRows('tickets');

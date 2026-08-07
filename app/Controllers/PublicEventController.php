@@ -206,16 +206,6 @@ final class PublicEventController extends Controller
                 '@type' => 'Organization',
                 'name' => (string) ($event['organization_name'] ?? 'OEMS organizer'),
             ],
-            'offers' => [
-                '@type' => 'Offer',
-                'url' => $url,
-                'price' => number_format((float) ($event['ticket_price'] ?? 0), 2, '.', ''),
-                'priceCurrency' => strtoupper((string) ($event['currency'] ?? 'BDT')),
-                'availability' => (int) ($event['available_seats'] ?? 0) > 0
-                    ? 'https://schema.org/InStock'
-                    : 'https://schema.org/SoldOut',
-                'availabilityEnds' => (string) $event['deadline_iso'],
-            ],
         ];
 
         if ($images !== []) {

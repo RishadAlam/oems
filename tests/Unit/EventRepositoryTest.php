@@ -21,6 +21,18 @@ final class EventRepositoryRecordingPdo extends PDO
     }
 }
 
+final class EventRepositoryZeroChangedRowsStatement extends PDOStatement
+{
+    protected function __construct()
+    {
+    }
+
+    public function rowCount(): int
+    {
+        return 0;
+    }
+}
+
 final class EventRepositoryTest extends TestCase
 {
     private PDO $connection;
@@ -262,6 +274,43 @@ final class EventRepositoryTest extends TestCase
         $this->assertTrue($this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending'));
     }
 
+    public function testSubmissionAtomicallyRequiresAnApprovedOrganizer(): void
+    {
+        $this->connection->exec("UPDATE organizers SET approval_status = 'pending' WHERE user_id = 10");
+
+        $this->assertFalse($this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending'));
+        $this->assertSame('draft', $this->eventValue(502, 'status'));
+        $this->assertSame(0, $this->activityCountFor(502));
+
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        preg_match_all('/:(\w+)/', $query, $bindings);
+
+        $this->assertTrue(str_contains($query, 'organizers.approval_status = :organizer_approval_status'));
+        $this->assertSame(count($bindings[1]), count(array_unique($bindings[1])));
+
+        $this->connection->exec("UPDATE organizers SET approval_status = 'approved' WHERE user_id = 10");
+
+        $this->assertTrue($this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending'));
+        $this->assertSame('pending', $this->eventValue(502, 'status'));
+    }
+
+    public function testIdenticalOwnedEventUpdateSucceedsWhenDriverReportsZeroChangedRows(): void
+    {
+        $attributes = $this->eventAttributes('no-op-event', 'No-op Event');
+        $eventId = $this->repository->createForUser(10, $attributes);
+        $this->assertNotNull($eventId);
+        $this->connection->setAttribute(
+            PDO::ATTR_STATEMENT_CLASS,
+            [EventRepositoryZeroChangedRowsStatement::class],
+        );
+
+        $this->assertTrue($this->repository->updateOwned(10, (int) $eventId, $attributes));
+        $this->assertFalse($this->repository->updateOwned(20, (int) $eventId, $attributes));
+
+        $this->connection->exec("UPDATE events SET status = 'pending' WHERE id = " . (int) $eventId);
+        $this->assertFalse($this->repository->updateOwned(10, (int) $eventId, $attributes));
+    }
+
     public function testAtomicCreatePersistsTheEventAndGalleryTogether(): void
     {
         $id = $this->repository->createWithGalleryForUser(
@@ -439,9 +488,29 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame([], $this->repository->galleryForAdmin(999));
     }
 
+    public function testOrganizerGalleryIsOwnerScopedAndExcludesDeletedEvents(): void
+    {
+        $this->assertSame(
+            ['draft-only.jpg'],
+            array_column($this->repository->galleryForOwned(10, 502), 'image_path'),
+        );
+        $this->assertSame([], $this->repository->galleryForOwned(20, 502));
+        $this->assertSame([], $this->repository->galleryForOwned(10, 505));
+    }
+
+    public function testPendingModerationCountUsesAnAggregateAndExcludesDeletedEvents(): void
+    {
+        $this->assertSame(1, $this->repository->countPendingForAdmin());
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        $this->assertTrue(str_contains($query, 'SELECT COUNT(*)'));
+        $this->assertFalse(str_contains($query, 'events.title'));
+        $this->connection->exec("UPDATE events SET deleted_at = CURRENT_TIMESTAMP WHERE id = 509");
+        $this->assertSame(0, $this->repository->countPendingForAdmin());
+    }
+
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL DEFAULT "pending")');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, city TEXT NOT NULL, country TEXT NOT NULL)');
         $this->connection->exec(
@@ -481,7 +550,7 @@ final class EventRepositoryTest extends TestCase
 
     private function seedEvents(): void
     {
-        $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (1, 10, 'First organization'), (2, 20, 'Second organization'), (3, 30, 'Needle Organization')");
+        $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status) VALUES (1, 10, 'First organization', 'approved'), (2, 20, 'Second organization', 'approved'), (3, 30, 'Needle Organization', 'approved')");
         $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (1, 'Technology', 'technology', 1), (2, 'Arts', 'arts', 1), (3, 'Needle Category', 'needle-category', 1)");
         $this->connection->exec("INSERT INTO venues (id, organizer_id, name, city, country) VALUES (1, 1, 'Dhaka Hall', 'Dhaka', 'Bangladesh'), (2, 2, 'Chittagong Hall', 'Chittagong', 'Bangladesh'), (3, 3, 'Needle Venue', 'Needle City', 'Bangladesh')");
         $this->connection->exec(

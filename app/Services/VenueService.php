@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Services;
 
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\Core\Logger;
 use OEMS\Core\Validator;
 use Throwable;
 
@@ -22,8 +23,10 @@ final class VenueService
         'capacity',
     ];
 
-    public function __construct(private readonly VenueRepositoryInterface $venues)
-    {
+    public function __construct(
+        private readonly VenueRepositoryInterface $venues,
+        private readonly ?Logger $logger = null,
+    ) {
     }
 
     public function create(int $userId, array $data): array
@@ -37,6 +40,7 @@ final class VenueService
         try {
             $venueId = $this->venues->createForUser($userId, $attributes);
         } catch (Throwable) {
+            $this->logPersistenceFailure('create', $userId);
             $venueId = null;
         }
 
@@ -62,6 +66,7 @@ final class VenueService
         try {
             $updated = $this->venues->updateOwned($userId, $venueId, $attributes);
         } catch (Throwable) {
+            $this->logPersistenceFailure('update', $userId, $venueId);
             $updated = false;
         }
 
@@ -81,6 +86,7 @@ final class VenueService
         try {
             $deleted = $this->venues->deleteOwnedIfUnused($userId, $venueId);
         } catch (Throwable) {
+            $this->logPersistenceFailure('delete', $userId, $venueId);
             $deleted = false;
         }
 
@@ -128,6 +134,25 @@ final class VenueService
             : (int) $attributes['capacity'];
 
         return [$attributes, []];
+    }
+
+    private function logPersistenceFailure(string $operation, int $userId, ?int $venueId = null): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $context = ['operation' => $operation, 'user_id' => $userId];
+
+        if ($venueId !== null) {
+            $context['venue_id'] = $venueId;
+        }
+
+        try {
+            $this->logger->error('Venue persistence operation failed.', $context);
+        } catch (Throwable) {
+            // Logging must not replace the stable user-facing persistence error.
+        }
     }
 
     private function success(array $data = []): array

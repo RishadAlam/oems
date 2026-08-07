@@ -7,6 +7,19 @@ namespace OEMS\Tests\Unit;
 use OEMS\App\Repositories\VenueRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
+use PDOStatement;
+
+final class VenueRepositoryZeroChangedRowsStatement extends PDOStatement
+{
+    protected function __construct()
+    {
+    }
+
+    public function rowCount(): int
+    {
+        return 0;
+    }
+}
 
 final class VenueRepositoryTest extends TestCase
 {
@@ -107,6 +120,21 @@ final class VenueRepositoryTest extends TestCase
         $venue = $repository->findOwned(10, 91);
         $this->assertSame('Changed venue', $venue['name']);
         $this->assertSame(250, (int) $venue['capacity']);
+    }
+
+    public function testIdenticalOwnedVenueUpdateSucceedsWhenDriverReportsZeroChangedRows(): void
+    {
+        $repository = new VenueRepository($this->connection);
+        $attributes = $this->venueAttributes('Rapid save venue');
+        $venueId = $repository->createForUser(10, $attributes);
+        $this->assertNotNull($venueId);
+        $this->connection->setAttribute(
+            PDO::ATTR_STATEMENT_CLASS,
+            [VenueRepositoryZeroChangedRowsStatement::class],
+        );
+
+        $this->assertTrue($repository->updateOwned(10, (int) $venueId, $attributes));
+        $this->assertFalse($repository->updateOwned(20, (int) $venueId, $attributes));
     }
 
     public function testDeleteOwnedIfUnusedRefusesLiveEventsButAllowsSoftDeletedEvents(): void

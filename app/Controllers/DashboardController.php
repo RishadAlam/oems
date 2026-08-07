@@ -62,7 +62,7 @@ final class DashboardController extends Controller
     public function admin(Request $request): Response
     {
         $metrics = $this->dashboardMetrics->totals();
-        $metrics['pending_reviews'] = count($this->events->forAdmin('pending'));
+        $metrics['pending_reviews'] = $this->events->countPendingForAdmin();
 
         return $this->render('dashboard/admin', [
             'pageTitle' => 'Platform overview',

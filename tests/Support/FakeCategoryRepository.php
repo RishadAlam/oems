@@ -12,6 +12,10 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
 
     public bool $failUpdate = false;
 
+    public bool $throwUpdate = false;
+
+    public bool $throwSetActive = false;
+
     public int $updateCalls = 0;
 
     public int $setActiveCalls = 0;
@@ -66,6 +70,10 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
     {
         $this->updateCalls++;
 
+        if ($this->throwUpdate) {
+            throw new \RuntimeException('SQL secret category update failure.');
+        }
+
         if ($this->failUpdate) {
             return false;
         }
@@ -82,6 +90,10 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
     public function setActive(int $id, bool $isActive): bool
     {
         $this->setActiveCalls++;
+
+        if ($this->throwSetActive) {
+            throw new \RuntimeException('SQL secret category status failure.');
+        }
 
         if (!isset($this->categories[$id])) {
             return false;

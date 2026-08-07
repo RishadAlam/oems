@@ -19,6 +19,7 @@ $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
 <div class="organizer-detail-grid mt-8">
     <article class="dashboard-panel organizer-event-detail">
         <div class="organizer-detail-lead"><span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span><span><?= e($event['category_name'] ?? 'Uncategorized') ?></span></div>
+        <?php if (!empty($event['banner'])): ?><figure class="admin-evidence-banner"><img src="<?= e($event['banner']) ?>" alt="Banner for <?= e($event['title']) ?>"></figure><?php endif; ?>
         <p class="organizer-event-description"><?= nl2br(e($event['description'] ?? '')) ?></p>
         <?php if ($status === 'rejected' && !empty($event['rejection_reason'])): ?><div class="form-alert" role="note"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><strong>Review note:</strong> <?= e($event['rejection_reason']) ?></span></div><?php endif; ?>
         <dl class="organizer-detail-list">
@@ -28,7 +29,10 @@ $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
             <div><dt><i class="ph ph-users" aria-hidden="true"></i>Capacity</dt><dd><?= e($event['capacity']) ?></dd></div>
             <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Ticket price</dt><dd>৳<?= e(number_format((float) ($event['ticket_price'] ?? 0), 2)) ?></dd></div>
             <div><dt><i class="ph ph-microphone-stage" aria-hidden="true"></i>Speaker</dt><dd><?= e($event['speaker'] ?? 'Not specified') ?></dd></div>
+            <div><dt><i class="ph ph-link" aria-hidden="true"></i>Map</dt><dd><?php if (!empty($event['map_url'])): ?><a class="text-link" href="<?= e($event['map_url']) ?>" target="_blank" rel="noopener noreferrer">Open map <i class="ph ph-arrow-square-out" aria-hidden="true"></i></a><?php else: ?>Not provided<?php endif; ?></dd></div>
         </dl>
+        <?php if (!empty($event['tags']) && is_array($event['tags'])): ?><section class="public-event__tags" aria-labelledby="organizer-event-tags-heading"><h2 id="organizer-event-tags-heading">Tags</h2><div><?php foreach ($event['tags'] as $tag): ?><span><?= e($tag) ?></span><?php endforeach; ?></div></section><?php endif; ?>
+        <?php if ($gallery !== []): ?><section aria-labelledby="organizer-event-gallery-heading"><h2 id="organizer-event-gallery-heading">Gallery</h2><div class="admin-evidence-gallery"><?php foreach ($gallery as $image): ?><figure><img src="<?= e($image['image_path'] ?? '') ?>" alt="<?= e($image['alt_text'] ?? ('Gallery image for ' . (string) $event['title'])) ?>" loading="lazy"></figure><?php endforeach; ?></div></section><?php endif; ?>
     </article>
 
     <aside class="dashboard-panel organizer-actions-panel" aria-labelledby="event-actions-heading">

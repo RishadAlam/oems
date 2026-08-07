@@ -8,6 +8,7 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\Core\Logger;
 use OEMS\Core\Validator;
 use Throwable;
 
@@ -19,6 +20,7 @@ final class EventService
         private readonly VenueRepositoryInterface $venues,
         private readonly ImageUploadService $uploads,
         private readonly OrganizerRepositoryInterface $organizers,
+        private readonly ?Logger $logger = null,
     ) {
     }
 
@@ -52,6 +54,7 @@ final class EventService
             }
         } catch (Throwable) {
             $this->deleteMedia($media['paths']);
+            $this->logPersistenceFailure('create', $userId);
 
             return $this->failure(['event' => ['The event could not be created.']]);
         }
@@ -105,6 +108,7 @@ final class EventService
             }
         } catch (Throwable) {
             $this->deleteMedia($media['paths']);
+            $this->logPersistenceFailure('update', $userId, $eventId);
 
             return $this->failure(['event' => ['The event could not be updated.']]);
         }
@@ -458,6 +462,25 @@ final class EventService
     private function organizerIsApproved(int $userId): bool
     {
         return $this->organizers->approvalStatusForUser($userId) === 'approved';
+    }
+
+    private function logPersistenceFailure(string $operation, int $userId, ?int $eventId = null): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $context = ['operation' => $operation, 'user_id' => $userId];
+
+        if ($eventId !== null) {
+            $context['event_id'] = $eventId;
+        }
+
+        try {
+            $this->logger->error('Event persistence operation failed.', $context);
+        } catch (Throwable) {
+            // Logging must not replace the stable user-facing persistence error.
+        }
     }
 
     private function ownedTransition(int $userId, int $eventId, string $status): array

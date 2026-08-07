@@ -16,6 +16,13 @@ $eventValue = static function (string $key, string $default = '') use ($old, $ev
 };
 $selected = static fn (string $key): string => (string) ($old[$key] ?? $event[$key] ?? '');
 $invalid = static fn (string $key): string => field_error($errors, $key) === null ? '' : ' aria-invalid="true" aria-describedby="' . str_replace('_', '-', $key) . '-error"';
+$described = static function (string $key) use ($errors): string {
+    $id = str_replace('_', '-', $key);
+    $hasError = field_error($errors, $key) !== null;
+
+    return ($hasError ? ' aria-invalid="true"' : '')
+        . ' aria-describedby="' . $id . '-help' . ($hasError ? ' ' . $id . '-error' : '') . '"';
+};
 ?>
 
 <div class="dashboard-page-heading organizer-page-heading">
@@ -41,10 +48,10 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="field-group"><label for="category_id">Category</label><select id="category_id" name="category_id" required<?= $invalid('category_id') ?>><option value="">Select category</option><?php foreach ($categories as $category): ?><option value="<?= e($category['id']) ?>" <?= $selected('category_id') === (string) $category['id'] ? 'selected' : '' ?>><?= e($category['name']) ?></option><?php endforeach; ?></select><?php if ($error = field_error($errors, 'category_id')): ?><p id="category-id-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
             <div class="field-group"><label for="venue_id">Venue <span class="field-label-note">Optional</span></label><select id="venue_id" name="venue_id"<?= $invalid('venue_id') ?>><option value="">No venue selected</option><?php foreach ($venues as $venueOption): ?><option value="<?= e($venueOption['id']) ?>" <?= $selected('venue_id') === (string) $venueOption['id'] ? 'selected' : '' ?>><?= e($venueOption['name']) ?></option><?php endforeach; ?></select><?php if ($error = field_error($errors, 'venue_id')): ?><p id="venue-id-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
-        <div class="field-group"><label for="description">Description</label><textarea id="description" name="description" rows="8" maxlength="20000" required<?= $invalid('description') ?>><?= $eventValue('description') ?></textarea><p class="field-help">Use at least 30 characters.</p><?php if ($error = field_error($errors, 'description')): ?><p id="description-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+        <div class="field-group"><label for="description">Description</label><textarea id="description" name="description" rows="8" maxlength="20000" required<?= $described('description') ?>><?= $eventValue('description') ?></textarea><p id="description-help" class="field-help">Use at least 30 characters.</p><?php if ($error = field_error($errors, 'description')): ?><p id="description-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         <div class="grid gap-5 sm:grid-cols-2">
             <div class="field-group"><label for="speaker">Speaker <span class="field-label-note">Optional</span></label><input id="speaker" name="speaker" type="text" maxlength="190" value="<?= $eventValue('speaker') ?>"<?= $invalid('speaker') ?>><?php if ($error = field_error($errors, 'speaker')): ?><p id="speaker-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
-            <div class="field-group"><label for="tags">Tags <span class="field-label-note">Optional</span></label><input id="tags" name="tags" type="text" maxlength="500" value="<?= $eventValue('tags') ?>" placeholder="design, community"<?= $invalid('tags') ?>><p class="field-help">Separate up to 12 tags with commas.</p><?php if ($error = field_error($errors, 'tags')): ?><p id="tags-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+            <div class="field-group"><label for="tags">Tags <span class="field-label-note">Optional</span></label><input id="tags" name="tags" type="text" maxlength="500" value="<?= $eventValue('tags') ?>" placeholder="design, community"<?= $described('tags') ?>><p id="tags-help" class="field-help">Separate up to 12 tags with commas.</p><?php if ($error = field_error($errors, 'tags')): ?><p id="tags-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
     </section>
 
@@ -64,8 +71,18 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
         <div class="organizer-form__heading"><span><i class="ph ph-image" aria-hidden="true"></i></span><div><h2 id="event-media-heading">Event media</h2><p>JPEG, PNG, and WebP images are accepted up to 5 MB each.</p></div></div>
         <div class="grid gap-5 sm:grid-cols-2">
             <div class="field-group"><label for="banner">Banner image <span class="field-label-note">Optional</span></label><input id="banner" name="banner" type="file" accept="image/jpeg,image/png,image/webp"<?= $invalid('banner') ?>><?php if ($error = field_error($errors, 'banner')): ?><p id="banner-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
-            <div class="field-group"><label for="gallery">Gallery images <span class="field-label-note">Optional</span></label><input id="gallery" name="gallery[]" type="file" accept="image/jpeg,image/png,image/webp" multiple<?= $invalid('gallery') ?>><p class="field-help">Choose up to six images.</p><?php if ($error = field_error($errors, 'gallery')): ?><p id="gallery-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+            <div class="field-group"><label for="gallery">Gallery images <span class="field-label-note">Optional</span></label><input id="gallery" name="gallery[]" type="file" accept="image/jpeg,image/png,image/webp" multiple<?= $described('gallery') ?>><p id="gallery-help" class="field-help">Choose up to six images.<?php if ($isEdit && $gallery !== []): ?> New gallery images replace the current gallery.<?php endif; ?></p><?php if ($error = field_error($errors, 'gallery')): ?><p id="gallery-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
+        <?php if ($isEdit && (!empty($event['banner']) || $gallery !== [])): ?>
+            <div class="grid gap-5 sm:grid-cols-2" aria-label="Existing event media">
+                <?php if (!empty($event['banner'])): ?>
+                    <section aria-labelledby="current-banner-heading"><h3 id="current-banner-heading">Current banner</h3><figure class="admin-evidence-banner"><img src="<?= e($event['banner']) ?>" alt="Current banner for <?= e($event['title']) ?>"></figure></section>
+                <?php endif; ?>
+                <?php if ($gallery !== []): ?>
+                    <section aria-labelledby="current-gallery-heading"><h3 id="current-gallery-heading">Current gallery</h3><div class="admin-evidence-gallery"><?php foreach ($gallery as $image): ?><figure><img src="<?= e($image['image_path'] ?? '') ?>" alt="<?= e($image['alt_text'] ?? ('Gallery image for ' . (string) $event['title'])) ?>"></figure><?php endforeach; ?></div></section>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </section>
 
     <div class="organizer-form__actions"><p><i class="ph ph-info" aria-hidden="true"></i><span><?= $isEdit ? 'Only draft and returned events can be updated.' : 'New events are saved as drafts.' ?></span></p><button class="button button--primary" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span><?= $isEdit ? 'Save changes' : 'Create draft' ?></span></button></div>

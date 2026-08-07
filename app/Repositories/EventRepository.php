@@ -186,6 +186,25 @@ final class EventRepository implements EventRepositoryInterface
         return is_array($gallery) ? $gallery : [];
     }
 
+    public function galleryForOwned(int $userId, int $eventId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT event_gallery.id, event_gallery.event_id, event_gallery.image_path,
+                    event_gallery.alt_text, event_gallery.sort_order, event_gallery.created_at
+             FROM event_gallery
+             INNER JOIN events ON events.id = event_gallery.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE organizers.user_id = :user_id
+               AND event_gallery.event_id = :event_id
+               AND events.deleted_at IS NULL
+             ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
+        );
+        $statement->execute(['user_id' => $userId, 'event_id' => $eventId]);
+        $gallery = $statement->fetchAll();
+
+        return is_array($gallery) ? $gallery : [];
+    }
+
     public function organizerSummary(int $userId): array
     {
         $statement = $this->connection->prepare(
@@ -358,7 +377,11 @@ final class EventRepository implements EventRepositoryInterface
         $parameters['event_id'] = $eventId;
         $statement->execute($parameters);
 
-        return $statement->rowCount() > 0;
+        if ($statement->rowCount() > 0) {
+            return true;
+        }
+
+        return $this->ownedEventUpdateEligible($userId, $eventId, $attributes);
     }
 
     public function updateWithGalleryOwned(
@@ -440,6 +463,22 @@ final class EventRepository implements EventRepositoryInterface
             $currentStatuses,
         ): bool {
             [$statusSql, $statusParameters] = $this->statusPredicate($currentStatuses);
+            $approvalSql = '';
+            $approvalParameters = [];
+
+            if ($status === 'pending') {
+                $approvalSql = ' AND EXISTS (
+                    SELECT 1 FROM organizers
+                    WHERE organizers.id = events.organizer_id
+                      AND organizers.user_id = :approval_user_id
+                      AND organizers.approval_status = :organizer_approval_status
+                )';
+                $approvalParameters = [
+                    'approval_user_id' => $userId,
+                    'organizer_approval_status' => 'approved',
+                ];
+            }
+
             $statement = $this->connection->prepare(
                 'UPDATE events
                  SET status = :status,
@@ -448,14 +487,15 @@ final class EventRepository implements EventRepositoryInterface
                  WHERE events.id = :event_id
                    AND events.deleted_at IS NULL
                    AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)
-                   AND events.status IN (' . $statusSql . ')',
+                   AND events.status IN (' . $statusSql . ')'
+                   . $approvalSql,
             );
             $statement->execute(array_merge([
                 'status' => $status,
                 'status_reason' => $status,
                 'event_id' => $eventId,
                 'user_id' => $userId,
-            ], $statusParameters));
+            ], $statusParameters, $approvalParameters));
 
             if ($statement->rowCount() === 0) {
                 return false;
@@ -482,6 +522,18 @@ final class EventRepository implements EventRepositoryInterface
         $statement->execute($parameters);
 
         return $this->decodeEvents($statement->fetchAll());
+    }
+
+    public function countPendingForAdmin(): int
+    {
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*)
+             FROM events
+             WHERE events.status = :status AND events.deleted_at IS NULL',
+        );
+        $statement->execute(['status' => 'pending']);
+
+        return (int) $statement->fetchColumn();
     }
 
     public function findForAdmin(int $eventId): ?array
@@ -695,6 +747,40 @@ final class EventRepository implements EventRepositoryInterface
             'tags' => $tags,
             'is_featured' => !empty($attributes['is_featured']) ? 1 : 0,
         ];
+    }
+
+    private function ownedEventUpdateEligible(int $userId, int $eventId, array $attributes): bool
+    {
+        $statement = $this->connection->prepare(
+            'SELECT EXISTS (
+                SELECT 1
+                FROM events
+                INNER JOIN organizers ON organizers.id = events.organizer_id
+                WHERE events.id = :eligibility_event_id
+                  AND organizers.user_id = :eligibility_user_id
+                  AND events.deleted_at IS NULL
+                  AND events.status IN (\'draft\', \'rejected\')
+                  AND EXISTS (
+                      SELECT 1 FROM categories
+                      WHERE categories.id = :eligibility_category_id
+                  )
+                  AND (:eligibility_venue_nullable IS NULL OR EXISTS (
+                      SELECT 1 FROM venues
+                      WHERE venues.id = :eligibility_venue_id
+                        AND venues.organizer_id = events.organizer_id
+                  ))
+            )',
+        );
+        $venueId = $attributes['venue_id'] ?? null;
+        $statement->execute([
+            'eligibility_event_id' => $eventId,
+            'eligibility_user_id' => $userId,
+            'eligibility_category_id' => $attributes['category_id'],
+            'eligibility_venue_nullable' => $venueId,
+            'eligibility_venue_id' => $venueId,
+        ]);
+
+        return (bool) $statement->fetchColumn();
     }
 
     private function dateRange(string $date): array

@@ -136,6 +136,22 @@ final class DashboardLayoutTest extends TestCase
         $this->assertFalse(str_contains($organizer, 'Revenue: ৳0'));
     }
 
+    public function testOrganizerDashboardEscapesHostileRecentEventContent(): void
+    {
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [
+            'summary' => ['total' => 1, 'pending' => 0, 'published' => 0],
+            'events' => [[
+                'id' => 91,
+                'title' => '<img src=x onerror=alert(1)>',
+                'status' => 'draft',
+                'start_date' => '2026-09-18 09:00:00',
+            ]],
+        ]);
+
+        $this->assertTrue(str_contains($organizer, '&lt;img src=x onerror=alert(1)&gt;'));
+        $this->assertFalse(str_contains($organizer, '<img src=x onerror=alert(1)>'));
+    }
+
     public function testParticipantDashboardKeepsItsAvailableDiscoveryAction(): void
     {
         $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
@@ -176,6 +192,8 @@ final class DashboardLayoutTest extends TestCase
 
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'aria-label="Pending review: 1"'));
+        $this->assertSame(1, $events->countPendingForAdminCalls);
+        $this->assertSame(0, $events->forAdminCalls);
     }
 
     public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void

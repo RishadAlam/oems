@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\VenueService;
+use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeVenueRepository;
 use OEMS\Tests\Support\TestCase;
 
@@ -133,6 +134,36 @@ final class VenueServiceTest extends TestCase
         $deleted = $this->service->delete(10, 1);
         $this->assertTrue($deleted['success']);
         $this->assertFalse(array_key_exists(1, $this->venues->venues));
+    }
+
+    public function testCaughtVenuePersistenceExceptionsLogOnlySanitizedOwnershipContext(): void
+    {
+        $logPath = sys_get_temp_dir() . '/oems-venue-log-' . bin2hex(random_bytes(6)) . '.log';
+        file_put_contents($logPath, '');
+        $service = new VenueService($this->venues, new Logger($logPath));
+        $this->venues->throwCreate = true;
+        $created = $service->create(10, $this->validInput());
+        $this->venues->throwCreate = false;
+        $this->venues->throwUpdate = true;
+        $updated = $service->update(10, 1, $this->validInput());
+        $this->venues->throwDelete = true;
+        $deleted = $service->delete(10, 1);
+        $log = file_get_contents($logPath);
+
+        $this->assertFalse($created['success']);
+        $this->assertFalse($updated['success']);
+        $this->assertFalse($deleted['success']);
+        $this->assertTrue(is_string($log));
+        $this->assertTrue(str_contains($log, 'Venue persistence operation failed.'));
+        $this->assertTrue(str_contains($log, '"operation":"create"'));
+        $this->assertTrue(str_contains($log, '"operation":"update"'));
+        $this->assertTrue(str_contains($log, '"operation":"delete"'));
+        $this->assertTrue(str_contains($log, '"user_id":10'));
+        $this->assertTrue(str_contains($log, '"venue_id":1'));
+        $this->assertFalse(str_contains($log, 'SQL secret'));
+        $this->assertFalse(str_contains($log, 'Owned Hall'));
+
+        unlink($logPath);
     }
 
     private function validInput(): array

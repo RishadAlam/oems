@@ -1,5 +1,5 @@
 -- Optional local-development data. Import after schema.sql and seed.sql.
--- Every demo account uses the password: DemoPass!2026
+-- Every non-administrator demo account uses the password: DemoPass!2026
 
 START TRANSACTION;
 
@@ -130,7 +130,7 @@ INSERT INTO events (
         'A full-day gathering for developers, product teams, and technology leaders.',
         '/assets/images/hero-events.webp',
         'Multiple industry speakers', '2026-09-18 09:00:00', '2026-09-18 18:00:00',
-        '2026-09-15 23:59:00', 200, 196, 2500.00, 'BDT',
+        '2026-09-15 23:59:00', 200, 197, 2500.00, 'BDT',
         JSON_ARRAY('technology', 'software', 'product'), 'published',
         @admin_user_id, '2026-06-10 10:00:00', '2026-06-11 09:00:00', TRUE
     ),

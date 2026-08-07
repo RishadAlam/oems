@@ -135,6 +135,7 @@ $container->singleton(
     CategoryService::class,
     static fn (Container $container): CategoryService => new CategoryService(
         $container->get(CategoryRepositoryInterface::class),
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(
@@ -145,12 +146,14 @@ $container->singleton(
         $container->get(VenueRepositoryInterface::class),
         $container->get(ImageUploadService::class),
         $container->get(OrganizerRepositoryInterface::class),
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(
     VenueService::class,
     static fn (Container $container): VenueService => new VenueService(
         $container->get(VenueRepositoryInterface::class),
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(

@@ -124,9 +124,14 @@ final class OrganizerEventController extends Controller
             return $this->notFound();
         }
 
+        $userId = $this->auth->id();
+
         return $this->render('organizer/events/show', [
             'pageTitle' => (string) $event['title'],
             'event' => $event,
+            'gallery' => $userId === null
+                ? []
+                : $this->events->galleryForOwned($userId, (int) $event['id']),
         ], 'dashboard');
     }
 
@@ -194,6 +199,9 @@ final class OrganizerEventController extends Controller
             'event' => $event,
             'categories' => $this->categories->active(),
             'venues' => $this->venues->forOrganizerUser($userId),
+            'gallery' => $event === null
+                ? []
+                : $this->events->galleryForOwned($userId, (int) $event['id']),
         ], 'dashboard');
     }
 

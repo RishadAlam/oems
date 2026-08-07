@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\CategoryService;
+use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeCategoryRepository;
 use OEMS\Tests\Support\TestCase;
 
@@ -141,5 +142,38 @@ final class CategoryServiceTest extends TestCase
         $this->assertFalse($deep['success']);
         $this->assertArrayHasKey('parent_id', $deep['errors']);
         $this->assertNull($this->categories->categories[1]['parent_id']);
+    }
+
+    public function testCaughtCategoryPersistenceExceptionsLogOnlySanitizedIdentifiers(): void
+    {
+        $logPath = sys_get_temp_dir() . '/oems-category-log-' . bin2hex(random_bytes(6)) . '.log';
+        file_put_contents($logPath, '');
+        $service = new CategoryService($this->categories, new Logger($logPath));
+        $this->categories->failCreate = true;
+        $created = $service->create(['name' => 'Logged category', 'sort_order' => '0']);
+        $this->categories->failCreate = false;
+        $this->categories->throwUpdate = true;
+        $updated = $service->update(1, [
+            'name' => 'Changed technology',
+            'slug' => 'technology',
+            'sort_order' => '0',
+        ]);
+        $this->categories->throwSetActive = true;
+        $activated = $service->setActive(1, '0');
+        $log = file_get_contents($logPath);
+
+        $this->assertFalse($created['success']);
+        $this->assertFalse($updated['success']);
+        $this->assertFalse($activated['success']);
+        $this->assertTrue(is_string($log));
+        $this->assertTrue(str_contains($log, 'Category persistence operation failed.'));
+        $this->assertTrue(str_contains($log, '"operation":"create"'));
+        $this->assertTrue(str_contains($log, '"operation":"update"'));
+        $this->assertTrue(str_contains($log, '"operation":"set_active"'));
+        $this->assertTrue(str_contains($log, '"category_id":1'));
+        $this->assertFalse(str_contains($log, 'SQL secret'));
+        $this->assertFalse(str_contains($log, 'Changed technology'));
+
+        unlink($logPath);
     }
 }
