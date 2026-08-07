@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use OEMS\App\Controllers\AuthController;
+use OEMS\App\Controllers\AdminCategoryController;
+use OEMS\App\Controllers\AdminEventController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerEventController;
@@ -46,6 +48,19 @@ return static function (Router $router): void {
     $router->post('/organizer/venues/{id}', [OrganizerVenueController::class, 'update'], ['role:organizer', 'csrf'], 'organizer.venues.update');
     $router->post('/organizer/venues/{id}/delete', [OrganizerVenueController::class, 'delete'], ['role:organizer', 'csrf'], 'organizer.venues.delete');
     $router->get('/admin/dashboard', [DashboardController::class, 'admin'], ['role:super-admin'], 'admin.dashboard');
+    $router->get('/admin/categories', [AdminCategoryController::class, 'index'], ['role:super-admin'], 'admin.categories.index');
+    $router->get('/admin/categories/create', [AdminCategoryController::class, 'create'], ['role:super-admin'], 'admin.categories.create');
+    $router->post('/admin/categories', [AdminCategoryController::class, 'store'], ['role:super-admin', 'csrf'], 'admin.categories.store');
+    $router->get('/admin/categories/{id}/edit', [AdminCategoryController::class, 'edit'], ['role:super-admin'], 'admin.categories.edit');
+    $router->post('/admin/categories/{id}', [AdminCategoryController::class, 'update'], ['role:super-admin', 'csrf'], 'admin.categories.update');
+    $router->post('/admin/categories/{id}/status', [AdminCategoryController::class, 'setActive'], ['role:super-admin', 'csrf'], 'admin.categories.status');
+    $router->get('/admin/events', [AdminEventController::class, 'index'], ['role:super-admin'], 'admin.events.index');
+    $router->get('/admin/events/{id}', [AdminEventController::class, 'show'], ['role:super-admin'], 'admin.events.show');
+    $router->post('/admin/events/{id}/approve', [AdminEventController::class, 'approve'], ['role:super-admin', 'csrf'], 'admin.events.approve');
+    $router->post('/admin/events/{id}/reject', [AdminEventController::class, 'reject'], ['role:super-admin', 'csrf'], 'admin.events.reject');
+    $router->post('/admin/events/{id}/publish', [AdminEventController::class, 'publish'], ['role:super-admin', 'csrf'], 'admin.events.publish');
+    $router->post('/admin/events/{id}/complete', [AdminEventController::class, 'complete'], ['role:super-admin', 'csrf'], 'admin.events.complete');
+    $router->post('/admin/events/{id}/cancel', [AdminEventController::class, 'cancel'], ['role:super-admin', 'csrf'], 'admin.events.cancel');
     $router->get('/settings/password', [AuthController::class, 'showChangePassword'], ['auth'], 'password.change');
     $router->post('/settings/password', [AuthController::class, 'changePassword'], ['auth', 'csrf'], 'password.change.submit');
 };

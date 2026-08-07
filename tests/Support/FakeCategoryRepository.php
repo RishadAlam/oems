@@ -8,6 +8,12 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 
 final class FakeCategoryRepository implements CategoryRepositoryInterface
 {
+    public bool $failCreate = false;
+
+    public bool $failUpdate = false;
+
+    public int $updateCalls = 0;
+
     public array $categories = [
         1 => ['id' => 1, 'name' => 'Technology', 'slug' => 'technology', 'is_active' => 1],
         2 => ['id' => 2, 'name' => 'Archived', 'slug' => 'archived', 'is_active' => 0],
@@ -44,6 +50,10 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
 
     public function create(array $attributes): int
     {
+        if ($this->failCreate) {
+            throw new \RuntimeException('Category create failed.');
+        }
+
         $id = $this->categories === [] ? 1 : max(array_keys($this->categories)) + 1;
         $this->categories[$id] = array_merge($attributes, ['id' => $id]);
 
@@ -52,6 +62,12 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
 
     public function update(int $id, array $attributes): bool
     {
+        $this->updateCalls++;
+
+        if ($this->failUpdate) {
+            return false;
+        }
+
         if (!isset($this->categories[$id])) {
             return false;
         }

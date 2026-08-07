@@ -24,6 +24,8 @@
     $overviewActive = in_array($currentPath, $overviewPaths, true);
     $organizerEventsActive = str_starts_with($currentPath, '/organizer/events');
     $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
+    $adminEventsActive = str_starts_with($currentPath, '/admin/events');
+    $adminCategoriesActive = str_starts_with($currentPath, '/admin/categories');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -45,6 +47,10 @@
                     <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
                         <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
+                    <?php endif; ?>
+                    <?php if (($currentUser['role_slug'] ?? '') === 'super-admin'): ?>
+                        <a class="dashboard-nav-link<?= $adminEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/events"<?= $adminEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-chevron" aria-hidden="true"></i><span>Event moderation</span></a>
+                        <a class="dashboard-nav-link<?= $adminCategoriesActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/categories"<?= $adminCategoriesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-tag" aria-hidden="true"></i><span>Categories</span></a>
                     <?php endif; ?>
                     <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>

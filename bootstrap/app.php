@@ -25,6 +25,7 @@ use OEMS\App\Repositories\VenueRepository;
 use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
+use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\VenueService;
@@ -129,6 +130,12 @@ $container->singleton(
 $container->singleton(
     ImageUploadService::class,
     static fn (): ImageUploadService => new ImageUploadService($basePath . '/public/uploads/events'),
+);
+$container->singleton(
+    CategoryService::class,
+    static fn (Container $container): CategoryService => new CategoryService(
+        $container->get(CategoryRepositoryInterface::class),
+    ),
 );
 $container->singleton(
     EventService::class,

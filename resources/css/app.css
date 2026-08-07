@@ -1255,6 +1255,54 @@
     .organizer-danger-zone__copy p {
         @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
     }
+
+    .admin-table-actions {
+        @apply flex flex-wrap items-center justify-end gap-2;
+    }
+
+    .admin-table-actions form {
+        @apply inline-flex;
+    }
+
+    .admin-moderation-layout {
+        @apply grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px];
+    }
+
+    .admin-evidence-panel {
+        @apply grid gap-6;
+    }
+
+    .admin-evidence-banner {
+        @apply overflow-hidden rounded-[14px] border border-[var(--line)] bg-[var(--surface)];
+    }
+
+    .admin-evidence-banner img {
+        @apply aspect-[16/7] w-full object-cover;
+    }
+
+    .admin-evidence-summary {
+        @apply flex flex-wrap items-center gap-3 text-xs font-bold text-[var(--ink-muted)];
+    }
+
+    .admin-evidence-tags {
+        @apply flex flex-wrap gap-2 border-t border-[var(--line)] pt-5;
+    }
+
+    .admin-evidence-tags span {
+        @apply rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--accent)];
+    }
+
+    .admin-current-state {
+        @apply mt-5 rounded-[12px] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--ink-muted)];
+    }
+
+    .admin-current-state strong {
+        @apply text-[var(--ink)];
+    }
+
+    .admin-rejection-form {
+        @apply grid gap-4 border-t border-[var(--line)] pt-5;
+    }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1353,5 +1401,9 @@
     .organizer-table td.organizer-table__action {
         display: flex;
         justify-content: flex-end;
+    }
+
+    .organizer-table td.admin-table-actions::before {
+        display: none;
     }
 }
