@@ -8,8 +8,10 @@ use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\Tests\Support\FakeCategoryRepository;
 use OEMS\Tests\Support\FakeEventRepository;
+use OEMS\Tests\Support\FakeOrganizerRepository;
 use OEMS\Tests\Support\FakeVenueRepository;
 use OEMS\Tests\Support\TestCase;
+use OEMS\Tests\Support\TestImage;
 
 final class EventServiceTest extends TestCase
 {
@@ -39,7 +41,7 @@ final class EventServiceTest extends TestCase
             $this->categories,
             $this->venues,
             $uploads,
-            static fn (int $userId): bool => $userId === 10,
+            new FakeOrganizerRepository(),
         );
     }
 
@@ -161,6 +163,76 @@ final class EventServiceTest extends TestCase
         $this->assertFalse($result['success']);
         $this->assertSame('Stored Event', $this->events->events[1]['title']);
         $this->assertSame([], $this->storedUploadFiles());
+    }
+
+    public function testAtomicCreateFailureRemovesNewMediaWithoutLeavingAnEventOrSlug(): void
+    {
+        $bannerPath = $this->generatedJpeg('atomic-create-banner.jpg');
+        $galleryPath = $this->generatedJpeg('atomic-create-gallery.jpg');
+        $this->events->failGalleryReplacement = true;
+
+        $result = $this->service->createDraft(
+            10,
+            $this->validInput(['title' => 'Atomic Create Failure']),
+            $this->upload($bannerPath, 'atomic-create-banner.jpg'),
+            [$this->upload($galleryPath, 'atomic-create-gallery.jpg')],
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertSame([], $this->events->events);
+        $this->assertFalse($this->events->slugExists('atomic-create-failure', null));
+        $this->assertSame([], $this->storedUploadFiles());
+    }
+
+    public function testAtomicUpdateFailurePreservesOldEventGalleryAndMediaAndRemovesNewFiles(): void
+    {
+        $oldBanner = $this->storeExistingImage('old-atomic-banner.jpg');
+        $oldGallery = $this->storeExistingImage('old-atomic-gallery.jpg');
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft', ['banner' => $oldBanner]);
+        $this->events->galleries[1] = [$oldGallery];
+        $newBanner = $this->generatedJpeg('new-atomic-banner.jpg');
+        $newGallery = $this->generatedJpeg('new-atomic-gallery.jpg');
+        $this->events->failGalleryReplacement = true;
+
+        $result = $this->service->update(
+            10,
+            1,
+            $this->validInput(['title' => 'Must Roll Back']),
+            $this->upload($newBanner, 'new-atomic-banner.jpg'),
+            [$this->upload($newGallery, 'new-atomic-gallery.jpg')],
+        );
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('Stored Event', $this->events->events[1]['title']);
+        $this->assertSame($oldBanner, $this->events->events[1]['banner']);
+        $this->assertSame([$oldGallery], $this->events->galleries[1]);
+        $this->assertSame(['old-atomic-banner.jpg', 'old-atomic-gallery.jpg'], $this->storedUploadFiles());
+    }
+
+    public function testSuccessfulAtomicGalleryReplacementDeletesSupersededGalleryAfterCommit(): void
+    {
+        $retainedBanner = $this->storeExistingImage('retained-banner.jpg');
+        $oldGallery = $this->storeExistingImage('superseded-gallery.jpg');
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft', ['banner' => $retainedBanner]);
+        $this->events->galleries[1] = [$retainedBanner, $oldGallery];
+        $newGallery = $this->generatedJpeg('replacement-gallery.jpg');
+
+        $result = $this->service->update(
+            10,
+            1,
+            $this->validInput(['title' => 'Gallery Replaced']),
+            null,
+            [$this->upload($newGallery, 'replacement-gallery.jpg')],
+        );
+
+        $this->assertTrue($result['success']);
+        $this->assertSame($retainedBanner, $this->events->events[1]['banner']);
+        $this->assertTrue(is_file($this->uploadRoot . '/retained-banner.jpg'));
+        $this->assertFalse(is_file($this->uploadRoot . '/superseded-gallery.jpg'));
+        $this->assertSame(1, count($this->events->galleries[1]));
+        $this->assertTrue(is_file(
+            $this->uploadRoot . '/' . basename((string) $this->events->galleries[1][0]),
+        ));
     }
 
     public function testPendingOrganizerCannotSubmitADraft(): void
@@ -318,17 +390,15 @@ final class EventServiceTest extends TestCase
 
     private function generatedJpeg(string $filename): string
     {
-        $path = $this->temporaryDirectory . '/' . $filename;
-        $image = imagecreatetruecolor(10, 10);
+        return TestImage::writeJpeg($this->temporaryDirectory . '/' . $filename);
+    }
 
-        if ($image === false) {
-            throw new \RuntimeException('Unable to create a test image.');
-        }
+    private function storeExistingImage(string $filename): string
+    {
+        $source = $this->generatedJpeg($filename);
+        rename($source, $this->uploadRoot . '/' . $filename);
 
-        imagejpeg($image, $path, 90);
-        imagedestroy($image);
-
-        return $path;
+        return '/uploads/events/' . $filename;
     }
 
     private function upload(string $path, string $name): array

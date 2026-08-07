@@ -104,6 +104,25 @@ final class FakeEventRepository implements EventRepositoryInterface
         return $id;
     }
 
+    public function createWithGalleryForUser(int $userId, array $attributes, array $images): ?int
+    {
+        if ($this->failCreate) {
+            return null;
+        }
+
+        if ($this->failGalleryReplacement) {
+            throw new RuntimeException('Gallery persistence failed.');
+        }
+
+        $id = $this->createForUser($userId, $attributes);
+
+        if ($id !== null) {
+            $this->galleries[$id] = array_slice($images, 0, 6);
+        }
+
+        return $id;
+    }
+
     public function updateOwned(int $userId, int $eventId, array $attributes): bool
     {
         if ($this->failUpdate || $this->findOwned($userId, $eventId) === null) {
@@ -113,6 +132,35 @@ final class FakeEventRepository implements EventRepositoryInterface
         $this->events[$eventId] = array_merge($this->events[$eventId], $attributes);
 
         return true;
+    }
+
+    public function updateWithGalleryOwned(
+        int $userId,
+        int $eventId,
+        array $attributes,
+        ?array $images,
+    ): ?array {
+        $event = $this->findOwned($userId, $eventId);
+
+        if ($event === null || $this->failUpdate) {
+            return null;
+        }
+
+        if ($this->failGalleryReplacement) {
+            throw new RuntimeException('Gallery persistence failed.');
+        }
+
+        $prior = [
+            'banner' => is_string($event['banner'] ?? null) ? $event['banner'] : null,
+            'gallery' => $this->galleryPaths($eventId),
+        ];
+        $this->events[$eventId] = array_merge($event, $attributes);
+
+        if ($images !== null) {
+            $this->galleries[$eventId] = array_slice($images, 0, 6);
+        }
+
+        return $prior;
     }
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool
@@ -129,6 +177,15 @@ final class FakeEventRepository implements EventRepositoryInterface
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool
     {
         if ($this->findOwned($userId, $eventId) === null) {
+            return false;
+        }
+
+        $allowed = [
+            'pending' => ['draft', 'rejected'],
+            'cancelled' => ['approved', 'published'],
+        ];
+
+        if (!in_array($this->events[$eventId]['status'], $allowed[$status] ?? [], true)) {
             return false;
         }
 
@@ -160,6 +217,18 @@ final class FakeEventRepository implements EventRepositoryInterface
             return false;
         }
 
+        $allowed = [
+            'approved' => ['pending'],
+            'rejected' => ['pending'],
+            'published' => ['approved'],
+            'completed' => ['published'],
+            'cancelled' => ['approved', 'published'],
+        ];
+
+        if (!in_array($this->events[$eventId]['status'], $allowed[$status] ?? [], true)) {
+            return false;
+        }
+
         $this->events[$eventId]['status'] = $status;
         $this->events[$eventId]['rejection_reason'] = $status === 'rejected' ? $reason : null;
 
@@ -186,5 +255,20 @@ final class FakeEventRepository implements EventRepositoryInterface
         unset($this->galleries[$eventId][$imageId]);
 
         return is_array($image) ? ($image['image_path'] ?? null) : $image;
+    }
+
+    private function galleryPaths(int $eventId): array
+    {
+        $paths = [];
+
+        foreach ($this->galleries[$eventId] ?? [] as $image) {
+            $path = is_array($image) ? ($image['image_path'] ?? $image['path'] ?? null) : $image;
+
+            if (is_string($path)) {
+                $paths[] = $path;
+            }
+        }
+
+        return $paths;
     }
 }

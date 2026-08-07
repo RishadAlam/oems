@@ -6,6 +6,7 @@ use OEMS\App\Contracts\EmailLogRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\MailTransportInterface;
+use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\ProfileRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
@@ -17,6 +18,7 @@ use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
+use OEMS\App\Repositories\OrganizerRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
@@ -118,29 +120,24 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    OrganizerRepositoryInterface::class,
+    static fn (Container $container): OrganizerRepository => new OrganizerRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ImageUploadService::class,
     static fn (): ImageUploadService => new ImageUploadService($basePath . '/public/uploads/events'),
 );
 $container->singleton(
     EventService::class,
-    static function (Container $container): EventService {
-        $connection = $container->get(Database::class)->connection();
-
-        return new EventService(
-            $container->get(EventRepositoryInterface::class),
-            $container->get(CategoryRepositoryInterface::class),
-            $container->get(VenueRepositoryInterface::class),
-            $container->get(ImageUploadService::class),
-            static function (int $userId) use ($connection): bool {
-                $statement = $connection->prepare(
-                    'SELECT approval_status FROM organizers WHERE user_id = :user_id LIMIT 1',
-                );
-                $statement->execute(['user_id' => $userId]);
-
-                return $statement->fetchColumn() === 'approved';
-            },
-        );
-    },
+    static fn (Container $container): EventService => new EventService(
+        $container->get(EventRepositoryInterface::class),
+        $container->get(CategoryRepositoryInterface::class),
+        $container->get(VenueRepositoryInterface::class),
+        $container->get(ImageUploadService::class),
+        $container->get(OrganizerRepositoryInterface::class),
+    ),
 );
 $container->singleton(
     MailTransportInterface::class,

@@ -174,6 +174,102 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(1, $this->activityCountFor($id));
     }
 
+    public function testAtomicCreatePersistsTheEventAndGalleryTogether(): void
+    {
+        $id = $this->repository->createWithGalleryForUser(
+            10,
+            $this->eventAttributes('atomic-event', 'Atomic Event'),
+            ['atomic-one.jpg', 'atomic-two.jpg'],
+        );
+
+        $this->assertNotNull($id);
+        $this->assertSame('Atomic Event', $this->eventTitle((int) $id));
+        $this->assertSame(['atomic-one.jpg', 'atomic-two.jpg'], $this->storedGalleryPaths((int) $id));
+    }
+
+    public function testAtomicCreateRollsBackTheEventAndSlugWhenGalleryInsertFails(): void
+    {
+        $this->connection->exec(
+            "CREATE TRIGGER fail_atomic_create_gallery
+             BEFORE INSERT ON event_gallery
+             WHEN NEW.image_path = 'explode.jpg'
+             BEGIN SELECT RAISE(ABORT, 'gallery failed'); END",
+        );
+
+        try {
+            $this->repository->createWithGalleryForUser(
+                10,
+                $this->eventAttributes('rolled-back-event', 'Rolled Back Event'),
+                ['safe.jpg', 'explode.jpg'],
+            );
+            $this->assertTrue(false, 'Expected the gallery insert to fail.');
+        } catch (\PDOException) {
+            $this->assertFalse($this->repository->slugExists('rolled-back-event', null));
+            $this->assertSame([], $this->storedGalleryPathsForSlug('rolled-back-event'));
+        }
+    }
+
+    public function testAtomicUpdateReturnsPriorMediaOnlyAfterReplacingEventAndGallery(): void
+    {
+        $this->connection->exec("UPDATE events SET banner = 'old-banner.jpg' WHERE id = 502");
+        $attributes = $this->eventAttributes('atomic-update', 'Atomic Update');
+        $attributes['banner'] = 'new-banner.jpg';
+
+        $prior = $this->repository->updateWithGalleryOwned(
+            10,
+            502,
+            $attributes,
+            ['draft-only.jpg', 'new-gallery.jpg'],
+        );
+
+        $this->assertSame([
+            'banner' => 'old-banner.jpg',
+            'gallery' => ['draft-only.jpg'],
+        ], $prior);
+        $this->assertSame('Atomic Update', $this->eventTitle(502));
+        $this->assertSame('new-banner.jpg', $this->eventValue(502, 'banner'));
+        $this->assertSame(['draft-only.jpg', 'new-gallery.jpg'], $this->storedGalleryPaths(502));
+    }
+
+    public function testAtomicUpdateLeavesOldEventAndGalleryUntouchedWhenGalleryInsertFails(): void
+    {
+        $this->connection->exec("UPDATE events SET banner = 'old-banner.jpg' WHERE id = 502");
+        $this->connection->exec(
+            "CREATE TRIGGER fail_atomic_update_gallery
+             BEFORE INSERT ON event_gallery
+             WHEN NEW.image_path = 'explode.jpg'
+             BEGIN SELECT RAISE(ABORT, 'gallery failed'); END",
+        );
+        $attributes = $this->eventAttributes('failed-atomic-update', 'Failed Atomic Update');
+        $attributes['banner'] = 'new-banner.jpg';
+
+        try {
+            $this->repository->updateWithGalleryOwned(10, 502, $attributes, ['explode.jpg']);
+            $this->assertTrue(false, 'Expected the gallery insert to fail.');
+        } catch (\PDOException) {
+            $this->assertSame('Draft Dhaka Summit', $this->eventTitle(502));
+            $this->assertSame('old-banner.jpg', $this->eventValue(502, 'banner'));
+            $this->assertSame(['draft-only.jpg'], $this->storedGalleryPaths(502));
+            $this->assertFalse($this->repository->slugExists('failed-atomic-update', null));
+        }
+    }
+
+    public function testTransitionsUseCurrentStatusAsAnAtomicCompareAndSetGuard(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'pending' WHERE id = 502");
+        $this->connection->exec("UPDATE events SET status = 'approved' WHERE id = 509");
+
+        $owned = $this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending');
+        $admin = $this->repository->transitionAdmin(77, 509, $this->auditContext(), 'approved', null);
+
+        $this->assertFalse($owned);
+        $this->assertFalse($admin);
+        $this->assertSame('pending', $this->eventValue(502, 'status'));
+        $this->assertSame('approved', $this->eventValue(509, 'status'));
+        $this->assertSame(0, $this->activityCountFor(502));
+        $this->assertSame(0, $this->activityCountFor(509));
+    }
+
     public function testAdminTransitionsPreserveAndClearLifecycleMetadataAsAppropriate(): void
     {
         $events = $this->repository->forAdmin('pending');
@@ -353,5 +449,28 @@ final class EventRepositoryTest extends TestCase
     private function activityCountFor(int $eventId): int
     {
         return (int) $this->connection->query("SELECT COUNT(*) FROM activity_logs WHERE subject_id = {$eventId}")->fetchColumn();
+    }
+
+    private function storedGalleryPaths(int $eventId): array
+    {
+        $statement = $this->connection->query(
+            "SELECT image_path FROM event_gallery WHERE event_id = {$eventId} ORDER BY sort_order ASC, id ASC",
+        );
+
+        return $statement->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    private function storedGalleryPathsForSlug(string $slug): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT event_gallery.image_path
+             FROM event_gallery
+             INNER JOIN events ON events.id = event_gallery.event_id
+             WHERE events.slug = :slug
+             ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
+        );
+        $statement->execute(['slug' => $slug]);
+
+        return $statement->fetchAll(PDO::FETCH_COLUMN);
     }
 }

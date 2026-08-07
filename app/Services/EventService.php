@@ -4,27 +4,22 @@ declare(strict_types=1);
 
 namespace OEMS\App\Services;
 
-use Closure;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
 use OEMS\Core\Validator;
 use Throwable;
 
 final class EventService
 {
-    private ?Closure $organizerApprovalResolver;
-
     public function __construct(
         private readonly EventRepositoryInterface $events,
         private readonly CategoryRepositoryInterface $categories,
         private readonly VenueRepositoryInterface $venues,
         private readonly ImageUploadService $uploads,
-        ?callable $organizerApprovalResolver = null,
+        private readonly OrganizerRepositoryInterface $organizers,
     ) {
-        $this->organizerApprovalResolver = $organizerApprovalResolver === null
-            ? null
-            : Closure::fromCallable($organizerApprovalResolver);
     }
 
     public function createDraft(int $userId, array $data, ?array $banner, array $gallery): array
@@ -48,23 +43,15 @@ final class EventService
         $attributes['banner'] = $media['banner'];
 
         try {
-            $eventId = $this->events->createForUser($userId, $attributes);
+            $eventId = $this->events->createWithGalleryForUser($userId, $attributes, $media['gallery']);
 
             if ($eventId === null) {
                 $this->deleteMedia($media['paths']);
 
                 return $this->failure(['event' => ['The event could not be created.']]);
             }
-
-            if ($media['gallery'] !== []) {
-                $this->events->replaceGallery($eventId, $media['gallery']);
-            }
         } catch (Throwable) {
             $this->deleteMedia($media['paths']);
-
-            if (isset($eventId) && is_int($eventId)) {
-                $this->events->softDeleteOwned($userId, $eventId, []);
-            }
 
             return $this->failure(['event' => ['The event could not be created.']]);
         }
@@ -100,11 +87,18 @@ final class EventService
             return $this->failure($media['errors']);
         }
 
-        $oldBanner = is_string($event['banner'] ?? null) ? $event['banner'] : null;
-        $attributes['banner'] = $media['banner'] ?? $oldBanner;
+        $attributes['banner'] = $media['banner'] ?? (is_string($event['banner'] ?? null) ? $event['banner'] : null);
+        $galleryReplacement = $media['gallery'] === [] ? null : $media['gallery'];
 
         try {
-            if (!$this->events->updateOwned($userId, $eventId, $attributes)) {
+            $priorMedia = $this->events->updateWithGalleryOwned(
+                $userId,
+                $eventId,
+                $attributes,
+                $galleryReplacement,
+            );
+
+            if ($priorMedia === null) {
                 $this->deleteMedia($media['paths']);
 
                 return $this->failure(['event' => ['The event could not be updated.']]);
@@ -115,17 +109,24 @@ final class EventService
             return $this->failure(['event' => ['The event could not be updated.']]);
         }
 
-        if ($media['banner'] !== null && $oldBanner !== null && $oldBanner !== $media['banner']) {
-            $this->uploads->delete($oldBanner);
+        $priorBanner = $priorMedia['banner'] ?? null;
+        $currentReferences = $galleryReplacement ?? ($priorMedia['gallery'] ?? []);
+
+        if (is_string($attributes['banner'] ?? null)) {
+            $currentReferences[] = $attributes['banner'];
         }
 
-        if ($media['gallery'] !== []) {
-            try {
-                $this->events->replaceGallery($eventId, $media['gallery']);
-            } catch (Throwable) {
-                $this->deleteMedia($media['gallery']);
+        if ($media['banner'] !== null
+            && is_string($priorBanner)
+            && !in_array($priorBanner, $currentReferences, true)) {
+            $this->uploads->delete($priorBanner);
+        }
 
-                return $this->failure(['gallery' => ['The event gallery could not be updated.']]);
+        if ($galleryReplacement !== null) {
+            foreach ($priorMedia['gallery'] ?? [] as $priorPath) {
+                if (is_string($priorPath) && !in_array($priorPath, $currentReferences, true)) {
+                    $this->uploads->delete($priorPath);
+                }
             }
         }
 
@@ -144,7 +145,7 @@ final class EventService
             return $this->failure(['status' => ['Only draft or rejected events may be submitted.']]);
         }
 
-        if (!$this->organizerIsApproved($userId, $event)) {
+        if (!$this->organizerIsApproved($userId)) {
             return $this->failure(['status' => ['Organizer approval is required before submission.']]);
         }
 
@@ -454,13 +455,9 @@ final class EventService
         return str_replace('T', ' ', $value) . ':00';
     }
 
-    private function organizerIsApproved(int $userId, array $event): bool
+    private function organizerIsApproved(int $userId): bool
     {
-        if ($this->organizerApprovalResolver !== null) {
-            return (bool) ($this->organizerApprovalResolver)($userId);
-        }
-
-        return ($event['organizer_approval_status'] ?? $event['approval_status'] ?? null) === 'approved';
+        return $this->organizers->approvalStatusForUser($userId) === 'approved';
     }
 
     private function ownedTransition(int $userId, int $eventId, string $status): array

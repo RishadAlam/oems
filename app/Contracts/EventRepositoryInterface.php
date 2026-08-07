@@ -26,7 +26,16 @@ interface EventRepositoryInterface
 
     public function createForUser(int $userId, array $attributes): ?int;
 
+    public function createWithGalleryForUser(int $userId, array $attributes, array $images): ?int;
+
     public function updateOwned(int $userId, int $eventId, array $attributes): bool;
+
+    public function updateWithGalleryOwned(
+        int $userId,
+        int $eventId,
+        array $attributes,
+        ?array $images,
+    ): ?array;
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool;
 

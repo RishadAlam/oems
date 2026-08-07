@@ -19,6 +19,19 @@ final class EventRepository implements EventRepositoryInterface
         'price_high' => 'events.ticket_price DESC, events.start_date ASC, events.id ASC',
     ];
 
+    private const ORGANIZER_TRANSITIONS = [
+        'pending' => ['draft', 'rejected'],
+        'cancelled' => ['approved', 'published'],
+    ];
+
+    private const ADMIN_TRANSITIONS = [
+        'approved' => ['pending'],
+        'rejected' => ['pending'],
+        'published' => ['approved'],
+        'completed' => ['published'],
+        'cancelled' => ['approved', 'published'],
+    ];
+
     public function __construct(private readonly PDO $connection)
     {
     }
@@ -265,6 +278,21 @@ final class EventRepository implements EventRepositoryInterface
         return $statement->rowCount() === 1 ? (int) $this->connection->lastInsertId() : null;
     }
 
+    public function createWithGalleryForUser(int $userId, array $attributes, array $images): ?int
+    {
+        return $this->transactional(function () use ($userId, $attributes, $images): ?int {
+            $eventId = $this->createForUser($userId, $attributes);
+
+            if ($eventId === null) {
+                return null;
+            }
+
+            $this->replaceGallery($eventId, $images);
+
+            return $eventId;
+        });
+    }
+
     public function updateOwned(int $userId, int $eventId, array $attributes): bool
     {
         $statement = $this->connection->prepare(
@@ -289,6 +317,7 @@ final class EventRepository implements EventRepositoryInterface
                  updated_at = CURRENT_TIMESTAMP
              WHERE events.id = :event_id
                AND events.deleted_at IS NULL
+               AND events.status IN (\'draft\', \'rejected\')
                AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)
                AND EXISTS (SELECT 1 FROM categories WHERE categories.id = :category_id_guard)
                AND (:venue_id_guard IS NULL OR EXISTS (
@@ -301,6 +330,54 @@ final class EventRepository implements EventRepositoryInterface
         $statement->execute($parameters);
 
         return $statement->rowCount() > 0;
+    }
+
+    public function updateWithGalleryOwned(
+        int $userId,
+        int $eventId,
+        array $attributes,
+        ?array $images,
+    ): ?array {
+        return $this->transactional(function () use ($userId, $eventId, $attributes, $images): ?array {
+            $event = $this->connection->prepare(
+                'SELECT events.banner
+                 FROM events
+                 INNER JOIN organizers ON organizers.id = events.organizer_id
+                 WHERE organizers.user_id = :user_id
+                   AND events.id = :event_id
+                   AND events.deleted_at IS NULL
+                   AND events.status IN (\'draft\', \'rejected\')
+                 LIMIT 1',
+            );
+            $event->execute(['user_id' => $userId, 'event_id' => $eventId]);
+            $priorBanner = $event->fetchColumn();
+
+            if ($priorBanner === false) {
+                return null;
+            }
+
+            $gallery = $this->connection->prepare(
+                'SELECT event_gallery.image_path
+                 FROM event_gallery
+                 WHERE event_gallery.event_id = :event_id
+                 ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
+            );
+            $gallery->execute(['event_id' => $eventId]);
+            $priorGallery = array_values(array_filter($gallery->fetchAll(PDO::FETCH_COLUMN), 'is_string'));
+
+            if (!$this->updateOwned($userId, $eventId, $attributes)) {
+                return null;
+            }
+
+            if ($images !== null) {
+                $this->replaceGallery($eventId, $images);
+            }
+
+            return [
+                'banner' => is_string($priorBanner) ? $priorBanner : null,
+                'gallery' => $priorGallery,
+            ];
+        });
     }
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool
@@ -319,11 +396,20 @@ final class EventRepository implements EventRepositoryInterface
 
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool
     {
-        if (!in_array($status, self::STATUSES, true)) {
+        $currentStatuses = self::ORGANIZER_TRANSITIONS[$status] ?? null;
+
+        if ($currentStatuses === null) {
             return false;
         }
 
-        return $this->transactional(function () use ($userId, $eventId, $context, $status): bool {
+        return $this->transactional(function () use (
+            $userId,
+            $eventId,
+            $context,
+            $status,
+            $currentStatuses,
+        ): bool {
+            [$statusSql, $statusParameters] = $this->statusPredicate($currentStatuses);
             $statement = $this->connection->prepare(
                 'UPDATE events
                  SET status = :status,
@@ -331,14 +417,15 @@ final class EventRepository implements EventRepositoryInterface
                      updated_at = CURRENT_TIMESTAMP
                  WHERE events.id = :event_id
                    AND events.deleted_at IS NULL
-                   AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)',
+                   AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)
+                   AND events.status IN (' . $statusSql . ')',
             );
-            $statement->execute([
+            $statement->execute(array_merge([
                 'status' => $status,
                 'status_reason' => $status,
                 'event_id' => $eventId,
                 'user_id' => $userId,
-            ]);
+            ], $statusParameters));
 
             if ($statement->rowCount() === 0) {
                 return false;
@@ -379,11 +466,20 @@ final class EventRepository implements EventRepositoryInterface
 
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool
     {
-        if (!in_array($status, self::STATUSES, true)) {
+        $currentStatuses = self::ADMIN_TRANSITIONS[$status] ?? null;
+
+        if ($currentStatuses === null) {
             return false;
         }
 
-        return $this->transactional(function () use ($userId, $eventId, $context, $status, $reason): bool {
+        return $this->transactional(function () use (
+            $userId,
+            $eventId,
+            $context,
+            $status,
+            $reason,
+            $currentStatuses,
+        ): bool {
             $approvedBy = match ($status) {
                 'approved' => ':approved_by',
                 'rejected' => 'NULL',
@@ -400,6 +496,7 @@ final class EventRepository implements EventRepositoryInterface
                 default => 'published_at',
             };
             $rejectionReason = $status === 'rejected' ? ':rejection_reason' : 'NULL';
+            [$statusSql, $statusParameters] = $this->statusPredicate($currentStatuses);
             $statement = $this->connection->prepare(
                 'UPDATE events
                  SET status = :status,
@@ -408,12 +505,14 @@ final class EventRepository implements EventRepositoryInterface
                      approved_at = ' . $approvedAt . ',
                      published_at = ' . $publishedAt . ',
                      updated_at = CURRENT_TIMESTAMP
-                 WHERE events.id = :event_id AND events.deleted_at IS NULL',
+                 WHERE events.id = :event_id
+                   AND events.deleted_at IS NULL
+                   AND events.status IN (' . $statusSql . ')',
             );
-            $parameters = [
+            $parameters = array_merge([
                 'status' => $status,
                 'event_id' => $eventId,
-            ];
+            ], $statusParameters);
 
             if ($status === 'approved') {
                 $parameters['approved_by'] = $userId;
@@ -608,6 +707,20 @@ final class EventRepository implements EventRepositoryInterface
             'ip_address' => $context['ip_address'] ?? null,
             'user_agent' => $context['user_agent'] ?? null,
         ]);
+    }
+
+    private function statusPredicate(array $statuses): array
+    {
+        $placeholders = [];
+        $parameters = [];
+
+        foreach (array_values($statuses) as $index => $status) {
+            $name = 'current_status_' . $index;
+            $placeholders[] = ':' . $name;
+            $parameters[$name] = $status;
+        }
+
+        return [implode(', ', $placeholders), $parameters];
     }
 
     private function transactional(callable $callback): mixed

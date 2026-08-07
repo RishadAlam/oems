@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\ImageUploadService;
 use OEMS\Tests\Support\TestCase;
+use OEMS\Tests\Support\TestImage;
 
 final class ImageUploadServiceTest extends TestCase
 {
@@ -116,19 +117,7 @@ final class ImageUploadServiceTest extends TestCase
 
     private function generatedJpeg(string $filename): string
     {
-        $path = $this->temporaryDirectory . '/' . $filename;
-        $image = imagecreatetruecolor(12, 8);
-
-        if ($image === false) {
-            throw new \RuntimeException('Unable to create a test image.');
-        }
-
-        $color = imagecolorallocate($image, 42, 91, 210);
-        imagefill($image, 0, 0, $color);
-        imagejpeg($image, $path, 90);
-        imagedestroy($image);
-
-        return $path;
+        return TestImage::writeJpeg($this->temporaryDirectory . '/' . $filename);
     }
 
     private function upload(string $path, string $name, int|false $size): array
