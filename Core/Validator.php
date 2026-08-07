@@ -79,6 +79,26 @@ final class Validator
                 ? null
                 : "{$label} must be true or false.",
             'date' => self::isDate($value) ? null : "{$label} must be a valid date.",
+            'datetime_local' => self::localDateTime($value) !== null
+                ? null
+                : "{$label} must be a valid date and time.",
+            'url' => self::isHttpUrl($value) ? null : "{$label} must be a valid HTTP URL.",
+            'min_value' => is_numeric($value) && (float) $value >= (float) ($parameters[0] ?? 0)
+                ? null
+                : "{$label} must be at least {$parameters[0]}.",
+            'max_value' => is_numeric($value) && (float) $value <= (float) ($parameters[0] ?? PHP_INT_MAX)
+                ? null
+                : "{$label} may not be greater than {$parameters[0]}.",
+            'after' => self::compareLocalDatetimes($value, $data[$parameters[0] ?? ''] ?? null, '>')
+                ? null
+                : "{$label} must be after " . self::fieldLabel($parameters[0] ?? '') . '.',
+            'before_or_equal' => self::compareLocalDatetimes(
+                $value,
+                $data[$parameters[0] ?? ''] ?? null,
+                '<=',
+            )
+                ? null
+                : "{$label} must be before or equal to " . self::fieldLabel($parameters[0] ?? '') . '.',
             default => "{$label} uses an unsupported validation rule.",
         };
     }
@@ -109,5 +129,49 @@ final class Validator
         return $date !== false
             && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))
             && $date->format('Y-m-d') === $value;
+    }
+
+    private static function localDateTime(mixed $value): ?DateTimeImmutable
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value);
+        $errors = DateTimeImmutable::getLastErrors();
+
+        if ($date === false
+            || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+            || $date->format('Y-m-d\TH:i') !== $value) {
+            return null;
+        }
+
+        return $date;
+    }
+
+    private static function isHttpUrl(mixed $value): bool
+    {
+        if (!is_string($value) || filter_var($value, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        return in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true);
+    }
+
+    private static function compareLocalDatetimes(mixed $value, mixed $other, string $operator): bool
+    {
+        $date = self::localDateTime($value);
+        $comparison = self::localDateTime($other);
+
+        if ($date === null || $comparison === null) {
+            return false;
+        }
+
+        return $operator === '>' ? $date > $comparison : $date <= $comparison;
+    }
+
+    private static function fieldLabel(string $field): string
+    {
+        return strtolower(str_replace('_', ' ', $field));
     }
 }

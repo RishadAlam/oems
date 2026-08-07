@@ -23,6 +23,8 @@ use OEMS\App\Repositories\VenueRepository;
 use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
+use OEMS\App\Services\EventService;
+use OEMS\App\Services\ImageUploadService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
 use OEMS\Core\Config;
@@ -114,6 +116,31 @@ $container->singleton(
     static fn (Container $container): EventRepository => new EventRepository(
         $container->get(Database::class)->connection(),
     ),
+);
+$container->singleton(
+    ImageUploadService::class,
+    static fn (): ImageUploadService => new ImageUploadService($basePath . '/public/uploads/events'),
+);
+$container->singleton(
+    EventService::class,
+    static function (Container $container): EventService {
+        $connection = $container->get(Database::class)->connection();
+
+        return new EventService(
+            $container->get(EventRepositoryInterface::class),
+            $container->get(CategoryRepositoryInterface::class),
+            $container->get(VenueRepositoryInterface::class),
+            $container->get(ImageUploadService::class),
+            static function (int $userId) use ($connection): bool {
+                $statement = $connection->prepare(
+                    'SELECT approval_status FROM organizers WHERE user_id = :user_id LIMIT 1',
+                );
+                $statement->execute(['user_id' => $userId]);
+
+                return $statement->fetchColumn() === 'approved';
+            },
+        );
+    },
 );
 $container->singleton(
     MailTransportInterface::class,
