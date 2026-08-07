@@ -22,6 +22,8 @@
     $currentPath = $currentPath === '//' ? '/' : $currentPath;
     $overviewPaths = ['/dashboard', '/participant/dashboard', '/organizer/dashboard', '/admin/dashboard'];
     $overviewActive = in_array($currentPath, $overviewPaths, true);
+    $organizerEventsActive = str_starts_with($currentPath, '/organizer/events');
+    $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -40,6 +42,10 @@
                 <p class="dashboard-sidebar__label">Workspace</p>
                 <nav class="mt-3 grid gap-1" aria-label="Dashboard navigation">
                     <a class="dashboard-nav-link<?= $overviewActive ? ' dashboard-nav-link--active' : '' ?>" href="/dashboard"<?= $overviewActive ? ' aria-current="page"' : '' ?>><i class="ph ph-squares-four" aria-hidden="true"></i><span>Overview</span></a>
+                    <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
+                        <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
+                        <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
+                    <?php endif; ?>
                     <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/settings/password' ? ' dashboard-nav-link--active' : '' ?>" href="/settings/password"<?= $currentPath === '/settings/password' ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-check" aria-hidden="true"></i><span>Security</span></a>

@@ -8,6 +8,8 @@ use OEMS\App\Contracts\VenueRepositoryInterface;
 
 final class FakeVenueRepository implements VenueRepositoryInterface
 {
+    public array $referencedVenueIds = [];
+
     public array $venues = [
         1 => ['id' => 1, 'user_id' => 10, 'name' => 'Owned Hall', 'capacity' => 100],
         2 => ['id' => 2, 'user_id' => 20, 'name' => 'Foreign Hall', 'capacity' => 500],
@@ -50,7 +52,8 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function deleteOwnedIfUnused(int $userId, int $venueId): bool
     {
-        if ($this->findOwned($userId, $venueId) === null) {
+        if ($this->findOwned($userId, $venueId) === null
+            || in_array($venueId, $this->referencedVenueIds, true)) {
             return false;
         }
 

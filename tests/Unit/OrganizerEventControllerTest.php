@@ -1,0 +1,346 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OEMS\Tests\Unit;
+
+use OEMS\App\Controllers\OrganizerEventController;
+use OEMS\App\Controllers\OrganizerVenueController;
+use OEMS\App\Middleware\CsrfMiddleware;
+use OEMS\App\Middleware\RoleMiddleware;
+use OEMS\App\Services\EventService;
+use OEMS\App\Services\ImageUploadService;
+use OEMS\Core\Auth;
+use OEMS\Core\Config;
+use OEMS\Core\Container;
+use OEMS\Core\Request;
+use OEMS\Core\Router;
+use OEMS\Core\Security;
+use OEMS\Core\Session;
+use OEMS\Core\View;
+use OEMS\Tests\Support\FakeCategoryRepository;
+use OEMS\Tests\Support\FakeEventRepository;
+use OEMS\Tests\Support\FakeOrganizerRepository;
+use OEMS\Tests\Support\FakeUserRepository;
+use OEMS\Tests\Support\FakeVenueRepository;
+use OEMS\Tests\Support\TestCase;
+
+final class OrganizerEventControllerTest extends TestCase
+{
+    private Session $session;
+
+    private Security $security;
+
+    private FakeEventRepository $events;
+
+    private FakeVenueRepository $venues;
+
+    private OrganizerEventController $controller;
+
+    private OrganizerVenueController $venueController;
+
+    protected function setUp(): void
+    {
+        $_SESSION = [];
+        $_SERVER['REQUEST_URI'] = '/organizer/events';
+        $this->session = new Session(false);
+        $this->security = new Security($this->session);
+        $users = $this->users('organizer');
+        $auth = new Auth($this->session, $users);
+        $this->events = new FakeEventRepository();
+        $this->events->events = [
+            11 => $this->eventFixture(11, 10, 'draft', 'Dhaka Product Lab'),
+            12 => $this->eventFixture(12, 20, 'draft', 'Foreign Event'),
+            13 => $this->eventFixture(13, 10, 'approved', 'Approved Forum'),
+        ];
+        $this->venues = new FakeVenueRepository();
+        $categories = new FakeCategoryRepository();
+        $service = new EventService(
+            $this->events,
+            $categories,
+            $this->venues,
+            new ImageUploadService(sys_get_temp_dir() . '/oems-controller-test-uploads', requireHttpUpload: false),
+            new FakeOrganizerRepository(),
+        );
+        $dependencies = [
+            new View(base_path('app/Views')),
+            $this->session,
+            $this->security,
+            $auth,
+            new Config(['name' => 'OEMS']),
+        ];
+        $this->controller = new OrganizerEventController(
+            ...$dependencies,
+            events: $this->events,
+            categories: $categories,
+            venues: $this->venues,
+            eventService: $service,
+        );
+        $this->venueController = new OrganizerVenueController(...$dependencies, venues: $this->venues);
+    }
+
+    protected function tearDown(): void
+    {
+        $_SESSION = [];
+        unset($_SERVER['REQUEST_URI']);
+    }
+
+    public function testOrganizerCanRenderEventIndexCreateEditAndShowPages(): void
+    {
+        $index = $this->controller->index(Request::create('GET', '/organizer/events'));
+        $create = $this->controller->create(Request::create('GET', '/organizer/events/create'));
+        $edit = $this->controller->edit($this->routed('GET', '/organizer/events/11/edit', '11'));
+        $show = $this->controller->show($this->routed('GET', '/organizer/events/11', '11'));
+
+        $this->assertSame(200, $index->status());
+        $this->assertTrue(str_contains($index->body(), 'Dhaka Product Lab'));
+        $this->assertFalse(str_contains($index->body(), 'Foreign Event'));
+        $this->assertTrue(str_contains($index->body(), 'href="/organizer/events"'));
+        $this->assertTrue(str_contains($index->body(), 'href="/organizer/venues"'));
+        $this->assertSame(200, $create->status());
+        $this->assertTrue(str_contains($create->body(), 'Create event'));
+        $this->assertTrue(str_contains($create->body(), 'type="datetime-local"'));
+        $this->assertTrue(str_contains($create->body(), 'accept="image/jpeg,image/png,image/webp"'));
+        $this->assertSame(200, $edit->status());
+        $this->assertTrue(str_contains($edit->body(), 'Edit event'));
+        $this->assertSame(200, $show->status());
+        $this->assertTrue(str_contains($show->body(), 'Draft'));
+        $this->assertFalse(str_contains($show->body(), 'Register now'));
+        $this->assertFalse(str_contains($show->body(), 'Checkout'));
+    }
+
+    public function testIndexAcceptsOnlyKnownStatusFilters(): void
+    {
+        $filtered = $this->controller->index(Request::create(
+            'GET',
+            '/organizer/events?status=draft',
+            query: ['status' => 'draft'],
+        ));
+        $unknown = $this->controller->index(Request::create(
+            'GET',
+            '/organizer/events?status[]=draft',
+            query: ['status' => ['draft']],
+        ));
+
+        $this->assertTrue(str_contains($filtered->body(), 'Dhaka Product Lab'));
+        $this->assertFalse(str_contains($filtered->body(), 'Approved Forum'));
+        $this->assertTrue(str_contains($unknown->body(), 'Dhaka Product Lab'));
+        $this->assertTrue(str_contains($unknown->body(), 'Approved Forum'));
+    }
+
+    public function testInvalidCreateFlashesOnlyWhitelistedScalarOldInput(): void
+    {
+        $input = $this->validInput();
+        $input['title'] = ['unsafe'];
+        $input['tags'] = ['nested'];
+        $input['organizer_id'] = '20';
+
+        $response = $this->controller->store(Request::create('POST', '/organizer/events', input: $input));
+        $old = $this->session->get('_flash.old', []);
+
+        $this->assertSame('/organizer/events/create', $response->header('Location'));
+        $this->assertArrayHasKey('title', $this->session->get('_flash.errors', []));
+        $this->assertFalse(array_key_exists('title', $old));
+        $this->assertFalse(array_key_exists('tags', $old));
+        $this->assertFalse(array_key_exists('organizer_id', $old));
+        foreach ($old as $value) {
+            $this->assertTrue(is_scalar($value));
+        }
+    }
+
+    public function testInvalidCreateRedirectsWithValidationErrorsWithoutPersisting(): void
+    {
+        $response = $this->controller->store(Request::create('POST', '/organizer/events', input: [
+            'title' => 'Tiny',
+        ]));
+
+        $this->assertSame(302, $response->status());
+        $this->assertSame('/organizer/events/create', $response->header('Location'));
+        $this->assertArrayHasKey('category_id', $this->session->get('_flash.errors', []));
+        $this->assertSame(3, count($this->events->events));
+    }
+
+    public function testForeignMissingAndMalformedEventIdsReturnNotFound(): void
+    {
+        foreach (['12', '999', '0', '-4', 'event'] as $id) {
+            $response = $this->controller->show($this->routed('GET', '/organizer/events/' . $id, $id));
+            $this->assertSame(404, $response->status());
+        }
+
+        $response = $this->controller->update($this->routed(
+            'POST',
+            '/organizer/events/12',
+            '12',
+            $this->validInput(),
+        ));
+        $this->assertSame(404, $response->status());
+    }
+
+    public function testSuccessfulCreateAndUpdateFlashConfirmation(): void
+    {
+        $create = $this->controller->store(Request::create(
+            'POST',
+            '/organizer/events',
+            input: $this->validInput(),
+        ));
+        $createdId = max(array_keys($this->events->events));
+
+        $this->assertSame('/organizer/events/' . $createdId, $create->header('Location'));
+        $this->assertSame('Event draft created.', $this->session->get('_flash.success'));
+
+        $input = $this->validInput();
+        $input['title'] = 'Updated Dhaka Product Lab';
+        $update = $this->controller->update($this->routed(
+            'POST',
+            '/organizer/events/11',
+            '11',
+            $input,
+        ));
+
+        $this->assertSame('/organizer/events/11', $update->header('Location'));
+        $this->assertSame('Event updated successfully.', $this->session->get('_flash.success'));
+        $this->assertSame('Updated Dhaka Product Lab', $this->events->events[11]['title']);
+    }
+
+    public function testStatusActionsRedirectAndApplyOwnedLifecycleRules(): void
+    {
+        $submit = $this->controller->submit($this->routed('POST', '/organizer/events/11/submit', '11'));
+        $cancel = $this->controller->cancel($this->routed('POST', '/organizer/events/13/cancel', '13'));
+
+        $this->assertSame('/organizer/events/11', $submit->header('Location'));
+        $this->assertSame('pending', $this->events->events[11]['status']);
+        $this->assertSame('/organizer/events/13', $cancel->header('Location'));
+        $this->assertSame('cancelled', $this->events->events[13]['status']);
+
+        $delete = $this->controller->delete($this->routed('POST', '/organizer/events/13/delete', '13'));
+        $this->assertSame('/organizer/events', $delete->header('Location'));
+        $this->assertSame('Event deleted.', $this->session->get('_flash.success'));
+        $this->assertNotNull($this->events->events[13]['deleted_at']);
+    }
+
+    public function testBusinessRuleFailureFlashesErrorAndReturnsToOwnedEvent(): void
+    {
+        $response = $this->controller->submit($this->routed('POST', '/organizer/events/13/submit', '13'));
+
+        $this->assertSame('/organizer/events/13', $response->header('Location'));
+        $this->assertSame(
+            'Only draft or rejected events may be submitted.',
+            $this->session->get('_flash.error'),
+        );
+    }
+
+    public function testEveryEventPostRouteRequiresOrganizerRoleAndCsrf(): void
+    {
+        $uris = [
+            '/organizer/events',
+            '/organizer/events/11',
+            '/organizer/events/11/submit',
+            '/organizer/events/11/cancel',
+            '/organizer/events/11/delete',
+        ];
+
+        foreach ($uris as $uri) {
+            $participant = $this->routerForRole('participant');
+            $blockedRole = $participant['router']->dispatch(Request::create('POST', $uri, input: [
+                '_token' => $participant['security']->csrfToken(),
+            ]));
+            $this->assertSame(403, $blockedRole->status());
+
+            $organizer = $this->routerForRole('organizer');
+            $blockedCsrf = $organizer['router']->dispatch(Request::create('POST', $uri, input: [
+                '_token' => 'invalid',
+            ]));
+            $this->assertSame(419, $blockedCsrf->status());
+        }
+    }
+
+    private function routerForRole(string $role): array
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $security = new Security($session);
+        $users = $this->users($role);
+        $auth = new Auth($session, $users);
+        $container = new Container();
+        $container->instance(OrganizerEventController::class, $this->controller);
+        $container->instance(OrganizerVenueController::class, $this->venueController);
+        $router = new Router($container);
+        $router->aliasMiddleware('role', new RoleMiddleware($auth));
+        $router->aliasMiddleware('csrf', new CsrfMiddleware($security));
+        $registerRoutes = require base_path('routes/web.php');
+        $registerRoutes($router);
+
+        return ['router' => $router, 'security' => $security];
+    }
+
+    private function users(string $role): FakeUserRepository
+    {
+        $users = new FakeUserRepository();
+        $roleId = $role === 'organizer' ? 2 : 3;
+        $users->users[10] = [
+            'id' => 10,
+            'role_id' => $roleId,
+            'name' => 'Amina Rahman',
+            'email' => 'amina@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'status' => 'active',
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ];
+        $this->session->put('auth.user_id', 10);
+
+        return $users;
+    }
+
+    private function routed(string $method, string $uri, string $id, array $input = []): Request
+    {
+        return Request::create($method, $uri, input: $input)->withRouteParameters(['id' => $id]);
+    }
+
+    private function validInput(): array
+    {
+        return [
+            'category_id' => '1',
+            'venue_id' => '1',
+            'title' => 'Dhaka Product Design Forum',
+            'description' => 'A practical forum for product teams building accessible services in Bangladesh.',
+            'map_url' => 'https://example.test/map',
+            'speaker' => 'Samira Chowdhury',
+            'start_date' => '2026-09-15T18:00',
+            'end_date' => '2026-09-15T21:00',
+            'registration_deadline' => '2026-09-14T18:00',
+            'capacity' => '80',
+            'ticket_price' => '500',
+            'tags' => 'product, design',
+        ];
+    }
+
+    private function eventFixture(int $id, int $userId, string $status, string $title): array
+    {
+        return [
+            'id' => $id,
+            'user_id' => $userId,
+            'category_id' => 1,
+            'category_name' => 'Technology',
+            'venue_id' => 1,
+            'venue_name' => 'Owned Hall',
+            'venue_city' => 'Dhaka',
+            'title' => $title,
+            'slug' => strtolower(str_replace(' ', '-', $title)),
+            'description' => 'A complete description for this organizer event and its planned program.',
+            'banner' => null,
+            'map_url' => 'https://example.test/map',
+            'speaker' => 'Samira Chowdhury',
+            'start_date' => '2026-09-15 18:00:00',
+            'end_date' => '2026-09-15 21:00:00',
+            'registration_deadline' => '2026-09-14 18:00:00',
+            'capacity' => 80,
+            'available_seats' => 80,
+            'ticket_price' => '500.00',
+            'currency' => 'BDT',
+            'tags' => ['product', 'design'],
+            'status' => $status,
+            'rejection_reason' => null,
+            'deleted_at' => null,
+        ];
+    }
+}
