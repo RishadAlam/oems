@@ -32,5 +32,15 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
             <div class="field-group"><label for="capacity">Maximum capacity</label><input id="capacity" name="capacity" type="number" min="1" max="100000" step="1" value="<?= $venueValue('capacity') ?>"<?= $invalid('capacity') ?>><?php if ($error = field_error($errors, 'capacity')): ?><p id="capacity-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
     </section>
-    <div class="organizer-form__actions"><p><i class="ph ph-info" aria-hidden="true"></i><span>Venue ownership stays with this organizer account.</span></p><div class="organizer-heading-actions"><?php if ($isEdit): ?><button class="button button--danger" type="submit" formaction="/organizer/venues/<?= e($venue['id']) ?>/delete"><i class="ph ph-trash" aria-hidden="true"></i><span>Delete venue</span></button><?php endif; ?><button class="button button--primary" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span><?= $isEdit ? 'Save venue' : 'Create venue' ?></span></button></div></div>
+    <div class="organizer-form__actions"><p><i class="ph ph-info" aria-hidden="true"></i><span>Venue ownership stays with this organizer account.</span></p><button class="button button--primary" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span><?= $isEdit ? 'Save venue' : 'Create venue' ?></span></button></div>
 </form>
+
+<?php if ($isEdit): ?>
+    <section class="organizer-danger-zone mt-6" aria-labelledby="venue-delete-heading">
+        <div class="organizer-danger-zone__copy"><h2 id="venue-delete-heading">Delete venue</h2><p>This is available only when no active event uses this venue.</p></div>
+        <form action="/organizer/venues/<?= e($venue['id']) ?>/delete" method="post">
+            <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+            <button class="button button--danger" type="submit"><i class="ph ph-trash" aria-hidden="true"></i><span>Delete venue</span></button>
+        </form>
+    </section>
+<?php endif; ?>

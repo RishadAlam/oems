@@ -1243,6 +1243,18 @@
     .organizer-action-note {
         @apply flex items-start gap-2 rounded-[12px] bg-[var(--surface-soft)] p-4 text-xs leading-5 text-[var(--ink-muted)];
     }
+
+    .organizer-danger-zone {
+        @apply flex flex-col gap-5 rounded-[18px] border border-[color-mix(in_srgb,var(--error)_35%,var(--line))] bg-[var(--surface-raised)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6;
+    }
+
+    .organizer-danger-zone__copy h2 {
+        @apply text-base font-semibold text-[var(--error)];
+    }
+
+    .organizer-danger-zone__copy p {
+        @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
+    }
 }
 
 @media (prefers-reduced-motion: no-preference) {

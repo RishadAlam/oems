@@ -27,6 +27,7 @@ use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
 use OEMS\Core\Config;
@@ -137,6 +138,12 @@ $container->singleton(
         $container->get(VenueRepositoryInterface::class),
         $container->get(ImageUploadService::class),
         $container->get(OrganizerRepositoryInterface::class),
+    ),
+);
+$container->singleton(
+    VenueService::class,
+    static fn (Container $container): VenueService => new VenueService(
+        $container->get(VenueRepositoryInterface::class),
     ),
 );
 $container->singleton(

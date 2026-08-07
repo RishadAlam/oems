@@ -10,6 +10,7 @@ use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
@@ -76,7 +77,11 @@ final class OrganizerEventControllerTest extends TestCase
             venues: $this->venues,
             eventService: $service,
         );
-        $this->venueController = new OrganizerVenueController(...$dependencies, venues: $this->venues);
+        $this->venueController = new OrganizerVenueController(
+            ...$dependencies,
+            venues: $this->venues,
+            venueService: new VenueService($this->venues),
+        );
     }
 
     protected function tearDown(): void

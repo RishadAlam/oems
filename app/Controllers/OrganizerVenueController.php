@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Controllers;
 
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -12,7 +13,6 @@ use OEMS\Core\Request;
 use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
-use OEMS\Core\Validator;
 use OEMS\Core\View;
 
 final class OrganizerVenueController extends Controller
@@ -36,6 +36,7 @@ final class OrganizerVenueController extends Controller
         Auth $auth,
         Config $config,
         private readonly VenueRepositoryInterface $venues,
+        private readonly VenueService $venueService,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -70,14 +71,19 @@ final class OrganizerVenueController extends Controller
             return Response::redirect('/login');
         }
 
-        [$data, $errors] = $this->validatedInput($request);
+        $data = $this->safeInput($request);
+        $result = $this->venueService->create($userId, $data);
 
-        if ($errors !== []) {
-            return $this->redirectWithErrors('/organizer/venues/create', $errors, $data);
-        }
+        if (!$result['success']) {
+            if (isset($result['errors']['venue'])) {
+                return $this->redirectWith(
+                    '/organizer/venues/create',
+                    'error',
+                    $this->firstError($result['errors']),
+                );
+            }
 
-        if ($this->venues->createForUser($userId, $this->normalize($data)) === null) {
-            return $this->redirectWith('/organizer/venues/create', 'error', 'The venue could not be created.');
+            return $this->redirectWithErrors('/organizer/venues/create', $result['errors'], $data);
         }
 
         return $this->redirectWith('/organizer/venues', 'success', 'Venue created.');
@@ -102,25 +108,30 @@ final class OrganizerVenueController extends Controller
         $venueId = $this->routeId($request);
         $userId = $this->auth->id();
 
-        if ($venueId === null || $userId === null || $this->venues->findOwned($userId, $venueId) === null) {
+        if ($venueId === null || $userId === null) {
             return $this->notFound();
         }
 
-        [$data, $errors] = $this->validatedInput($request);
+        $data = $this->safeInput($request);
+        $result = $this->venueService->update($userId, $venueId, $data);
 
-        if ($errors !== []) {
+        if ($result['not_found']) {
+            return $this->notFound();
+        }
+
+        if (!$result['success'] && !isset($result['errors']['venue'])) {
             return $this->redirectWithErrors(
                 '/organizer/venues/' . $venueId . '/edit',
-                $errors,
+                $result['errors'],
                 $data,
             );
         }
 
-        if (!$this->venues->updateOwned($userId, $venueId, $this->normalize($data))) {
+        if (!$result['success']) {
             return $this->redirectWith(
                 '/organizer/venues/' . $venueId . '/edit',
                 'error',
-                'The venue could not be updated.',
+                $this->firstError($result['errors']),
             );
         }
 
@@ -132,58 +143,44 @@ final class OrganizerVenueController extends Controller
         $venueId = $this->routeId($request);
         $userId = $this->auth->id();
 
-        if ($venueId === null || $userId === null || $this->venues->findOwned($userId, $venueId) === null) {
+        if ($venueId === null || $userId === null) {
             return $this->notFound();
         }
 
-        if (!$this->venues->deleteOwnedIfUnused($userId, $venueId)) {
+        $result = $this->venueService->delete($userId, $venueId);
+
+        if ($result['not_found']) {
+            return $this->notFound();
+        }
+
+        if (!$result['success']) {
             return $this->redirectWith(
                 '/organizer/venues',
                 'error',
-                'This venue cannot be deleted while an event uses it.',
+                $this->firstError($result['errors']),
             );
         }
 
         return $this->redirectWith('/organizer/venues', 'success', 'Venue deleted.');
     }
 
-    private function validatedInput(Request $request): array
+    private function safeInput(Request $request): array
     {
-        $data = array_filter(
+        return array_filter(
             $request->only(self::FIELDS),
             static fn (mixed $value): bool => is_scalar($value),
         );
-        $errors = Validator::validate($data, [
-            'name' => 'required|string|max:160',
-            'address_line' => 'required|string|max:190',
-            'city' => 'required|string|max:100',
-            'country' => 'required|string|max:100',
-            'postal_code' => 'nullable|string|max:30',
-            'latitude' => 'nullable|numeric|min_value:-90|max_value:90',
-            'longitude' => 'nullable|numeric|min_value:-180|max_value:180',
-            'map_url' => 'nullable|url|max:500',
-            'capacity' => 'nullable|integer|min_value:1|max_value:100000',
-        ]);
-
-        return [$data, $errors];
     }
 
-    private function normalize(array $data): array
+    private function firstError(array $errors): string
     {
-        $normalized = [];
-
-        foreach (self::FIELDS as $field) {
-            $value = trim((string) ($data[$field] ?? ''));
-            $normalized[$field] = $value === '' ? null : $value;
+        foreach ($errors as $messages) {
+            if (is_array($messages) && isset($messages[0]) && is_scalar($messages[0])) {
+                return (string) $messages[0];
+            }
         }
 
-        foreach (['name', 'address_line', 'city', 'country'] as $required) {
-            $normalized[$required] = (string) $normalized[$required];
-        }
-
-        $normalized['capacity'] = $normalized['capacity'] === null ? null : (int) $normalized['capacity'];
-
-        return $normalized;
+        return 'The venue action could not be completed.';
     }
 
     private function ownedVenue(Request $request): ?array

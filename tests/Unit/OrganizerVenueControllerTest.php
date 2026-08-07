@@ -7,6 +7,7 @@ namespace OEMS\Tests\Unit;
 use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
+use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
@@ -52,6 +53,7 @@ final class OrganizerVenueControllerTest extends TestCase
             new Auth($this->session, $users),
             new Config(['name' => 'OEMS']),
             $this->venues,
+            new VenueService($this->venues),
         );
     }
 
@@ -75,6 +77,28 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertTrue(str_contains($create->body(), 'type="number"'));
         $this->assertSame(200, $edit->status());
         $this->assertTrue(str_contains($edit->body(), 'Edit venue'));
+    }
+
+    public function testEditKeepsSaveInTheEditFormAndDeletionInADistinctLaterForm(): void
+    {
+        $body = $this->controller->edit($this->routed('GET', '/organizer/venues/1/edit', '1'))->body();
+        $editStart = strpos($body, '<form class="dashboard-panel organizer-form mt-8" action="/organizer/venues/1" method="post"');
+        $editClose = $editStart === false ? false : strpos($body, '</form>', $editStart);
+        $deleteStart = strpos($body, '<form', $editClose === false ? 0 : $editClose + 7);
+        $editMarkup = $editStart === false || $editClose === false
+            ? ''
+            : substr($body, $editStart, $editClose - $editStart);
+        $deleteMarkup = $deleteStart === false ? '' : substr($body, $deleteStart);
+
+        $this->assertNotSame(false, $editStart);
+        $this->assertNotSame(false, $editClose);
+        $this->assertTrue(str_contains($editMarkup, '<button class="button button--primary" type="submit"'));
+        $this->assertTrue(str_contains($editMarkup, '<span>Save venue</span>'));
+        $this->assertFalse(str_contains($editMarkup, 'formaction='));
+        $this->assertFalse(str_contains($editMarkup, '/delete'));
+        $this->assertNotSame(false, $deleteStart);
+        $this->assertTrue(str_contains($deleteMarkup, 'action="/organizer/venues/1/delete" method="post"'));
+        $this->assertTrue(str_contains($deleteMarkup, '<span>Delete venue</span>'));
     }
 
     public function testForeignMissingAndMalformedVenueIdsReturnNotFound(): void

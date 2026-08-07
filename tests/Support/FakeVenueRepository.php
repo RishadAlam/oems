@@ -10,6 +10,10 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 {
     public array $referencedVenueIds = [];
 
+    public bool $failCreate = false;
+
+    public bool $failUpdate = false;
+
     public array $venues = [
         1 => ['id' => 1, 'user_id' => 10, 'name' => 'Owned Hall', 'capacity' => 100],
         2 => ['id' => 2, 'user_id' => 20, 'name' => 'Foreign Hall', 'capacity' => 500],
@@ -33,6 +37,10 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function createForUser(int $userId, array $attributes): ?int
     {
+        if ($this->failCreate) {
+            return null;
+        }
+
         $id = $this->venues === [] ? 1 : max(array_keys($this->venues)) + 1;
         $this->venues[$id] = array_merge($attributes, ['id' => $id, 'user_id' => $userId]);
 
@@ -41,7 +49,7 @@ final class FakeVenueRepository implements VenueRepositoryInterface
 
     public function updateOwned(int $userId, int $venueId, array $attributes): bool
     {
-        if ($this->findOwned($userId, $venueId) === null) {
+        if ($this->failUpdate || $this->findOwned($userId, $venueId) === null) {
             return false;
         }
 
