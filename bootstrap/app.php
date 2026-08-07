@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use OEMS\App\Contracts\EmailLogRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
+use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\App\Contracts\ProfileRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
@@ -15,6 +16,7 @@ use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
+use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
@@ -104,6 +106,12 @@ $container->singleton(
 $container->singleton(
     VenueRepositoryInterface::class,
     static fn (Container $container): VenueRepository => new VenueRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    EventRepositoryInterface::class,
+    static fn (Container $container): EventRepository => new EventRepository(
         $container->get(Database::class)->connection(),
     ),
 );

@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OEMS\App\Contracts;
+
+interface EventRepositoryInterface
+{
+    public function featured(int $limit): array;
+
+    public function publicSearch(array $filters): array;
+
+    public function publicCities(): array;
+
+    public function findPublishedBySlug(string $slug): ?array;
+
+    public function gallery(int $eventId): array;
+
+    public function organizerSummary(int $userId): array;
+
+    public function forOrganizerUser(int $userId, ?string $status): array;
+
+    public function findOwned(int $userId, int $eventId): ?array;
+
+    public function slugExists(string $slug, ?int $exceptId): bool;
+
+    public function createForUser(int $userId, array $attributes): ?int;
+
+    public function updateOwned(int $userId, int $eventId, array $attributes): bool;
+
+    public function softDeleteOwned(int $userId, int $eventId, array $context): bool;
+
+    public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool;
+
+    public function forAdmin(?string $status): array;
+
+    public function findForAdmin(int $eventId): ?array;
+
+    public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool;
+
+    public function replaceGallery(int $eventId, array $images): void;
+
+    public function deleteGalleryImageOwned(int $userId, int $eventId, int $imageId): ?string;
+}

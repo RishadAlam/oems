@@ -1,0 +1,245 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OEMS\Tests\Unit;
+
+use OEMS\App\Repositories\EventRepository;
+use OEMS\Tests\Support\TestCase;
+use PDO;
+
+final class EventRepositoryTest extends TestCase
+{
+    private PDO $connection;
+
+    private EventRepository $repository;
+
+    protected function setUp(): void
+    {
+        $this->connection = new PDO('sqlite::memory:');
+        $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $this->createSchema();
+        $this->seedEvents();
+        $this->repository = new EventRepository($this->connection);
+    }
+
+    public function testPublicSearchCombinesCategoryCityFreeAndSoonestFilters(): void
+    {
+        $events = $this->repository->publicSearch([
+            'search' => 'summit',
+            'category' => 'technology',
+            'city' => 'Dhaka',
+            'date' => 'upcoming',
+            'price' => 'free',
+            'sort' => 'soonest',
+        ]);
+
+        $this->assertSame(['free-dhaka-summit'], array_column($events, 'slug'));
+    }
+
+    public function testPublicQueriesExcludeUnpublishedDeletedAndPastEventsAndDecodeTags(): void
+    {
+        $featured = $this->repository->featured(4);
+        $cities = $this->repository->publicCities();
+        $event = $this->repository->findPublishedBySlug('free-dhaka-summit');
+
+        $this->assertSame(['free-dhaka-summit', 'paid-chittagong-summit'], array_column($featured, 'slug'));
+        $this->assertSame(['Chittagong', 'Dhaka'], $cities);
+        $this->assertNotNull($event);
+        $this->assertSame(['php', 'community'], $event['tags']);
+        $this->assertNull($this->repository->findPublishedBySlug('draft-dhaka-summit'));
+        $this->assertSame(
+            ['free-dhaka-summit', 'paid-chittagong-summit'],
+            array_column($this->repository->publicSearch(['sort' => 'injected SQL']), 'slug'),
+        );
+    }
+
+    public function testGalleryReturnsImagesInStoredOrderForTheRequestedEvent(): void
+    {
+        $gallery = $this->repository->gallery(501);
+
+        $this->assertSame(['summit-cover.jpg', 'summit-stage.jpg'], array_column($gallery, 'image_path'));
+        $this->assertSame([], $this->repository->gallery(999));
+    }
+
+    public function testOrganizerListsSummaryAndOwnershipAreScopedToAuthenticatedUser(): void
+    {
+        $summary = $this->repository->organizerSummary(10);
+        $events = $this->repository->forOrganizerUser(10, 'draft');
+        $owned = $this->repository->findOwned(10, 502);
+
+        $this->assertSame(3, $summary['total']);
+        $this->assertSame(1, $summary['draft']);
+        $this->assertSame(['draft-dhaka-summit'], array_column($events, 'slug'));
+        $this->assertNotNull($owned);
+        $this->assertSame('draft-dhaka-summit', $owned['slug']);
+        $this->assertNull($this->repository->findOwned(20, 502));
+    }
+
+    public function testOrganizerCannotLoadOrUpdateAnotherOrganizersEvent(): void
+    {
+        $this->assertNull($this->repository->findOwned(20, 502));
+        $this->assertFalse($this->repository->updateOwned(20, 502, $this->eventAttributes()));
+        $this->assertSame('Draft Dhaka Summit', $this->eventTitle(502));
+    }
+
+    public function testOrganizerCanCreateUpdateTransitionAndSoftDeleteOnlyOwnedEvents(): void
+    {
+        $id = $this->repository->createForUser(10, $this->eventAttributes('created-event'));
+
+        $this->assertNotNull($id);
+        $this->assertTrue($this->repository->slugExists('created-event', null));
+        $this->assertFalse($this->repository->slugExists('created-event', $id));
+        $this->assertNull($this->repository->createForUser(999, $this->eventAttributes('missing-organizer')));
+        $this->assertTrue($this->repository->updateOwned(10, $id, $this->eventAttributes('updated-event', 'Updated Event')));
+        $this->assertSame('Updated Event', $this->eventTitle($id));
+        $this->assertTrue($this->repository->transitionOwned(10, $id, $this->auditContext(), 'pending'));
+        $this->assertSame('pending', $this->eventValue($id, 'status'));
+        $this->assertTrue($this->repository->softDeleteOwned(10, $id, $this->auditContext()));
+        $this->assertNull($this->repository->findOwned(10, $id));
+        $this->assertSame(1, $this->activityCountFor($id));
+    }
+
+    public function testAdminCanFilterModerateAndAuditEventsInOneTransaction(): void
+    {
+        $events = $this->repository->forAdmin('pending');
+        $event = $this->repository->findForAdmin(502);
+
+        $this->assertSame([], $events);
+        $this->assertNotNull($event);
+        $this->assertTrue($this->repository->transitionAdmin(77, 502, $this->auditContext(), 'published', null));
+        $this->assertSame('published', $this->eventValue(502, 'status'));
+        $this->assertSame(77, $this->eventValue(502, 'approved_by'));
+        $this->assertNotNull($this->eventValue(502, 'approved_at'));
+        $this->assertNotNull($this->eventValue(502, 'published_at'));
+        $this->assertSame(1, $this->activityCountFor(502));
+        $this->assertTrue($this->repository->transitionAdmin(77, 502, $this->auditContext(), 'rejected', 'Incomplete venue details'));
+        $this->assertSame('Incomplete venue details', $this->eventValue(502, 'rejection_reason'));
+    }
+
+    public function testGalleryReplacementCapsImagesAndDeletionRequiresOwnership(): void
+    {
+        $this->repository->replaceGallery(502, [
+            ['image_path' => 'one.jpg', 'alt_text' => 'One'],
+            ['image_path' => 'two.jpg', 'alt_text' => 'Two'],
+            ['image_path' => 'three.jpg', 'alt_text' => 'Three'],
+            ['image_path' => 'four.jpg', 'alt_text' => 'Four'],
+            ['image_path' => 'five.jpg', 'alt_text' => 'Five'],
+            ['image_path' => 'six.jpg', 'alt_text' => 'Six'],
+            ['image_path' => 'seven.jpg', 'alt_text' => 'Seven'],
+        ]);
+
+        $gallery = $this->repository->gallery(502);
+        $imageId = (int) $gallery[1]['id'];
+
+        $this->assertSame(['one.jpg', 'two.jpg', 'three.jpg', 'four.jpg', 'five.jpg', 'six.jpg'], array_column($gallery, 'image_path'));
+        $this->assertNull($this->repository->deleteGalleryImageOwned(20, 502, $imageId));
+        $this->assertSame('two.jpg', $this->repository->deleteGalleryImageOwned(10, 502, $imageId));
+        $this->assertSame(['one.jpg', 'three.jpg', 'four.jpg', 'five.jpg', 'six.jpg'], array_column($this->repository->gallery(502), 'image_path'));
+    }
+
+    private function createSchema(): void
+    {
+        $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
+        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, city TEXT NOT NULL, country TEXT NOT NULL)');
+        $this->connection->exec(
+            'CREATE TABLE events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                organizer_id INTEGER NOT NULL,
+                category_id INTEGER NOT NULL,
+                venue_id INTEGER NULL,
+                title TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                description TEXT NOT NULL,
+                banner TEXT NULL,
+                map_url TEXT NULL,
+                speaker TEXT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                registration_deadline TEXT NOT NULL,
+                capacity INTEGER NOT NULL,
+                available_seats INTEGER NOT NULL,
+                ticket_price REAL NOT NULL DEFAULT 0,
+                currency TEXT NOT NULL DEFAULT "BDT",
+                tags TEXT NULL,
+                status TEXT NOT NULL DEFAULT "draft",
+                rejection_reason TEXT NULL,
+                approved_by INTEGER NULL,
+                approved_at TEXT NULL,
+                published_at TEXT NULL,
+                is_featured INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT NULL
+            )',
+        );
+        $this->connection->exec('CREATE TABLE event_gallery (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, image_path TEXT NOT NULL, alt_text TEXT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NULL, action TEXT NOT NULL, subject_type TEXT NULL, subject_id INTEGER NULL, description TEXT NOT NULL, properties TEXT NULL, ip_address TEXT NULL, user_agent TEXT NULL, created_at TEXT NOT NULL)');
+    }
+
+    private function seedEvents(): void
+    {
+        $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (1, 10, 'First organization'), (2, 20, 'Second organization')");
+        $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (1, 'Technology', 'technology', 1), (2, 'Arts', 'arts', 1)");
+        $this->connection->exec("INSERT INTO venues (id, organizer_id, name, city, country) VALUES (1, 1, 'Dhaka Hall', 'Dhaka', 'Bangladesh'), (2, 2, 'Chittagong Hall', 'Chittagong', 'Bangladesh')");
+        $this->connection->exec(
+            "INSERT INTO events
+                (id, organizer_id, category_id, venue_id, title, slug, description, speaker, start_date, end_date, registration_deadline, capacity, available_seats, ticket_price, currency, tags, status, is_featured, created_at, updated_at, deleted_at)
+             VALUES
+                (501, 1, 1, 1, 'Free Dhaka Summit', 'free-dhaka-summit', 'A free summit about PHP.', 'Ada', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), datetime('now', '+1 day'), 100, 100, 0, 'BDT', '[\"php\",\"community\"]', 'published', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                (502, 1, 1, 1, 'Draft Dhaka Summit', 'draft-dhaka-summit', 'Waiting for moderation.', 'Bea', datetime('now', '+4 days'), datetime('now', '+4 days', '+2 hours'), datetime('now', '+3 days'), 100, 99, 0, 'BDT', '{bad json', 'draft', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                (503, 2, 1, 2, 'Paid Chittagong Summit', 'paid-chittagong-summit', 'A paid summit about PHP.', 'Cam', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 50, 50, 500, 'BDT', '[]', 'published', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                (504, 1, 2, 1, 'Past Dhaka Summit', 'past-dhaka-summit', 'Already happened.', 'Dan', datetime('now', '-3 days'), datetime('now', '-3 days', '+2 hours'), datetime('now', '-4 days'), 60, 60, 0, 'BDT', '[]', 'published', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+                (505, 1, 1, 1, 'Deleted Dhaka Summit', 'deleted-dhaka-summit', 'No longer available.', 'Eve', datetime('now', '+5 days'), datetime('now', '+5 days', '+2 hours'), datetime('now', '+4 days'), 60, 60, 0, 'BDT', '[]', 'published', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        );
+        $this->connection->exec("INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order, created_at) VALUES (501, 'summit-stage.jpg', 'Stage', 2, CURRENT_TIMESTAMP), (501, 'summit-cover.jpg', 'Cover', 1, CURRENT_TIMESTAMP)");
+    }
+
+    private function eventAttributes(string $slug = 'new-event', string $title = 'New Event'): array
+    {
+        return [
+            'category_id' => 1,
+            'venue_id' => 1,
+            'title' => $title,
+            'slug' => $slug,
+            'description' => 'A test event.',
+            'banner' => 'banner.jpg',
+            'map_url' => 'https://maps.example.test/event',
+            'speaker' => 'Test Speaker',
+            'start_date' => '2030-01-10 10:00:00',
+            'end_date' => '2030-01-10 12:00:00',
+            'registration_deadline' => '2030-01-09 10:00:00',
+            'capacity' => 120,
+            'available_seats' => 120,
+            'ticket_price' => 250,
+            'currency' => 'BDT',
+            'tags' => ['php', 'testing'],
+            'is_featured' => false,
+        ];
+    }
+
+    private function auditContext(): array
+    {
+        return [
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'OEMS repository test',
+        ];
+    }
+
+    private function eventTitle(int $eventId): string
+    {
+        return (string) $this->eventValue($eventId, 'title');
+    }
+
+    private function eventValue(int $eventId, string $column): mixed
+    {
+        return $this->connection->query("SELECT {$column} FROM events WHERE id = {$eventId}")->fetchColumn();
+    }
+
+    private function activityCountFor(int $eventId): int
+    {
+        return (int) $this->connection->query("SELECT COUNT(*) FROM activity_logs WHERE subject_id = {$eventId}")->fetchColumn();
+    }
+}
