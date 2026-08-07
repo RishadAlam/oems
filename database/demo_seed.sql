@@ -108,7 +108,7 @@ SET @education_category_id = (SELECT id FROM categories WHERE slug = 'education'
 SET @wellness_category_id = (SELECT id FROM categories WHERE slug = 'health-wellness');
 
 INSERT INTO events (
-    organizer_id, category_id, venue_id, title, slug, description, speaker,
+    organizer_id, category_id, venue_id, title, slug, description, banner, speaker,
     start_date, end_date, registration_deadline, capacity, available_seats,
     ticket_price, currency, tags, status, approved_by, approved_at,
     published_at, is_featured
@@ -117,6 +117,7 @@ INSERT INTO events (
         @ayesha_organizer_id, @technology_category_id, @bic_center_id,
         'Dhaka Tech Summit 2026', 'dhaka-tech-summit-2026',
         'A full-day gathering for developers, product teams, and technology leaders.',
+        '/assets/images/hero-events.webp',
         'Multiple industry speakers', '2026-09-18 09:00:00', '2026-09-18 18:00:00',
         '2026-09-15 23:59:00', 200, 196, 2500.00, 'BDT',
         JSON_ARRAY('technology', 'software', 'product'), 'published',
@@ -126,6 +127,7 @@ INSERT INTO events (
         @farhan_organizer_id, @business_category_id, @emk_center_id,
         'Startup Growth Forum 2026', 'startup-growth-forum-2026',
         'Focused sessions on early growth, fundraising, operations, and sustainable teams.',
+        '/assets/images/event-creative.webp',
         'Founders Forum faculty', '2026-10-05 10:00:00', '2026-10-05 17:00:00',
         '2026-10-02 23:59:00', 120, 118, 1200.00, 'BDT',
         JSON_ARRAY('startup', 'business', 'fundraising'), 'published',
@@ -135,6 +137,7 @@ INSERT INTO events (
         @nusrat_organizer_id, @arts_category_id, @bengal_shilpalay_id,
         'Community Arts Night 2026', 'community-arts-night-2026',
         'An evening of local visual art, short film, music, and conversation.',
+        '/assets/images/event-community.webp',
         'Open City artists', '2026-08-29 17:00:00', '2026-08-29 21:30:00',
         '2026-08-28 17:00:00', 180, 178, 0.00, 'BDT',
         JSON_ARRAY('arts', 'film', 'community'), 'published',
@@ -144,6 +147,7 @@ INSERT INTO events (
         @farhan_organizer_id, @education_category_id, @emk_center_id,
         'Future Skills Workshop 2026', 'future-skills-workshop-2026',
         'A practical workshop on communication, AI literacy, and collaborative problem solving.',
+        '/assets/images/event-creative.webp',
         'Farhan Kabir', '2026-09-10 10:00:00', '2026-09-10 16:00:00',
         '2026-09-08 23:59:00', 80, 79, 700.00, 'BDT',
         JSON_ARRAY('education', 'skills', 'workshop'), 'pending',
@@ -153,6 +157,7 @@ INSERT INTO events (
         @nusrat_organizer_id, @wellness_category_id, @bengal_shilpalay_id,
         'Wellness Weekend Dhaka 2026', 'wellness-weekend-dhaka-2026',
         'A weekend program covering movement, mindfulness, nutrition, and community wellbeing.',
+        '/assets/images/event-community.webp',
         'Open City wellness team', '2026-11-14 08:00:00', '2026-11-15 17:00:00',
         '2026-11-10 23:59:00', 150, 150, 900.00, 'BDT',
         JSON_ARRAY('wellness', 'health', 'mindfulness'), 'draft',
@@ -162,6 +167,7 @@ INSERT INTO events (
         @ayesha_organizer_id, @business_category_id, @emk_center_id,
         'Product Leaders Meetup July 2026', 'product-leaders-meetup-july-2026',
         'A completed roundtable on product strategy, research, and team leadership.',
+        '/assets/images/event-creative.webp',
         'Ayesha Rahman', '2026-07-20 18:00:00', '2026-07-20 21:00:00',
         '2026-07-19 18:00:00', 60, 56, 800.00, 'BDT',
         JSON_ARRAY('product', 'leadership', 'meetup'), 'completed',
@@ -173,6 +179,7 @@ ON DUPLICATE KEY UPDATE
     venue_id = VALUES(venue_id),
     title = VALUES(title),
     description = VALUES(description),
+    banner = VALUES(banner),
     speaker = VALUES(speaker),
     start_date = VALUES(start_date),
     end_date = VALUES(end_date),
@@ -194,6 +201,34 @@ SET @arts_event_id = (SELECT id FROM events WHERE slug = 'community-arts-night-2
 SET @skills_event_id = (SELECT id FROM events WHERE slug = 'future-skills-workshop-2026');
 SET @wellness_event_id = (SELECT id FROM events WHERE slug = 'wellness-weekend-dhaka-2026');
 SET @product_event_id = (SELECT id FROM events WHERE slug = 'product-leaders-meetup-july-2026');
+
+INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order)
+SELECT @tech_event_id, '/assets/images/event-creative.webp', 'People collaborating at a technology event', 10
+WHERE NOT EXISTS (
+    SELECT 1 FROM event_gallery
+    WHERE event_id = @tech_event_id AND image_path = '/assets/images/event-creative.webp'
+);
+
+INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order)
+SELECT @tech_event_id, '/assets/images/event-community.webp', 'Attendees gathering for a community session', 20
+WHERE NOT EXISTS (
+    SELECT 1 FROM event_gallery
+    WHERE event_id = @tech_event_id AND image_path = '/assets/images/event-community.webp'
+);
+
+INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order)
+SELECT @startup_event_id, '/assets/images/event-community.webp', 'Founder community members in conversation', 10
+WHERE NOT EXISTS (
+    SELECT 1 FROM event_gallery
+    WHERE event_id = @startup_event_id AND image_path = '/assets/images/event-community.webp'
+);
+
+INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order)
+SELECT @arts_event_id, '/assets/images/event-creative.webp', 'Creative program stage and audience', 10
+WHERE NOT EXISTS (
+    SELECT 1 FROM event_gallery
+    WHERE event_id = @arts_event_id AND image_path = '/assets/images/event-creative.webp'
+);
 
 INSERT INTO event_schedule (event_id, title, description, speaker, starts_at, ends_at, sort_order)
 SELECT @tech_event_id, 'Opening keynote', 'Platform engineering and responsible innovation.', 'Guest keynote speaker', '2026-09-18 09:30:00', '2026-09-18 10:30:00', 10

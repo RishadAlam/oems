@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\App\Controllers;
 
+use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -23,6 +24,7 @@ final class DashboardController extends Controller
         Auth $auth,
         Config $config,
         private readonly DashboardMetricsRepository $dashboardMetrics,
+        private readonly EventRepositoryInterface $events,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -44,14 +46,27 @@ final class DashboardController extends Controller
 
     public function organizer(Request $request): Response
     {
-        return $this->render('dashboard/organizer', ['pageTitle' => 'Organizer workspace'], 'dashboard');
+        $userId = $this->auth->id();
+
+        if ($userId === null) {
+            return Response::redirect('/login');
+        }
+
+        return $this->render('dashboard/organizer', [
+            'pageTitle' => 'Organizer workspace',
+            'summary' => $this->events->organizerSummary($userId),
+            'events' => array_slice($this->events->forOrganizerUser($userId, null), 0, 5),
+        ], 'dashboard');
     }
 
     public function admin(Request $request): Response
     {
+        $metrics = $this->dashboardMetrics->totals();
+        $metrics['pending_reviews'] = count($this->events->forAdmin('pending'));
+
         return $this->render('dashboard/admin', [
             'pageTitle' => 'Platform overview',
-            'metrics' => $this->dashboardMetrics->totals(),
+            'metrics' => $metrics,
         ], 'dashboard');
     }
 }

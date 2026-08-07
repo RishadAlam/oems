@@ -1,6 +1,6 @@
 # OEMS
 
-OEMS is a custom PHP MVC foundation for an online event management platform. Week 1 delivers the application shell, complete relational schema, secure account flows, role-based dashboards, and the initial responsive interface.
+OEMS is a custom PHP MVC online event management platform. Week 2 adds database-backed event discovery, organizer-owned venues and events, secure event media, administrator moderation, and real event metrics on the role dashboards.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ OEMS is a custom PHP MVC foundation for an online event management platform. Wee
    mysql -u root -p oems < database/seed.sql
    ```
 
-   To add the optional local demo dataset, import the repeatable demo seed after the base seed.
+   To add the optional local demo dataset, import the repeatable demo seed after the base seed. The demo seed uses keyed upserts and guarded inserts, so the same command can be run again without duplicating its accounts, events, schedules, or gallery references.
 
    ```bash
    mysql -u root -p oems < database/demo_seed.sql
@@ -80,12 +80,74 @@ Change this password immediately outside isolated local development.
 
 ## Demo accounts
 
-The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, events, registrations, payments, tickets, and activity data. Every demo account uses the password `DemoPass!2026`.
+The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, lifecycle events, schedules, and media references. It also contains full-schema reference rows for later milestones; the current product does not expose registration, payment, revenue, or ticket workflows until Week 3. Every non-administrator demo account uses the password `DemoPass!2026`.
 
-- Organizer: `ayesha.organizer@oems.local`
-- Participant: `tahmid.participant@oems.local`
+- Super administrator: `admin@oems.local` / `ChangeMe!2026`
+- Approved organizer: `ayesha.organizer@oems.local` / `DemoPass!2026`
+- Approved organizer: `farhan.organizer@oems.local` / `DemoPass!2026`
+- Pending organizer: `nusrat.organizer@oems.local` / `DemoPass!2026`
+- Participant: `tahmid.participant@oems.local` / `DemoPass!2026`
 
 Never import the demo dataset into a production database.
+
+## Week 2 workflows
+
+Public discovery is available without authentication:
+
+- `GET /` shows repository-backed featured events.
+- `GET /events` supports text, category, city, date, price, and allow-listed sort filters.
+- `GET /events/{slug}` shows a published event with canonical, Open Graph, and JSON-LD metadata.
+
+An organizer uses these authenticated routes:
+
+- `/organizer/dashboard` shows real event totals and recent next actions.
+- `/organizer/events` lists owned events; `/organizer/events/create` creates a draft.
+- `/organizer/events/{id}` shows an owned event; `/organizer/events/{id}/edit` updates an editable event.
+- The event detail actions submit, cancel, or soft-delete an eligible owned event through CSRF-protected POST requests.
+- `/organizer/venues` manages owned venues. A venue referenced by a live event cannot be deleted.
+
+A super administrator uses these authenticated routes:
+
+- `/admin/dashboard` shows platform totals and the real pending-review count.
+- `/admin/events` opens the moderation queue; `/admin/events/{id}` shows the evidence and lifecycle actions.
+- `/admin/categories` creates, edits, activates, and deactivates event categories.
+
+Every organizer mutation is scoped to the authenticated organizer. Every organizer and administrator POST action requires a valid CSRF token.
+
+### Event lifecycle
+
+Organizer actions:
+
+- `draft` or `rejected` → `pending` by submitting for review. Only an approved organizer account may submit.
+- `approved` or `published` → `cancelled`.
+- `draft`, `rejected`, or `cancelled` → soft-deleted.
+
+Administrator actions:
+
+- `pending` → `approved` or `rejected`; rejection requires a reason.
+- `approved` → `published` or `cancelled`.
+- `published` → `completed` or `cancelled`.
+
+Only non-deleted `published` events appear in public discovery.
+
+### Event images
+
+- Banner and gallery uploads accept JPEG, PNG, or WebP images only.
+- Each uploaded image must be no larger than 5 MB; a gallery accepts at most six images.
+- Files are validated from their actual bytes and dimensions, renamed randomly, and stored under `public/uploads/events`.
+- The repeatable demo seed references the committed `/assets/images/hero-events.webp`, `/assets/images/event-creative.webp`, and `/assets/images/event-community.webp` files; it does not depend on untracked local uploads.
+
+## Week 2 deliverables
+
+- Prepared, ownership-scoped repositories for categories, venues, events, public filters, moderation, galleries, and dashboard summaries
+- Organizer venue and event create, edit, preview, submit, cancel, and eligible soft-delete workflows
+- Administrator category management and event approve, reject, publish, complete, and cancel workflows
+- Secure banner/gallery validation and storage with bounded uploads and safe cleanup
+- Database-backed home, event search, event details, canonical metadata, Open Graph data, and JSON-LD
+- Repository-backed organizer and administrator dashboards with enabled workflow actions
+- Role guards, CSRF protection, escaped views, prepared queries, lifecycle validation, and automated regression coverage
+
+Registration, checkout, payments, revenue reporting, QR tickets, and attendance begin in Week 3. Week 2 screens intentionally do not calculate registration or revenue totals and do not expose active registration controls.
 
 ## Week 1 deliverables
 
@@ -98,16 +160,18 @@ Never import the demo dataset into a production database.
 - Responsive public, authentication, events, and dashboard interfaces with light and dark themes
 - Self-hosted Manrope font and original generated event imagery
 
-Event creation, registration checkout, payments, QR tickets, attendance, reviews, notifications, admin CRUD, reports, and CMS workflows are scheduled for Weeks 2 through 4.
+The Week 1 deliverables remain the foundation for the Week 2 workflows above.
 
 ## Quality checks
 
 ```bash
+php tests/run.php DashboardLayoutTest
 composer test
 composer check:syntax
 composer validate --strict
 composer audit
 npm run build:css
+git diff --check
 ```
 
 ## Structure
@@ -125,7 +189,7 @@ storage/                Runtime cache and log files
 tests/                  Custom PHP unit test suite
 ```
 
-The Week 1 design and implementation records are in `docs/superpowers/`.
+The Week 1 and Week 2 design and implementation records are in `docs/superpowers/`.
 
 ## License
 
