@@ -4,115 +4,86 @@ declare(strict_types=1);
 
 namespace OEMS\App\Controllers;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\Core\Auth;
+use OEMS\Core\Config;
 use OEMS\Core\Controller;
 use OEMS\Core\Request;
 use OEMS\Core\Response;
+use OEMS\Core\Security;
+use OEMS\Core\Session;
+use OEMS\Core\View;
 
 final class HomeController extends Controller
 {
+    public function __construct(
+        View $view,
+        Session $session,
+        Security $security,
+        Auth $auth,
+        Config $config,
+        private readonly EventRepositoryInterface $events,
+    ) {
+        parent::__construct($view, $session, $security, $auth, $config);
+    }
+
     public function index(Request $request): Response
     {
+        $featuredEvents = array_map(
+            fn (array $event): array => $this->presentEvent($event),
+            $this->events->featured(2),
+        );
+        $canonicalUrl = rtrim((string) $this->config->get('url', 'http://localhost:8000'), '/') . '/';
+        $description = 'Discover published workshops, talks, and gatherings with OEMS.';
+
         return $this->render('home/index', [
             'pageTitle' => 'Events worth showing up for',
-            'featuredEvents' => array_slice($this->featuredEvents(), 0, 2),
-        ]);
-    }
-
-    public function events(Request $request): Response
-    {
-        $search = trim((string) $request->query('search', ''));
-        $category = mb_strtolower(trim((string) $request->query('category', '')));
-        $categoryLabels = [
-            'technology' => 'Technology',
-            'arts-culture' => 'Arts and culture',
-            'business' => 'Business',
-            'community' => 'Community',
-        ];
-        $featuredEvents = $this->featuredEvents();
-
-        if ($category !== '') {
-            $featuredEvents = array_values(array_filter(
-                $featuredEvents,
-                static fn (array $event): bool => in_array($category, $event['categorySlugs'], true),
-            ));
-        }
-
-        if ($search !== '') {
-            $needle = mb_strtolower($search);
-            $featuredEvents = array_values(array_filter(
-                $featuredEvents,
-                static function (array $event) use ($needle): bool {
-                    $searchable = implode(' ', [
-                        $event['title'],
-                        $event['category'],
-                        $event['venue'],
-                    ]);
-
-                    return str_contains(mb_strtolower($searchable), $needle);
-                },
-            ));
-        }
-
-        return $this->render('events/index', [
-            'pageTitle' => 'Explore events',
+            'metaDescription' => $description,
+            'canonicalUrl' => $canonicalUrl,
+            'openGraph' => [
+                'type' => 'website',
+                'title' => 'Events worth showing up for',
+                'description' => $description,
+                'url' => $canonicalUrl,
+            ],
             'featuredEvents' => $featuredEvents,
-            'search' => $search,
-            'category' => $category,
-            'categoryLabel' => $categoryLabels[$category] ?? ucwords(str_replace('-', ' ', $category)),
         ]);
     }
 
-    private function featuredEvents(): array
+    private function presentEvent(array $event): array
     {
-        return [
-            [
-                'title' => 'Designing for public life',
-                'category' => 'Creative workshop',
-                'categorySlugs' => ['arts-culture'],
-                'date' => 'August 22',
-                'time' => '10:00 AM',
-                'datetime' => '2026-08-22T10:00:00+06:00',
-                'venue' => 'Dhanmondi, Dhaka',
-                'price' => 'Free',
-                'image' => '/assets/images/event-creative.webp',
-                'alt' => 'A collaborative design workshop around a studio table',
-            ],
-            [
-                'title' => 'Rooftop sessions',
-                'category' => 'Music and culture',
-                'categorySlugs' => ['arts-culture', 'community'],
-                'date' => 'August 29',
-                'time' => '7:30 PM',
-                'datetime' => '2026-08-29T19:30:00+06:00',
-                'venue' => 'Banani, Dhaka',
-                'price' => 'From ৳600',
-                'image' => '/assets/images/event-community.webp',
-                'alt' => 'A rooftop music gathering at blue hour',
-            ],
-            [
-                'title' => 'Product builders Dhaka',
-                'category' => 'Technology meetup',
-                'categorySlugs' => ['technology', 'business'],
-                'date' => 'September 4',
-                'time' => '6:30 PM',
-                'datetime' => '2026-09-04T18:30:00+06:00',
-                'venue' => 'Gulshan, Dhaka',
-                'price' => 'Free',
-                'image' => '/assets/images/event-creative.webp',
-                'alt' => 'People collaborating around a studio table at a product meetup',
-            ],
-            [
-                'title' => 'Social impact mixer',
-                'category' => 'Business and community',
-                'categorySlugs' => ['business', 'community'],
-                'date' => 'September 12',
-                'time' => '5:00 PM',
-                'datetime' => '2026-09-12T17:00:00+06:00',
-                'venue' => 'Uttara, Dhaka',
-                'price' => 'From ৳300',
-                'image' => '/assets/images/event-community.webp',
-                'alt' => 'People gathering outdoors at blue hour for a community event',
-            ],
-        ];
+        $timezone = new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka'));
+        $start = new DateTimeImmutable((string) $event['start_date'], $timezone);
+        $venue = array_values(array_filter([
+            trim((string) ($event['venue_name'] ?? '')),
+            trim((string) ($event['venue_city'] ?? '')),
+        ], static fn (string $value): bool => $value !== ''));
+        $price = (float) ($event['ticket_price'] ?? 0);
+
+        return array_merge($event, [
+            'date' => $start->format('M j, Y'),
+            'time' => $start->format('g:i A'),
+            'datetime' => $start->format(DATE_ATOM),
+            'category' => (string) ($event['category_name'] ?? 'Event'),
+            'venue' => $venue === [] ? 'Venue to be announced' : implode(', ', $venue),
+            'price' => $price <= 0
+                ? 'Free'
+                : $this->currency($price, (string) ($event['currency'] ?? 'BDT')),
+            'image' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
+            'alt' => 'Banner for ' . (string) $event['title'],
+        ]);
+    }
+
+    private function currency(float $amount, string $currency): string
+    {
+        $formatted = number_format($amount, floor($amount) === $amount ? 0 : 2);
+
+        return match (strtoupper($currency)) {
+            'BDT' => '৳' . $formatted,
+            'USD' => '$' . $formatted,
+            default => $formatted . ' ' . strtoupper($currency),
+        };
     }
 }

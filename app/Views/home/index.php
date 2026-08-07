@@ -49,17 +49,25 @@
     <div class="page-shell">
         <div class="section-heading-row">
             <div class="max-w-2xl">
-                <p class="eyebrow"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>This week in Dhaka</span></p>
-                <h2 class="section-title">A better plan for your weekend</h2>
-                <p class="section-copy">Two fresh ways to learn, listen, and meet people nearby.</p>
+                <p class="eyebrow"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Featured on OEMS</span></p>
+                <h2 class="section-title">Worth adding to your calendar</h2>
+                <p class="section-copy">Upcoming ways to learn, listen, and meet people.</p>
             </div>
             <a class="text-link section-heading-row__link" href="/events"><span>Browse all events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
         </div>
 
+        <?php if ($featuredEvents === []): ?>
+            <div class="event-empty-state">
+                <span><i class="ph ph-calendar-dots" aria-hidden="true"></i></span>
+                <h3>No featured events yet</h3>
+                <p>Published events will appear here as organizers share what is next.</p>
+                <a class="button button--quiet button--compact" href="/events"><span>Browse all events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+            </div>
+        <?php else: ?>
         <div class="mt-10 grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
             <?php foreach ($featuredEvents as $index => $event): ?>
                 <article class="event-card <?= $index === 0 ? 'event-card--wide' : '' ?>" data-reveal>
-                    <a href="/events" class="event-card__media" aria-label="View <?= e($event['title']) ?>">
+                    <a href="/events/<?= e($event['slug']) ?>" class="event-card__media" aria-label="View <?= e($event['title']) ?>">
                         <img
                             src="<?= e($event['image']) ?>"
                             alt="<?= e($event['alt']) ?>"
@@ -70,19 +78,20 @@
                     </a>
                     <div class="event-card__body">
                         <p class="event-card__category"><?= e($event['category']) ?></p>
-                        <h3><a href="/events"><?= e($event['title']) ?></a></h3>
+                        <h3><a href="/events/<?= e($event['slug']) ?>"><?= e($event['title']) ?></a></h3>
                         <div class="event-card__details">
                             <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['datetime']) ?>"><?= e($event['date']) ?> at <?= e($event['time']) ?></time></span></div>
                             <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['venue']) ?></address></span></div>
                         </div>
                         <div class="event-card__footer">
                             <strong class="text-sm"><?= e($event['price']) ?></strong>
-                            <a class="text-link" href="/events"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                            <a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                         </div>
                     </div>
                 </article>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
     </div>
 </section>
 

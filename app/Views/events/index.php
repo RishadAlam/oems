@@ -1,59 +1,95 @@
+<?php
+$filters = $filters ?? ['search' => '', 'category' => '', 'city' => '', 'date' => 'upcoming', 'price' => '', 'sort' => 'soonest'];
+$activeFilters = array_filter($filters, static fn (string $value, string $key): bool => $value !== '' && !in_array([$key, $value], [['date', 'upcoming'], ['sort', 'soonest']], true), ARRAY_FILTER_USE_BOTH);
+?>
 <section class="events-index">
     <div class="page-shell">
         <div class="events-index__heading">
             <div class="max-w-3xl">
                 <p class="eyebrow"><i class="ph ph-compass" aria-hidden="true"></i><span>Discover what is nearby</span></p>
                 <h1 class="section-title">Events that move the week forward.</h1>
-                <p class="section-copy">Browse curated previews for workshops, music, culture, and community gatherings across Dhaka.</p>
+                <p class="section-copy">Browse published workshops, talks, and gatherings, then narrow the list around your plans.</p>
             </div>
-            <div class="events-index__count"><strong><?= count($featuredEvents) ?></strong><span>curated events</span></div>
+            <div class="events-index__count" aria-live="polite"><strong><?= count($events) ?></strong><span><?= count($events) === 1 ? 'event' : 'events' ?></span></div>
         </div>
 
-        <form class="event-search-panel" action="/events" method="get" role="search" aria-label="Search events">
-            <?php if ($category !== ''): ?>
-                <input type="hidden" name="category" value="<?= e($category) ?>">
-            <?php endif; ?>
-            <div class="event-search-panel__field">
-                <label for="event-search">What are you looking for?</label>
-                <div><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="event-search" name="search" type="search" value="<?= e($search) ?>" placeholder="Try design or music"></div>
+        <form class="event-filter-panel" action="/events" method="get" role="search" aria-label="Search and filter events">
+            <div class="event-filter-panel__search">
+                <label for="event-search">Search events</label>
+                <div><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="event-search" name="search" type="search" value="<?= e($filters['search']) ?>" placeholder="Title, organizer, speaker, or place"></div>
             </div>
-            <button class="button button--primary" type="submit"><span>Search events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+            <div class="event-filter-panel__field">
+                <label for="event-category">Category</label>
+                <select id="event-category" name="category">
+                    <option value="">All categories</option>
+                    <?php foreach ($categories as $category): ?><option value="<?= e($category['slug']) ?>" <?= $filters['category'] === (string) $category['slug'] ? 'selected' : '' ?>><?= e($category['name']) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div class="event-filter-panel__field">
+                <label for="event-city">City</label>
+                <select id="event-city" name="city">
+                    <option value="">All cities</option>
+                    <?php foreach ($cities as $city): ?><option value="<?= e($city) ?>" <?= $filters['city'] === (string) $city ? 'selected' : '' ?>><?= e($city) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <div class="event-filter-panel__field">
+                <label for="event-date">Date</label>
+                <select id="event-date" name="date">
+                    <option value="upcoming" <?= $filters['date'] === 'upcoming' ? 'selected' : '' ?>>Upcoming</option>
+                    <option value="today" <?= $filters['date'] === 'today' ? 'selected' : '' ?>>Today</option>
+                    <option value="this_week" <?= $filters['date'] === 'this_week' ? 'selected' : '' ?>>This week</option>
+                    <option value="this_month" <?= $filters['date'] === 'this_month' ? 'selected' : '' ?>>This month</option>
+                </select>
+            </div>
+            <div class="event-filter-panel__field">
+                <label for="event-price">Price</label>
+                <select id="event-price" name="price">
+                    <option value="" <?= $filters['price'] === '' ? 'selected' : '' ?>>Any price</option>
+                    <option value="free" <?= $filters['price'] === 'free' ? 'selected' : '' ?>>Free</option>
+                    <option value="paid" <?= $filters['price'] === 'paid' ? 'selected' : '' ?>>Paid</option>
+                </select>
+            </div>
+            <div class="event-filter-panel__field">
+                <label for="event-sort">Sort by</label>
+                <select id="event-sort" name="sort">
+                    <option value="soonest" <?= $filters['sort'] === 'soonest' ? 'selected' : '' ?>>Soonest</option>
+                    <option value="latest" <?= $filters['sort'] === 'latest' ? 'selected' : '' ?>>Latest</option>
+                    <option value="price_low" <?= $filters['sort'] === 'price_low' ? 'selected' : '' ?>>Price, low to high</option>
+                    <option value="price_high" <?= $filters['sort'] === 'price_high' ? 'selected' : '' ?>>Price, high to low</option>
+                </select>
+            </div>
+            <div class="event-filter-panel__actions">
+                <button class="button button--primary" type="submit"><span>Apply filters</span><i class="ph ph-funnel" aria-hidden="true"></i></button>
+                <a class="button button--quiet" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear all</span></a>
+            </div>
         </form>
 
-        <?php if (($search !== '' || $category !== '') && $featuredEvents !== []): ?>
-            <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>
-                <?php if ($search !== '' && $category !== ''): ?>
-                    Found <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> for “<?= e($search) ?>” in <strong><?= e($categoryLabel) ?> events</strong>.
-                <?php elseif ($search !== ''): ?>
-                    Found <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> for “<?= e($search) ?>”.
-                <?php else: ?>
-                    Showing <?= count($featuredEvents) ?> curated <?= count($featuredEvents) === 1 ? 'preview' : 'previews' ?> in <strong><?= e($categoryLabel) ?> events</strong>.
-                <?php endif; ?>
-            </span></p>
+        <?php if ($activeFilters !== []): ?>
+            <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Showing <?= count($events) ?> <?= count($events) === 1 ? 'match' : 'matches' ?> for your selected filters.</span></p>
         <?php endif; ?>
 
-        <?php if ($featuredEvents === []): ?>
+        <?php if ($events === []): ?>
             <div class="event-empty-state">
                 <span><i class="ph ph-calendar-x" aria-hidden="true"></i></span>
-                <h2>No preview events match<?= $search !== '' ? ' “' . e($search) . '”' : '' ?><?= $category !== '' ? ' in ' . e($categoryLabel) : '' ?>.</h2>
-                <p>Try a broader topic, category, or Dhaka location.</p>
+                <h2>No published events match these filters.</h2>
+                <p>Try a broader search, another city, or a different date range.</p>
                 <a class="button button--quiet button--compact" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear search and filters</span></a>
             </div>
         <?php else: ?>
-            <div class="mt-10 grid gap-6 md:grid-cols-2">
-                <?php foreach ($featuredEvents as $event): ?>
+            <div class="event-results-grid">
+                <?php foreach ($events as $event): ?>
                     <article class="event-card" data-reveal>
-                        <div class="event-card__media">
-                            <img src="<?= e($event['image']) ?>" alt="<?= e($event['alt']) ?>" width="1400" height="1086">
-                        </div>
+                        <a class="event-card__media" href="/events/<?= e($event['slug']) ?>" aria-label="View <?= e($event['title']) ?>">
+                            <img src="<?= e($event['banner_display']) ?>" alt="<?= e($event['banner_alt']) ?>" width="1400" height="1050" loading="lazy">
+                        </a>
                         <div class="event-card__body">
-                            <p class="event-card__category"><?= e($event['category']) ?></p>
-                            <h2><?= e($event['title']) ?></h2>
+                            <p class="event-card__category"><?= e($event['category_name'] ?? 'Event') ?></p>
+                            <h2><a href="/events/<?= e($event['slug']) ?>"><?= e($event['title']) ?></a></h2>
                             <div class="event-card__details">
-                                <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['datetime']) ?>"><?= e($event['date']) ?> at <?= e($event['time']) ?></time></span></div>
-                                <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['venue']) ?></address></span></div>
+                                <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['start_iso']) ?>"><?= e($event['start_date_display']) ?> at <?= e($event['start_time_display']) ?></time></span></div>
+                                <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['address']) ?></address></span></div>
                             </div>
-                            <div class="event-card__footer"><strong><?= e($event['price']) ?></strong><span class="preview-badge">Preview</span></div>
+                            <div class="event-card__footer"><strong><?= e($event['price_display']) ?></strong><a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View details</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
                         </div>
                     </article>
                 <?php endforeach; ?>

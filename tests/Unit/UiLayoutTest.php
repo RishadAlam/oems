@@ -27,6 +27,37 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'id="how-it-works"'));
     }
 
+    public function testPublicLayoutRendersOptionalSeoMetadataAndHexEscapedJsonLd(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $html = $view->render('errors/404', [
+            'app' => ['name' => 'OEMS'],
+            'currentUser' => null,
+            'flash' => [],
+            'pageTitle' => 'Safe details',
+            'metaDescription' => 'Useful & concise.',
+            'canonicalUrl' => 'https://events.example.test/events/safe-details',
+            'openGraph' => [
+                'type' => 'event',
+                'title' => 'Safe details',
+                'description' => 'Useful & concise.',
+                'url' => 'https://events.example.test/events/safe-details',
+            ],
+            'jsonLd' => [
+                '@context' => 'https://schema.org',
+                '@type' => 'Event',
+                'name' => '</script><script>alert("x")</script> & friends',
+            ],
+        ], 'public');
+
+        $this->assertTrue(str_contains($html, '<meta name="description" content="Useful &amp; concise.">'));
+        $this->assertTrue(str_contains($html, '<link rel="canonical" href="https://events.example.test/events/safe-details">'));
+        $this->assertTrue(str_contains($html, '<meta property="og:type" content="event">'));
+        $this->assertTrue(str_contains($html, '\\u003C/script\\u003E\\u003Cscript\\u003E'));
+        $this->assertTrue(str_contains($html, '\\u0026 friends'));
+        $this->assertFalse(str_contains($html, '</script><script>alert'));
+    }
+
     public function testMobileNavigationStartsCollapsedAndExposesItsControlState(): void
     {
         $html = $this->renderHome();
@@ -136,6 +167,7 @@ final class UiLayoutTest extends TestCase
             'featuredEvents' => [
                 [
                     'title' => 'Designing for public life',
+                    'slug' => 'designing-for-public-life',
                     'category' => 'Creative workshop',
                     'date' => 'August 22',
                     'datetime' => '2026-08-22T10:00:00+06:00',

@@ -1303,6 +1303,204 @@
     .admin-rejection-form {
         @apply grid gap-4 border-t border-[var(--line)] pt-5;
     }
+
+    .event-filter-panel {
+        @apply mt-9 grid gap-4 rounded-[20px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 shadow-[var(--shadow-soft)] sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7;
+    }
+
+    .event-filter-panel__search {
+        @apply sm:col-span-2;
+    }
+
+    .event-filter-panel label {
+        @apply mb-2 block text-xs font-bold text-[var(--ink)];
+    }
+
+    .event-filter-panel__search > div {
+        @apply grid grid-cols-[auto_1fr] items-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] px-4 transition focus-within:border-[var(--accent)] focus-within:ring-3 focus-within:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
+    .event-filter-panel__search .ph {
+        @apply text-xl text-[var(--ink-muted)];
+    }
+
+    .event-filter-panel input,
+    .event-filter-panel select {
+        @apply min-h-12 w-full text-sm text-[var(--ink)];
+    }
+
+    .event-filter-panel input {
+        @apply min-w-0 bg-transparent px-3 placeholder:text-[var(--ink-muted)] focus:outline-none;
+    }
+
+    .event-filter-panel select {
+        @apply rounded-[12px] border border-[var(--line)] bg-[var(--surface)] px-3 focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
+    .event-filter-panel__actions {
+        @apply flex flex-col gap-3 sm:col-span-2 sm:flex-row lg:col-span-3 xl:col-span-7;
+    }
+
+    .event-results-grid {
+        @apply mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3;
+    }
+
+    .public-event {
+        @apply min-h-[calc(100dvh-72px)];
+    }
+
+    .public-event__hero {
+        @apply border-b border-[var(--line)] py-10 sm:py-14 lg:py-16;
+        background: radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 32rem), var(--surface);
+    }
+
+    .public-event__hero-grid {
+        @apply grid items-center gap-9 lg:grid-cols-[0.82fr_1.18fr] lg:gap-14;
+    }
+
+    .public-event__heading > .event-card__category {
+        @apply mt-8;
+    }
+
+    .public-event__heading h1 {
+        @apply mt-3 max-w-[14ch] text-[clamp(2.9rem,5.2vw,4.8rem)] font-semibold leading-[0.98] tracking-[-0.055em];
+    }
+
+    .public-event__heading > p:not(.event-card__category) {
+        @apply mt-5 max-w-[58ch] text-base leading-7 text-[var(--ink-muted)];
+    }
+
+    .public-event__quick-facts {
+        @apply mt-7 grid gap-3 text-sm font-semibold sm:grid-cols-2;
+    }
+
+    .public-event__quick-facts span {
+        @apply flex items-start gap-2.5;
+    }
+
+    .public-event__quick-facts .ph {
+        @apply mt-0.5 text-xl text-[var(--accent)];
+    }
+
+    .public-event__banner {
+        @apply overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--surface-soft)] shadow-[var(--shadow)];
+    }
+
+    .public-event__banner img {
+        @apply aspect-[4/3] h-full w-full object-cover;
+    }
+
+    .public-event__layout {
+        @apply grid items-start gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14 lg:py-20;
+    }
+
+    .public-event__story {
+        @apply grid gap-14;
+    }
+
+    .public-event__story h2,
+    .public-event__sidebar h2 {
+        @apply text-2xl font-semibold tracking-[-0.035em];
+    }
+
+    .public-event__description {
+        @apply mt-5 max-w-[70ch] whitespace-pre-line text-base leading-8 text-[var(--ink-muted)];
+    }
+
+    .public-event__gallery > div {
+        @apply mt-6 grid gap-4 sm:grid-cols-2;
+    }
+
+    .public-event__gallery figure {
+        @apply overflow-hidden rounded-[16px] border border-[var(--line)] bg-[var(--surface-soft)];
+    }
+
+    .public-event__gallery figure:first-child:nth-last-child(odd) {
+        @apply sm:col-span-2;
+    }
+
+    .public-event__gallery img {
+        @apply aspect-[4/3] h-full w-full object-cover;
+    }
+
+    .public-event__gallery figure:first-child:nth-last-child(odd) img {
+        @apply sm:aspect-[16/7];
+    }
+
+    .public-event__tags > div {
+        @apply mt-5 flex flex-wrap gap-2;
+    }
+
+    .public-event__tags span {
+        @apply rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,var(--line))] bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--accent)];
+    }
+
+    .public-event__sidebar {
+        @apply grid gap-4 lg:sticky lg:top-24;
+    }
+
+    .public-event__sidebar > section {
+        @apply rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6;
+    }
+
+    .public-event__sidebar dl {
+        @apply mt-6 grid gap-4;
+    }
+
+    .public-event__sidebar dl > div {
+        @apply border-b border-[var(--line)] pb-4 last:border-0 last:pb-0;
+    }
+
+    .public-event__sidebar dt {
+        @apply flex items-center gap-2 text-xs font-bold text-[var(--ink-muted)];
+    }
+
+    .public-event__sidebar dt .ph {
+        @apply text-lg text-[var(--accent)];
+    }
+
+    .public-event__sidebar dd {
+        @apply mt-1.5 text-sm font-semibold leading-6;
+    }
+
+    .public-event__sidebar address {
+        @apply not-italic;
+    }
+
+    .public-event__organizer,
+    .public-event__registration {
+        @apply grid grid-cols-[auto_1fr] items-start gap-4;
+    }
+
+    .public-event__organizer > span,
+    .public-event__registration > span {
+        @apply grid size-11 place-items-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
+    }
+
+    .public-event__organizer small,
+    .public-event__organizer strong {
+        @apply block;
+    }
+
+    .public-event__organizer small {
+        @apply text-xs font-semibold text-[var(--ink-muted)];
+    }
+
+    .public-event__organizer strong {
+        @apply mt-1 text-base font-semibold;
+    }
+
+    .public-event__registration {
+        @apply border-[color-mix(in_srgb,var(--accent)_35%,var(--line))] bg-[var(--accent-soft)];
+    }
+
+    .public-event__registration h2 {
+        @apply text-base;
+    }
+
+    .public-event__registration p {
+        @apply mt-2 text-xs leading-5 text-[var(--ink-muted)];
+    }
 }
 
 @media (prefers-reduced-motion: no-preference) {

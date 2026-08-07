@@ -10,11 +10,13 @@ use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerEventController;
 use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Controllers\ProfileController;
+use OEMS\App\Controllers\PublicEventController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
     $router->get('/', [HomeController::class, 'index'], name: 'home');
-    $router->get('/events', [HomeController::class, 'events'], name: 'events.index');
+    $router->get('/events', [PublicEventController::class, 'index'], name: 'events.index');
+    $router->get('/events/{slug}', [PublicEventController::class, 'show'], name: 'events.show');
 
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest'], 'login');
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf'], 'login.submit');

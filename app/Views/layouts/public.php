@@ -3,7 +3,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Discover and host memorable events with OEMS.">
+    <meta name="description" content="<?= e($metaDescription ?? 'Discover and host memorable events with OEMS.') ?>">
+    <?php if (!empty($canonicalUrl)): ?>
+        <link rel="canonical" href="<?= e($canonicalUrl) ?>">
+    <?php endif; ?>
+    <?php foreach (($openGraph ?? []) as $property => $value): ?>
+        <?php if (is_scalar($value) && (string) $value !== ''): ?>
+            <meta property="og:<?= e($property) ?>" content="<?= e($value) ?>">
+        <?php endif; ?>
+    <?php endforeach; ?>
     <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? $app['name']) ?> | <?= e($app['name']) ?></title>
     <script>
@@ -15,6 +23,9 @@
         }());
     </script>
     <link rel="stylesheet" href="/assets/css/app.css">
+    <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
+        <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
+    <?php endif; ?>
     <script src="/assets/js/app.js" defer></script>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">
