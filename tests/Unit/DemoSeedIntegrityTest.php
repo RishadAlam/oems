@@ -80,6 +80,18 @@ final class DemoSeedIntegrityTest extends TestCase
         }
     }
 
+    public function testDemoSeedRestoresTheDocumentedAdministratorCredential(): void
+    {
+        $matched = preg_match("/SET @admin_password = '([^']+)';/", $this->seed, $matches);
+
+        $this->assertSame(1, $matched, 'Demo seed must declare the local administrator password hash.');
+        $this->assertTrue(password_verify('ChangeMe!2026', $matches[1] ?? ''));
+        $this->assertTrue(str_contains(
+            $this->seed,
+            "UPDATE users\nSET password = @admin_password\nWHERE id = @admin_user_id;",
+        ));
+    }
+
     public function testFutureTicketRowsDoNotClaimGeneratedMediaFiles(): void
     {
         $ticketRows = $this->insertRows('tickets');

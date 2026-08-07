@@ -141,8 +141,8 @@ final class EventService
             return $this->failure(['event' => ['Event not found.']]);
         }
 
-        if (!in_array((string) ($event['status'] ?? ''), ['draft', 'rejected'], true)) {
-            return $this->failure(['status' => ['Only draft or rejected events may be submitted.']]);
+        if ((string) ($event['status'] ?? '') !== 'draft') {
+            return $this->failure(['status' => ['Only saved drafts may be submitted. Edit a rejected event before resubmitting it.']]);
         }
 
         if (!$this->organizerIsApproved($userId)) {

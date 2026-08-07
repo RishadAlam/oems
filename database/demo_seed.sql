@@ -4,9 +4,14 @@
 START TRANSACTION;
 
 SET @demo_password = '$2y$10$jgpoan2Mw3QGbb/ADEz5UebGZI9U7rGifg/ulZ98qHkt/aQWJqCIS';
+SET @admin_password = '$2y$10$Ocxf/IY88bqDM/QqAJnjCu.fOuRAp0FuA56DhB9ahEbz.YxP3PEeW';
 SET @admin_user_id = (SELECT id FROM users WHERE email = 'admin@oems.local');
 SET @organizer_role_id = (SELECT id FROM roles WHERE slug = 'organizer');
 SET @participant_role_id = (SELECT id FROM roles WHERE slug = 'participant');
+
+UPDATE users
+SET password = @admin_password
+WHERE id = @admin_user_id;
 
 INSERT INTO users (role_id, name, email, password, status, email_verified_at) VALUES
     (@organizer_role_id, 'Ayesha Rahman', 'ayesha.organizer@oems.local', @demo_password, 'active', NOW()),

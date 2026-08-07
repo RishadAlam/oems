@@ -47,6 +47,8 @@ interface EventRepositoryInterface
 
     public function findForAdmin(int $eventId): ?array;
 
+    public function galleryForAdmin(int $eventId): array;
+
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool;
 
     public function replaceGallery(int $eventId, array $images): void;

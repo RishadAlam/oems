@@ -147,7 +147,11 @@ final class FakeEventRepository implements EventRepositoryInterface
             return false;
         }
 
-        $this->events[$eventId] = array_merge($this->events[$eventId], $attributes);
+        $event = $this->events[$eventId];
+        $this->events[$eventId] = array_merge($event, $attributes, [
+            'status' => $event['status'] === 'rejected' ? 'draft' : $event['status'],
+            'rejection_reason' => $event['status'] === 'rejected' ? null : ($event['rejection_reason'] ?? null),
+        ]);
 
         return true;
     }
@@ -172,7 +176,10 @@ final class FakeEventRepository implements EventRepositoryInterface
             'banner' => is_string($event['banner'] ?? null) ? $event['banner'] : null,
             'gallery' => $this->galleryPaths($eventId),
         ];
-        $this->events[$eventId] = array_merge($event, $attributes);
+        $this->events[$eventId] = array_merge($event, $attributes, [
+            'status' => $event['status'] === 'rejected' ? 'draft' : $event['status'],
+            'rejection_reason' => $event['status'] === 'rejected' ? null : ($event['rejection_reason'] ?? null),
+        ]);
 
         if ($images !== null) {
             $this->galleries[$eventId] = array_slice($images, 0, 6);
@@ -183,7 +190,9 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool
     {
-        if ($this->findOwned($userId, $eventId) === null) {
+        $event = $this->findOwned($userId, $eventId);
+
+        if ($event === null || !in_array($event['status'], ['draft', 'rejected', 'cancelled'], true)) {
             return false;
         }
 
@@ -199,7 +208,7 @@ final class FakeEventRepository implements EventRepositoryInterface
         }
 
         $allowed = [
-            'pending' => ['draft', 'rejected'],
+            'pending' => ['draft'],
             'cancelled' => ['approved', 'published'],
         ];
 
@@ -227,6 +236,13 @@ final class FakeEventRepository implements EventRepositoryInterface
     public function findForAdmin(int $eventId): ?array
     {
         return $this->events[$eventId] ?? null;
+    }
+
+    public function galleryForAdmin(int $eventId): array
+    {
+        $event = $this->events[$eventId] ?? null;
+
+        return $event !== null && empty($event['deleted_at']) ? ($this->galleries[$eventId] ?? []) : [];
     }
 
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool

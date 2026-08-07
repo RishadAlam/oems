@@ -31,6 +31,16 @@ $canCancel = in_array($status, ['approved', 'published'], true);
             <div><dt><i class="ph ph-link" aria-hidden="true"></i>Map</dt><dd><?php if (!empty($event['map_url'])): ?><a class="text-link" href="<?= e($event['map_url']) ?>" target="_blank" rel="noopener noreferrer">Open submitted map <i class="ph ph-arrow-square-out" aria-hidden="true"></i></a><?php else: ?>Not provided<?php endif; ?></dd></div>
         </dl>
         <?php if (!empty($event['tags']) && is_array($event['tags'])): ?><div class="admin-evidence-tags" aria-label="Event tags"><?php foreach ($event['tags'] as $tag): ?><span><?= e($tag) ?></span><?php endforeach; ?></div><?php endif; ?>
+        <?php if (($gallery ?? []) !== []): ?>
+            <section class="public-event__gallery" aria-labelledby="admin-event-gallery-heading">
+                <h2 id="admin-event-gallery-heading">Submitted gallery</h2>
+                <div>
+                    <?php foreach ($gallery as $image): ?>
+                        <figure><img src="<?= e($image['image_path']) ?>" alt="<?= e($image['alt_text'] ?? ('Gallery image for ' . $event['title'])) ?>"></figure>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+        <?php endif; ?>
     </article>
 
     <aside class="dashboard-panel organizer-actions-panel" aria-labelledby="moderation-actions-heading">

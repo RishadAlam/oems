@@ -246,17 +246,24 @@ final class EventServiceTest extends TestCase
         $this->assertSame('draft', $this->events->events[1]['status']);
     }
 
-    public function testApprovedOrganizerCanResubmitARejectedEvent(): void
+    public function testApprovedOrganizerMustEditARejectedEventBeforeResubmission(): void
     {
         $this->events->events[1] = $this->storedEvent(1, 10, 'rejected', [
             'rejection_reason' => 'Clarify the schedule.',
         ]);
 
-        $result = $this->service->submit(10, 1);
+        $beforeEdit = $this->service->submit(10, 1);
+        $edit = $this->service->update(10, 1, $this->validInput(['title' => 'Revised Event']), null, []);
 
-        $this->assertTrue($result['success']);
-        $this->assertSame('pending', $this->events->events[1]['status']);
+        $this->assertFalse($beforeEdit['success']);
+        $this->assertTrue($edit['success']);
+        $this->assertSame('draft', $this->events->events[1]['status']);
         $this->assertNull($this->events->events[1]['rejection_reason']);
+
+        $afterEdit = $this->service->submit(10, 1);
+
+        $this->assertTrue($afterEdit['success']);
+        $this->assertSame('pending', $this->events->events[1]['status']);
     }
 
     public function testOrganizerCannotCancelFromAnInvalidLifecycleState(): void

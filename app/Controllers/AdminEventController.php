@@ -61,6 +61,7 @@ final class AdminEventController extends Controller
         return $this->render('admin/events/show', [
             'pageTitle' => (string) $event['title'],
             'event' => $event,
+            'gallery' => $this->events->galleryForAdmin((int) $event['id']),
         ], 'dashboard');
     }
 

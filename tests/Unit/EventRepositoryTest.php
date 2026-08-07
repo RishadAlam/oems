@@ -93,6 +93,22 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(count($matches[1]), count(array_unique($matches[1])));
     }
 
+    public function testEventWritesUseUniqueBindingsUnderNativePrepareContract(): void
+    {
+        $this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+
+        $this->repository->createForUser(10, $this->eventAttributes('native-create'));
+        $createQuery = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        preg_match_all('/:(\w+)/', $createQuery, $createBindings);
+
+        $this->repository->updateOwned(10, 502, $this->eventAttributes('native-update'));
+        $updateQuery = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        preg_match_all('/:(\w+)/', $updateQuery, $updateBindings);
+
+        $this->assertSame(count($createBindings[1]), count(array_unique($createBindings[1])));
+        $this->assertSame(count($updateBindings[1]), count(array_unique($updateBindings[1])));
+    }
+
     public function testPublicDateFiltersImplementTodayWeekMonthAndUpcomingFallback(): void
     {
         $today = array_column($this->repository->publicSearch(['date' => 'today']), 'slug');
@@ -115,7 +131,10 @@ final class EventRepositoryTest extends TestCase
         $cities = $this->repository->publicCities();
         $event = $this->repository->findPublishedBySlug('free-dhaka-summit');
 
-        $this->assertSame(['free-dhaka-summit', 'paid-chittagong-summit'], array_column($featured, 'slug'));
+        $this->assertSame(
+            ['free-dhaka-summit', 'paid-chittagong-summit', 'today-event', 'needle-search-event'],
+            array_column($featured, 'slug'),
+        );
         $this->assertSame(['Chittagong', 'Dhaka', 'Needle City'], $cities);
         $this->assertNotNull($event);
         $this->assertSame(['php', 'community'], $event['tags']);
@@ -124,6 +143,22 @@ final class EventRepositoryTest extends TestCase
             ['today-event', 'free-dhaka-summit', 'paid-chittagong-summit', 'needle-search-event', 'next-week-event', 'next-month-event'],
             array_column($this->repository->publicSearch(['sort' => 'injected SQL']), 'slug'),
         );
+    }
+
+    public function testPublicQueriesExcludeInactiveCategoriesAndFeaturedFallsBackWithoutDuplicates(): void
+    {
+        $this->assertSame(
+            ['free-dhaka-summit', 'paid-chittagong-summit', 'today-event'],
+            array_column($this->repository->featured(3), 'slug'),
+        );
+
+        $this->connection->exec('UPDATE categories SET is_active = 0 WHERE id = 1');
+
+        $this->assertSame(['needle-search-event'], array_column($this->repository->featured(3), 'slug'));
+        $this->assertSame(['needle-search-event'], array_column($this->repository->publicSearch([]), 'slug'));
+        $this->assertSame(['Needle City'], $this->repository->publicCities());
+        $this->assertNull($this->repository->findPublishedBySlug('free-dhaka-summit'));
+        $this->assertSame([], $this->repository->gallery(501));
     }
 
     public function testGalleryReturnsImagesOnlyForPublishedNonDeletedEventsInStoredOrder(): void
@@ -194,9 +229,37 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame('Updated Event', $this->eventTitle($id));
         $this->assertTrue($this->repository->transitionOwned(10, $id, $this->auditContext(), 'pending'));
         $this->assertSame('pending', $this->eventValue($id, 'status'));
+        $this->assertFalse($this->repository->softDeleteOwned(10, $id, $this->auditContext()));
+        $this->connection->exec("UPDATE events SET status = 'cancelled' WHERE id = " . (int) $id);
         $this->assertTrue($this->repository->softDeleteOwned(10, $id, $this->auditContext()));
         $this->assertNull($this->repository->findOwned(10, $id));
         $this->assertSame(1, $this->activityCountFor($id));
+    }
+
+    public function testSoftDeleteUsesEligibleStatusAsAnAtomicGuard(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'pending' WHERE id = 502");
+
+        $this->assertFalse($this->repository->softDeleteOwned(10, 502, $this->auditContext()));
+        $this->assertNull($this->eventValue(502, 'deleted_at'));
+
+        $this->connection->exec("UPDATE events SET status = 'rejected' WHERE id = 502");
+
+        $this->assertTrue($this->repository->softDeleteOwned(10, 502, $this->auditContext()));
+        $this->assertNotNull($this->eventValue(502, 'deleted_at'));
+    }
+
+    public function testRejectedEventMustBeSavedAsDraftBeforeResubmission(): void
+    {
+        $this->connection->exec(
+            "UPDATE events SET status = 'rejected', rejection_reason = 'Clarify the schedule.' WHERE id = 502",
+        );
+
+        $this->assertFalse($this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending'));
+        $this->assertTrue($this->repository->updateOwned(10, 502, $this->eventAttributes()));
+        $this->assertSame('draft', $this->eventValue(502, 'status'));
+        $this->assertNull($this->eventValue(502, 'rejection_reason'));
+        $this->assertTrue($this->repository->transitionOwned(10, 502, $this->auditContext(), 'pending'));
     }
 
     public function testAtomicCreatePersistsTheEventAndGalleryTogether(): void
@@ -364,6 +427,16 @@ final class EventRepositoryTest extends TestCase
         $this->assertNull($this->repository->deleteGalleryImageOwned(20, 502, $imageId));
         $this->assertSame('two.jpg', $this->repository->deleteGalleryImageOwned(10, 502, $imageId));
         $this->assertSame(['one.jpg', 'three.jpg', 'four.jpg', 'five.jpg', 'six.jpg'], array_column($this->repository->gallery(502), 'image_path'));
+    }
+
+    public function testAdministratorGalleryIncludesPendingMediaButExcludesDeletedEvents(): void
+    {
+        $this->assertSame(
+            ['draft-only.jpg'],
+            array_column($this->repository->galleryForAdmin(502), 'image_path'),
+        );
+        $this->assertSame([], $this->repository->galleryForAdmin(505));
+        $this->assertSame([], $this->repository->galleryForAdmin(999));
     }
 
     private function createSchema(): void

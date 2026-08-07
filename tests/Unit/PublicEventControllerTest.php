@@ -66,6 +66,7 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool { return false; }
     public function forAdmin(?string $status): array { return []; }
     public function findForAdmin(int $eventId): ?array { return null; }
+    public function galleryForAdmin(int $eventId): array { return []; }
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool { return false; }
     public function replaceGallery(int $eventId, array $images): void {}
     public function deleteGalleryImageOwned(int $userId, int $eventId, int $imageId): ?string { return null; }

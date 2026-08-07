@@ -60,6 +60,18 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'Review events'));
     }
 
+    public function testAdminReviewActionsCanWrapWithTheCompiledStylesheet(): void
+    {
+        $html = $this->renderAdminDashboard();
+        $stylesheet = file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue(str_contains($html, 'flex-wrap'));
+        $this->assertTrue(
+            is_string($stylesheet) && str_contains($stylesheet, '.flex-wrap{flex-wrap:wrap}'),
+            'The committed stylesheet must include the responsive wrapping utility used by the admin review actions.',
+        );
+    }
+
     public function testMobileDashboardNavigationExposesItsDisclosureContract(): void
     {
         $html = $this->renderAdminDashboard();

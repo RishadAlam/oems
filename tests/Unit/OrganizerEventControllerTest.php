@@ -229,7 +229,7 @@ final class OrganizerEventControllerTest extends TestCase
 
         $this->assertSame('/organizer/events/13', $response->header('Location'));
         $this->assertSame(
-            'Only draft or rejected events may be submitted.',
+            'Only saved drafts may be submitted. Edit a rejected event before resubmitting it.',
             $this->session->get('_flash.error'),
         );
     }

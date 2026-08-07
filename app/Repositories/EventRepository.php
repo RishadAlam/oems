@@ -20,7 +20,7 @@ final class EventRepository implements EventRepositoryInterface
     ];
 
     private const ORGANIZER_TRANSITIONS = [
-        'pending' => ['draft', 'rejected'],
+        'pending' => ['draft'],
         'cancelled' => ['approved', 'published'],
     ];
 
@@ -43,8 +43,8 @@ final class EventRepository implements EventRepositoryInterface
             . ' WHERE events.status = :status
                   AND events.deleted_at IS NULL
                   AND events.start_date >= CURRENT_TIMESTAMP
-                  AND events.is_featured = 1
-                ORDER BY events.start_date ASC, events.id ASC
+                  AND categories.is_active = 1
+                ORDER BY events.is_featured DESC, events.start_date ASC, events.id ASC
                 LIMIT :limit',
         );
         $statement->bindValue('status', 'published');
@@ -60,6 +60,7 @@ final class EventRepository implements EventRepositoryInterface
             'events.status = :published_status',
             'events.deleted_at IS NULL',
             'events.start_date >= CURRENT_TIMESTAMP',
+            'categories.is_active = 1',
         ];
         $parameters = ['published_status' => 'published'];
 
@@ -137,9 +138,11 @@ final class EventRepository implements EventRepositoryInterface
             'SELECT DISTINCT venues.city
              FROM events
              INNER JOIN venues ON venues.id = events.venue_id
+             INNER JOIN categories ON categories.id = events.category_id
              WHERE events.status = :status
                AND events.deleted_at IS NULL
                AND events.start_date >= CURRENT_TIMESTAMP
+               AND categories.is_active = 1
                AND venues.city IS NOT NULL
              ORDER BY venues.city ASC',
         );
@@ -155,6 +158,7 @@ final class EventRepository implements EventRepositoryInterface
             . ' WHERE events.slug = :slug
                   AND events.status = :status
                   AND events.deleted_at IS NULL
+                  AND categories.is_active = 1
                 LIMIT 1',
         );
         $statement->execute(['slug' => $slug, 'status' => 'published']);
@@ -169,9 +173,11 @@ final class EventRepository implements EventRepositoryInterface
                     event_gallery.alt_text, event_gallery.sort_order, event_gallery.created_at
              FROM event_gallery
              INNER JOIN events ON events.id = event_gallery.event_id
+             INNER JOIN categories ON categories.id = events.category_id
              WHERE event_gallery.event_id = :event_id
                AND events.status = :status
                AND events.deleted_at IS NULL
+               AND categories.is_active = 1
              ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
         );
         $statement->execute(['event_id' => $eventId, 'status' => 'published']);
@@ -290,8 +296,8 @@ final class EventRepository implements EventRepositoryInterface
              FROM organizers
              WHERE organizers.user_id = :user_id
                AND EXISTS (SELECT 1 FROM categories WHERE categories.id = :category_id_guard)
-               AND (:venue_id_guard IS NULL OR EXISTS (
-                   SELECT 1 FROM venues WHERE venues.id = :venue_id_guard AND venues.organizer_id = organizers.id
+               AND (:venue_id_nullable_guard IS NULL OR EXISTS (
+                   SELECT 1 FROM venues WHERE venues.id = :venue_id_ownership_guard AND venues.organizer_id = organizers.id
                ))',
         );
         $statement->execute($this->eventParameters($userId, $attributes));
@@ -335,15 +341,17 @@ final class EventRepository implements EventRepositoryInterface
                  currency = :currency,
                  tags = :tags,
                  is_featured = :is_featured,
+                 rejection_reason = CASE WHEN status = \'rejected\' THEN NULL ELSE rejection_reason END,
+                 status = CASE WHEN status = \'rejected\' THEN \'draft\' ELSE status END,
                  updated_at = CURRENT_TIMESTAMP
              WHERE events.id = :event_id
                AND events.deleted_at IS NULL
                AND events.status IN (\'draft\', \'rejected\')
                AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)
                AND EXISTS (SELECT 1 FROM categories WHERE categories.id = :category_id_guard)
-               AND (:venue_id_guard IS NULL OR EXISTS (
+               AND (:venue_id_nullable_guard IS NULL OR EXISTS (
                    SELECT 1 FROM venues
-                   WHERE venues.id = :venue_id_guard AND venues.organizer_id = events.organizer_id
+                   WHERE venues.id = :venue_id_ownership_guard AND venues.organizer_id = events.organizer_id
                ))',
         );
         $parameters = $this->eventParameters($userId, $attributes);
@@ -408,6 +416,7 @@ final class EventRepository implements EventRepositoryInterface
              SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
              WHERE events.id = :event_id
                AND events.deleted_at IS NULL
+               AND events.status IN (\'draft\', \'rejected\', \'cancelled\')
                AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)',
         );
         $statement->execute(['user_id' => $userId, 'event_id' => $eventId]);
@@ -483,6 +492,23 @@ final class EventRepository implements EventRepositoryInterface
         $statement->execute(['event_id' => $eventId]);
 
         return $this->decodeEvent($statement->fetch());
+    }
+
+    public function galleryForAdmin(int $eventId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT event_gallery.id, event_gallery.event_id, event_gallery.image_path,
+                    event_gallery.alt_text, event_gallery.sort_order, event_gallery.created_at
+             FROM event_gallery
+             INNER JOIN events ON events.id = event_gallery.event_id
+             WHERE event_gallery.event_id = :event_id
+               AND events.deleted_at IS NULL
+             ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
+        );
+        $statement->execute(['event_id' => $eventId]);
+        $gallery = $statement->fetchAll();
+
+        return is_array($gallery) ? $gallery : [];
     }
 
     public function transitionAdmin(int $userId, int $eventId, array $context, string $status, ?string $reason): bool
@@ -651,7 +677,8 @@ final class EventRepository implements EventRepositoryInterface
             'category_id' => $attributes['category_id'],
             'category_id_guard' => $attributes['category_id'],
             'venue_id' => $attributes['venue_id'] ?? null,
-            'venue_id_guard' => $attributes['venue_id'] ?? null,
+            'venue_id_nullable_guard' => $attributes['venue_id'] ?? null,
+            'venue_id_ownership_guard' => $attributes['venue_id'] ?? null,
             'title' => $attributes['title'],
             'slug' => $attributes['slug'],
             'description' => $attributes['description'],

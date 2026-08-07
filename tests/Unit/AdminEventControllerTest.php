@@ -115,6 +115,8 @@ final class AdminEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, '<textarea'));
         $this->assertTrue(str_contains($body, 'name="reason"'));
         $this->assertTrue(str_contains($body, 'Pending review'));
+        $this->assertTrue(str_contains($body, '/uploads/events/pending-gallery.jpg'));
+        $this->assertTrue(str_contains($body, 'Pending gallery evidence'));
         $this->assertFalse(str_contains($body, 'formaction='));
     }
 
@@ -291,6 +293,7 @@ final class AdminEventControllerTest extends TestCase
             )',
         );
         $this->connection->exec('CREATE TABLE activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NULL, action TEXT NOT NULL, subject_type TEXT NULL, subject_id INTEGER NULL, description TEXT NOT NULL, properties TEXT NULL, ip_address TEXT NULL, user_agent TEXT NULL, created_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE event_gallery (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, image_path TEXT NOT NULL, alt_text TEXT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)');
     }
 
     private function seedEvents(): void
@@ -333,6 +336,11 @@ final class AdminEventControllerTest extends TestCase
                 'created_at' => sprintf('2026-08-0%d 10:00:00', $id - 10),
             ]);
         }
+
+        $this->connection->exec(
+            "INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order, created_at)
+             VALUES (11, '/uploads/events/pending-gallery.jpg', 'Pending gallery evidence', 1, CURRENT_TIMESTAMP)",
+        );
     }
 
     private function eventStatus(int $eventId): string
