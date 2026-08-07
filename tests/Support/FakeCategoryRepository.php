@@ -14,6 +14,8 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
 
     public int $updateCalls = 0;
 
+    public int $setActiveCalls = 0;
+
     public array $categories = [
         1 => ['id' => 1, 'name' => 'Technology', 'slug' => 'technology', 'is_active' => 1],
         2 => ['id' => 2, 'name' => 'Archived', 'slug' => 'archived', 'is_active' => 0],
@@ -79,6 +81,8 @@ final class FakeCategoryRepository implements CategoryRepositoryInterface
 
     public function setActive(int $id, bool $isActive): bool
     {
+        $this->setActiveCalls++;
+
         if (!isset($this->categories[$id])) {
             return false;
         }

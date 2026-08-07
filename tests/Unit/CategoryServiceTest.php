@@ -81,6 +81,16 @@ final class CategoryServiceTest extends TestCase
         $this->assertSame(0, $this->categories->categories[1]['is_active']);
     }
 
+    public function testSetActiveSucceedsWithoutWritingWhenCategoryAlreadyHasRequestedState(): void
+    {
+        $result = $this->service->setActive(2, '0');
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($result['is_active']);
+        $this->assertSame(0, $this->categories->setActiveCalls);
+        $this->assertSame(0, $this->categories->categories[2]['is_active']);
+    }
+
     public function testUnchangedUpdateSucceedsWithoutDependingOnDatabaseChangedRowCount(): void
     {
         $this->categories->categories[1] = array_merge($this->categories->categories[1], [

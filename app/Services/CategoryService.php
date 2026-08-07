@@ -75,7 +75,9 @@ final class CategoryService
 
     public function setActive(int $categoryId, mixed $requestedState): array
     {
-        if ($this->categories->find($categoryId) === null) {
+        $category = $this->categories->find($categoryId);
+
+        if ($category === null) {
             return $this->notFound();
         }
 
@@ -84,6 +86,10 @@ final class CategoryService
         }
 
         $isActive = in_array($requestedState, [true, 1, '1'], true);
+
+        if (!empty($category['is_active']) === $isActive) {
+            return $this->success(['category_id' => $categoryId, 'is_active' => $isActive]);
+        }
 
         try {
             $updated = $this->categories->setActive($categoryId, $isActive);
