@@ -51,8 +51,24 @@ final class EventRepository implements EventRepositoryInterface
         $parameters = ['published_status' => 'published'];
 
         if (($search = trim((string) ($filters['search'] ?? ''))) !== '') {
-            $clauses[] = '(LOWER(events.title) LIKE :search OR LOWER(events.description) LIKE :search OR LOWER(COALESCE(events.speaker, \'\')) LIKE :search)';
-            $parameters['search'] = '%' . strtolower($search) . '%';
+            $searchClauses = [];
+            $searchValue = '%' . strtolower($search) . '%';
+
+            foreach ([
+                'title' => 'events.title',
+                'description' => 'events.description',
+                'speaker' => "COALESCE(events.speaker, '')",
+                'organizer' => 'organizers.organization_name',
+                'category' => 'categories.name',
+                'venue' => "COALESCE(venues.name, '')",
+                'city' => "COALESCE(venues.city, '')",
+            ] as $name => $column) {
+                $parameter = 'search_' . $name;
+                $searchClauses[] = 'LOWER(' . $column . ') LIKE :' . $parameter;
+                $parameters[$parameter] = $searchValue;
+            }
+
+            $clauses[] = '(' . implode(' OR ', $searchClauses) . ')';
         }
 
         if (($category = trim((string) ($filters['category'] ?? ''))) !== '') {
@@ -65,14 +81,23 @@ final class EventRepository implements EventRepositoryInterface
             $parameters['city'] = $city;
         }
 
-        $date = (string) ($filters['date'] ?? '');
+        $date = (string) ($filters['date'] ?? 'upcoming');
+
         if ($date === 'today') {
-            $clauses[] = 'DATE(events.start_date) = DATE(CURRENT_TIMESTAMP)';
-        } elseif ($date === 'upcoming') {
-            $clauses[] = 'events.start_date >= CURRENT_TIMESTAMP';
-        } elseif ($date === 'past') {
-            $clauses[] = 'events.start_date < CURRENT_TIMESTAMP';
-            $clauses = array_values(array_filter($clauses, static fn (string $clause): bool => $clause !== 'events.start_date >= CURRENT_TIMESTAMP'));
+            [$start, $end] = $this->dateRange('today');
+            $clauses[] = 'events.start_date >= :date_start AND events.start_date < :date_end';
+            $parameters['date_start'] = $start;
+            $parameters['date_end'] = $end;
+        } elseif ($date === 'this_week') {
+            [$start, $end] = $this->dateRange('this_week');
+            $clauses[] = 'events.start_date >= :date_start AND events.start_date < :date_end';
+            $parameters['date_start'] = $start;
+            $parameters['date_end'] = $end;
+        } elseif ($date === 'this_month') {
+            [$start, $end] = $this->dateRange('this_month');
+            $clauses[] = 'events.start_date >= :date_start AND events.start_date < :date_end';
+            $parameters['date_start'] = $start;
+            $parameters['date_end'] = $end;
         }
 
         $price = (string) ($filters['price'] ?? '');
@@ -127,12 +152,16 @@ final class EventRepository implements EventRepositoryInterface
     public function gallery(int $eventId): array
     {
         $statement = $this->connection->prepare(
-            'SELECT id, event_id, image_path, alt_text, sort_order, created_at
+            'SELECT event_gallery.id, event_gallery.event_id, event_gallery.image_path,
+                    event_gallery.alt_text, event_gallery.sort_order, event_gallery.created_at
              FROM event_gallery
-             WHERE event_id = :event_id
-             ORDER BY sort_order ASC, id ASC',
+             INNER JOIN events ON events.id = event_gallery.event_id
+             WHERE event_gallery.event_id = :event_id
+               AND events.status = :status
+               AND events.deleted_at IS NULL
+             ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
         );
-        $statement->execute(['event_id' => $eventId]);
+        $statement->execute(['event_id' => $eventId, 'status' => 'published']);
         $gallery = $statement->fetchAll();
 
         return is_array($gallery) ? $gallery : [];
@@ -355,26 +384,46 @@ final class EventRepository implements EventRepositoryInterface
         }
 
         return $this->transactional(function () use ($userId, $eventId, $context, $status, $reason): bool {
-            $approved = in_array($status, ['approved', 'published'], true);
-            $published = $status === 'published';
-            $approvedAt = $approved ? 'CURRENT_TIMESTAMP' : 'approved_at';
-            $publishedAt = $published ? 'CURRENT_TIMESTAMP' : 'published_at';
+            $approvedBy = match ($status) {
+                'approved' => ':approved_by',
+                'rejected' => 'NULL',
+                default => 'approved_by',
+            };
+            $approvedAt = match ($status) {
+                'approved' => 'CURRENT_TIMESTAMP',
+                'rejected' => 'NULL',
+                default => 'approved_at',
+            };
+            $publishedAt = match ($status) {
+                'published' => 'CURRENT_TIMESTAMP',
+                'rejected' => 'NULL',
+                default => 'published_at',
+            };
+            $rejectionReason = $status === 'rejected' ? ':rejection_reason' : 'NULL';
             $statement = $this->connection->prepare(
                 'UPDATE events
                  SET status = :status,
-                     rejection_reason = :rejection_reason,
-                     approved_by = :approved_by,
+                     rejection_reason = ' . $rejectionReason . ',
+                     approved_by = ' . $approvedBy . ',
                      approved_at = ' . $approvedAt . ',
                      published_at = ' . $publishedAt . ',
                      updated_at = CURRENT_TIMESTAMP
                  WHERE events.id = :event_id AND events.deleted_at IS NULL',
             );
-            $statement->execute([
+            $parameters = [
                 'status' => $status,
-                'rejection_reason' => $status === 'rejected' ? $reason : null,
-                'approved_by' => $approved ? $userId : null,
                 'event_id' => $eventId,
-            ]);
+            ];
+
+            if ($status === 'approved') {
+                $parameters['approved_by'] = $userId;
+            }
+
+            if ($status === 'rejected') {
+                $parameters['rejection_reason'] = $reason;
+            }
+
+            $statement->execute($parameters);
 
             if ($statement->rowCount() === 0) {
                 return false;
@@ -499,6 +548,24 @@ final class EventRepository implements EventRepositoryInterface
             'tags' => $tags,
             'is_featured' => !empty($attributes['is_featured']) ? 1 : 0,
         ];
+    }
+
+    private function dateRange(string $date): array
+    {
+        $today = new \DateTimeImmutable('today');
+
+        if ($date === 'this_week') {
+            $start = $today->modify('-' . ((int) $today->format('N') - 1) . ' days');
+            $end = $start->modify('+7 days');
+        } elseif ($date === 'this_month') {
+            $start = $today->modify('first day of this month');
+            $end = $start->modify('first day of next month');
+        } else {
+            $start = $today;
+            $end = $start->modify('+1 day');
+        }
+
+        return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
     }
 
     private function decodeEvents(mixed $events): array
