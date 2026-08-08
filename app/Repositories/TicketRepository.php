@@ -94,7 +94,7 @@ final class TicketRepository implements TicketRepositoryInterface
         $eligibleTicket = $this->eligibleTicketForAttendance($organizerId, $ticketId);
 
         if ($eligibleTicket === null) {
-            return null;
+            return $this->findAttendance($organizerId, $ticketId, true);
         }
 
         $markUsed = $this->connection->prepare(
@@ -118,6 +118,12 @@ final class TicketRepository implements TicketRepositoryInterface
         ]);
 
         if ($markUsed->rowCount() !== 1) {
+            $winnerAttendance = $this->findAttendance($organizerId, $ticketId, true);
+
+            if ($winnerAttendance !== null) {
+                return $winnerAttendance;
+            }
+
             throw new RuntimeException('Ticket state changed before attendance could be recorded.');
         }
 
@@ -222,8 +228,11 @@ final class TicketRepository implements TicketRepositoryInterface
         return $this->rowOrNull($statement->fetch());
     }
 
-    private function findAttendance(int $organizerUserId, int $ticketId): ?array
+    private function findAttendance(int $organizerUserId, int $ticketId, bool $currentRead = false): ?array
     {
+        $lockingClause = $currentRead && $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
         $statement = $this->connection->prepare(
             "SELECT attendance.id,
                     attendance.registration_id,
@@ -248,7 +257,7 @@ final class TicketRepository implements TicketRepositoryInterface
                AND organizers.user_id = :organizer_user_id
                AND registrations.status = 'confirmed'
                AND tickets.status IN ('valid', 'used')
-             LIMIT 1",
+             LIMIT 1" . $lockingClause,
         );
         $statement->execute([
             'ticket_id' => $ticketId,
@@ -260,6 +269,9 @@ final class TicketRepository implements TicketRepositoryInterface
 
     private function eligibleTicketForAttendance(int $organizerUserId, int $ticketId): ?array
     {
+        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
         $statement = $this->connection->prepare(
             "SELECT tickets.id, tickets.registration_id
              FROM tickets
@@ -270,7 +282,7 @@ final class TicketRepository implements TicketRepositoryInterface
                AND organizers.user_id = :organizer_user_id
                AND tickets.status = 'valid'
                AND registrations.status = 'confirmed'
-             LIMIT 1",
+             LIMIT 1" . $lockingClause,
         );
         $statement->execute([
             'ticket_id' => $ticketId,

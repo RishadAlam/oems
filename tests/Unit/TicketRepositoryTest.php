@@ -140,6 +140,35 @@ final class TicketRepositoryTest extends TestCase
         $this->assertSame('valid', $this->ticketStatus(201));
     }
 
+    public function testConcurrentCheckInCasLoserReturnsTheWinnersExistingAttendance(): void
+    {
+        $this->connection->exec(
+            "CREATE TRIGGER complete_concurrent_ticket_scan
+             BEFORE UPDATE OF status ON tickets
+             WHEN OLD.id = 201 AND OLD.status = 'valid' AND NEW.status = 'used'
+             BEGIN
+                 UPDATE tickets SET status = 'used', updated_at = '2026-08-09 10:00:00' WHERE id = OLD.id;
+                 INSERT INTO attendance
+                     (registration_id, ticket_id, scanned_by, status, scanned_at, scanner_ip, created_at)
+                 VALUES
+                     (OLD.registration_id, OLD.id, 777, 'present', '2026-08-09 10:00:00', '198.51.100.7', '2026-08-09 10:00:00');
+                 SELECT RAISE(IGNORE);
+             END",
+        );
+
+        $attendance = $this->repository->recordAttendance(100, 201, 999, '203.0.113.10');
+
+        $this->assertNotNull($attendance);
+        $this->assertSame(1, $attendance['id']);
+        $this->assertSame(101, $attendance['registration_id']);
+        $this->assertSame(201, $attendance['ticket_id']);
+        $this->assertSame(777, $attendance['scanned_by']);
+        $this->assertSame('2026-08-09 10:00:00', $attendance['scanned_at']);
+        $this->assertSame('198.51.100.7', $attendance['scanner_ip']);
+        $this->assertSame(1, $this->attendanceCount());
+        $this->assertSame('used', $this->ticketStatus(201));
+    }
+
     public function testDashboardSummariesUseTicketAggregatesWithParticipantOrganizerAndAdminScope(): void
     {
         $this->assertSame(
