@@ -171,6 +171,10 @@ $container->singleton(
     ReviewRepositoryInterface::class,
     static fn (Container $container): ReviewRepository => new ReviewRepository(
         $container->get(Database::class)->connection(),
+        static fn (): DateTimeImmutable => new DateTimeImmutable(
+            'now',
+            new DateTimeZone((string) $container->get(Config::class)->get('timezone', 'Asia/Dhaka')),
+        ),
     ),
 );
 $container->singleton(

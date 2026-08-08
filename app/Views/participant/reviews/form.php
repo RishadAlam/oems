@@ -25,7 +25,7 @@ $comment = old_value($old, 'review', (string) ($review['review'] ?? ''));
         <legend>Rating</legend>
         <div class="mt-3 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Event rating">
             <?php foreach (range(1, 5) as $rating): ?>
-                <label class="grid min-h-11 cursor-pointer place-items-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] text-sm font-bold has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-soft)] has-[:checked]:text-[var(--accent)]">
+                <label class="review-rating-option grid min-h-11 cursor-pointer place-items-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] text-sm font-bold has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-soft)] has-[:checked]:text-[var(--accent)]">
                     <input class="sr-only" type="radio" name="rating" value="<?= $rating ?>"<?= $selectedRating === (string) $rating ? ' checked' : '' ?> required>
                     <span><?= $rating ?><span class="sr-only"> out of 5</span></span>
                 </label>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
 use OEMS\App\Repositories\ReviewRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
@@ -63,6 +64,34 @@ final class ReviewRepositoryTest extends TestCase
         $this->assertNull($repository->reviewableEventForParticipant(4, 101));
         $this->assertNull($repository->reviewableEventForParticipant(1, 105));
         $this->assertSame([102], array_column($repository->reviewableEventsForParticipant(1), 'id'));
+    }
+
+    public function testEligibilityAndAtomicSaveUseTheSuppliedApplicationClockInsteadOfDatabaseTime(): void
+    {
+        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, end_date, status, deleted_at) VALUES (106, 10, 'Clock Boundary Event', 'clock-boundary-event', '2000-01-01 10:00:00', 'published', NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, status) VALUES (16, 106, 1, 'confirmed')");
+        $beforeEnd = new ReviewRepository(
+            $this->connection,
+            static fn (): DateTimeImmutable => new DateTimeImmutable('2000-01-01 09:59:59'),
+        );
+
+        $this->assertNull($beforeEnd->reviewableEventForParticipant(1, 106));
+        $this->assertFalse(in_array(106, array_column($beforeEnd->reviewableEventsForParticipant(1), 'id'), true));
+        $this->assertSame(0, $beforeEnd->saveForParticipant(1, 106, [
+            'rating' => 5,
+            'review' => 'The application clock has not reached the end.',
+        ]));
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM reviews WHERE event_id = 106')->fetchColumn());
+
+        $atEnd = new ReviewRepository(
+            $this->connection,
+            static fn (): DateTimeImmutable => new DateTimeImmutable('2000-01-01 10:00:00'),
+        );
+        $this->assertNotNull($atEnd->reviewableEventForParticipant(1, 106));
+        $this->assertTrue($atEnd->saveForParticipant(1, 106, [
+            'rating' => 5,
+            'review' => 'The application clock reached the event end.',
+        ]) > 0);
     }
 
     public function testSaveCreatesOnePendingReviewAndEditingReturnsItToPendingWithoutClearingReply(): void
@@ -154,6 +183,21 @@ final class ReviewRepositoryTest extends TestCase
         $this->assertNull($repository->replyForOrganizer(50, 2, 'Pending reviews cannot receive replies.'));
         $this->assertNull($repository->replyForOrganizer(50, 6, 'Deleted events cannot receive replies.'));
         $this->assertSame('Thank you for the thoughtful feedback.', $repository->findForParticipantEvent(2, 101)['organizer_reply']);
+    }
+
+    public function testIdenticalOrganizerReplyUsesScopedPostconditionWhenDriverReportsZeroChangedRows(): void
+    {
+        $repository = $this->repository();
+        $this->connection->exec("UPDATE reviews SET organizer_reply = 'Same normalized reply', replied_at = '2026-08-08 10:00:00' WHERE id = 1");
+        $this->connection->exec("UPDATE reviews SET organizer_reply = 'Same normalized reply', replied_at = '2026-08-08 10:00:00' WHERE id = 5");
+        $this->connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [ReviewRepositoryZeroChangedRowsStatement::class]);
+
+        $samePublished = $repository->replyForOrganizer(50, 1, 'Same normalized reply');
+        $sameHidden = $repository->replyForOrganizer(50, 5, 'Same normalized reply');
+
+        $this->assertNotNull($samePublished);
+        $this->assertSame('Same normalized reply', $samePublished['organizer_reply']);
+        $this->assertNull($sameHidden);
     }
 
     public function testAdminQueueUsesBoundedFilterPendingFirstOldestOrderAndModerationCas(): void

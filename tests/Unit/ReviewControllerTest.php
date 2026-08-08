@@ -92,9 +92,21 @@ final class ReviewControllerTest extends TestCase
         $this->assertTrue(str_contains($form->body(), 'type="radio" name="rating" value="5"'));
         $this->assertTrue(str_contains($form->body(), 'aria-describedby="rating-help"'));
         $this->assertTrue(str_contains($form->body(), 'id="review-help"'));
+        $this->assertTrue(str_contains($form->body(), 'class="review-rating-option'));
         $this->assertTrue(str_contains($form->body(), '&lt;script&gt;Thoughtful participant review&lt;/script&gt;'));
         $this->assertFalse(str_contains($form->body(), '<script>Thoughtful participant review</script>'));
         $this->assertSame(1, substr_count($form->body(), 'aria-current="page"'));
+    }
+
+
+    public function testRatingRadioKeyboardFocusHasACompiledVisibleLabelRule(): void
+    {
+        $stylesheet = file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue(is_string($stylesheet));
+        $this->assertTrue(str_contains($stylesheet, '.review-rating-option:has(input[type=radio]:focus-visible)'));
+        $this->assertTrue(str_contains($stylesheet, 'outline-color:var(--accent)'));
+        $this->assertTrue(str_contains($stylesheet, 'outline-offset:2px'));
     }
 
     public function testParticipantWorkspaceLinksEligibleEventsForFirstReviewCreation(): void

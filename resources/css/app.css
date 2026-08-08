@@ -700,6 +700,10 @@
         @apply text-sm font-bold;
     }
 
+    .review-rating-option:has(input[type="radio"]:focus-visible) {
+        @apply outline-3 outline-offset-2 outline-[var(--accent)];
+    }
+
     .field-group input:not([type="checkbox"]):not([type="radio"]),
     .field-group select,
     .field-group textarea {

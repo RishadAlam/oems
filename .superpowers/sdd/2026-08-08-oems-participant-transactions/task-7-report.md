@@ -25,7 +25,7 @@ Implemented the complete moderated review lifecycle across participant, organize
 ## Eligibility and participant ownership
 
 - Actor service checks require an active, email-verified participant role.
-- Repository eligibility requires a confirmed registration for the same user and event, plus `completed` event status or `end_date <= CURRENT_TIMESTAMP`.
+- Repository eligibility requires a confirmed registration for the same user and event, plus `completed` event status or `end_date` at or before one application-local clock value bound into the query.
 - Attendance is used only for the `verified_attendee` signal and never substitutes for confirmed registration.
 - MySQL and SQLite use one atomic upsert guarded by eligibility; the unique event/user key remains the final invariant.
 - New and updated reviews return to `pending`; organizer replies are preserved on participant edits.
@@ -63,3 +63,26 @@ Implemented the complete moderated review lifecycle across participant, organize
 
 - Independent code review found no Critical issues. Its three Important findings were fixed: atomic concurrent-safe upsert, discoverable first-review path, and row-specific organizer reply errors. Its dual-active-nav Minor finding was also fixed.
 - Unrelated `.tmp`, presentation, lock/workspace, and documentation files were left untouched and unstaged.
+
+## Fix Round 1
+
+### RED
+
+- The application-clock boundary regression failed while SQLite's database clock was after an event whose supplied application clock was still one second before its local end.
+- The organizer identical-reply regression failed when a PDO statement reported zero changed rows.
+- The review form and compiled stylesheet contracts failed because the visually clipped rating radios had no focus-visible label selector.
+
+### GREEN
+
+- `ReviewRepositoryTest`: 10 tests, 66 assertions, 0 failures.
+- `ReviewControllerTest`: 9 tests, 66 assertions, 0 failures.
+- Focused `ReviewServiceTest`, `PublicEventControllerTest`, `UiLayoutTest`, and `DashboardLayoutTest`: 40 tests, 236 assertions, 0 failures.
+- Full suite: 331 tests, 1,946 assertions, 0 failures.
+- `composer check:syntax`: every checked PHP file passed.
+- `npm run build:css`: Tailwind v4.3.3 completed and copied seven local font files.
+
+### Corrections
+
+- Review eligibility now obtains one configured-timezone application clock value per repository operation and binds it into every eligibility read and atomic upsert. The same value is reused by the save postcondition, and all native prepared statement placeholders remain unique.
+- Organizer replies now use an owner-scoped, published, nondeleted post-update read. An identical reply is truthful success even when the driver reports zero changed rows; hidden, foreign, and missing reviews remain undisclosed.
+- Rating labels now expose a semantic focus target with an accent outline and two-pixel offset when an enclosed radio receives keyboard focus. The existing 44px target, checked state, fieldset, legend, and help/error associations remain intact.

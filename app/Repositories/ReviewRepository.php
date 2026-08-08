@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace OEMS\App\Repositories;
 
+use Closure;
+use DateTimeImmutable;
+use DateTimeInterface;
 use OEMS\App\Contracts\ReviewRepositoryInterface;
 use PDO;
 
@@ -11,11 +14,19 @@ final class ReviewRepository implements ReviewRepositoryInterface
 {
     private const STATUSES = ['pending', 'published', 'hidden'];
 
-    public function __construct(private readonly PDO $connection)
+    private readonly Closure $clock;
+
+    public function __construct(private readonly PDO $connection, ?Closure $clock = null)
     {
+        $this->clock = $clock ?? static fn (): DateTimeImmutable => new DateTimeImmutable('now');
     }
 
     public function reviewableEventForParticipant(int $participantId, int $eventId): ?array
+    {
+        return $this->reviewableEventForParticipantAt($participantId, $eventId, $this->currentTime());
+    }
+
+    private function reviewableEventForParticipantAt(int $participantId, int $eventId, string $currentTime): ?array
     {
         $statement = $this->connection->prepare(
             'SELECT events.id, events.title, events.slug, events.end_date, events.status AS event_status
@@ -26,7 +37,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
                     AND registrations.status = :registration_status
              WHERE events.id = :event_id
                AND events.deleted_at IS NULL
-               AND (events.status = :completed_status OR events.end_date <= CURRENT_TIMESTAMP)
+               AND (events.status = :completed_status OR events.end_date <= :eligibility_now)
              LIMIT 1',
         );
         $statement->execute([
@@ -34,6 +45,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
             'registration_status' => 'confirmed',
             'event_id' => $eventId,
             'completed_status' => 'completed',
+            'eligibility_now' => $currentTime,
         ]);
 
         return $this->rowOrNull($statement->fetch());
@@ -41,6 +53,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
 
     public function reviewableEventsForParticipant(int $participantId): array
     {
+        $currentTime = $this->currentTime();
         $statement = $this->connection->prepare(
             'SELECT events.id, events.title, events.slug, events.end_date, events.status AS event_status
              FROM events
@@ -49,7 +62,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
                     AND registrations.user_id = :registration_user_id
                     AND registrations.status = :registration_status
              WHERE events.deleted_at IS NULL
-               AND (events.status = :completed_status OR events.end_date <= CURRENT_TIMESTAMP)
+               AND (events.status = :completed_status OR events.end_date <= :eligibility_now)
                AND NOT EXISTS (
                    SELECT 1 FROM reviews
                    WHERE reviews.event_id = events.id AND reviews.user_id = :review_user_id
@@ -61,6 +74,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
             'registration_status' => 'confirmed',
             'completed_status' => 'completed',
             'review_user_id' => $participantId,
+            'eligibility_now' => $currentTime,
         ]);
         $rows = $statement->fetchAll();
 
@@ -93,6 +107,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
 
     public function saveForParticipant(int $participantId, int $eventId, array $attributes): int
     {
+        $currentTime = $this->currentTime();
         $upsertClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? ' ON DUPLICATE KEY UPDATE
                     rating = VALUES(rating),
@@ -114,7 +129,7 @@ final class ReviewRepository implements ReviewRepositoryInterface
                     AND registrations.status = :registration_status
              WHERE events.id = :insert_event_id
                AND events.deleted_at IS NULL
-               AND (events.status = :completed_status OR events.end_date <= CURRENT_TIMESTAMP)'
+               AND (events.status = :completed_status OR events.end_date <= :eligibility_now)'
             . $upsertClause,
         );
         $statement->execute([
@@ -126,9 +141,10 @@ final class ReviewRepository implements ReviewRepositoryInterface
             'registration_status' => 'confirmed',
             'insert_event_id' => $eventId,
             'completed_status' => 'completed',
+            'eligibility_now' => $currentTime,
         ]);
 
-        if ($this->reviewableEventForParticipant($participantId, $eventId) === null) {
+        if ($this->reviewableEventForParticipantAt($participantId, $eventId, $currentTime) === null) {
             return 0;
         }
 
@@ -279,11 +295,9 @@ final class ReviewRepository implements ReviewRepositoryInterface
             'organizer_user_id' => $organizerId,
         ]);
 
-        if ($statement->rowCount() !== 1) {
-            return null;
-        }
+        $current = $this->findForOrganizer($organizerId, $reviewId);
 
-        return $this->findForOrganizer($organizerId, $reviewId);
+        return $current !== null && ($current['organizer_reply'] ?? null) === $reply ? $current : null;
     }
 
     public function moderate(int $administratorId, int $reviewId, string $status): ?array
@@ -354,5 +368,16 @@ final class ReviewRepository implements ReviewRepositoryInterface
     private function rowOrNull(mixed $row): ?array
     {
         return is_array($row) ? $row : null;
+    }
+
+    private function currentTime(): string
+    {
+        $current = ($this->clock)();
+
+        if (!$current instanceof DateTimeInterface) {
+            throw new \UnexpectedValueException('Review repository clock must return a date and time.');
+        }
+
+        return $current->format('Y-m-d H:i:s');
     }
 }
