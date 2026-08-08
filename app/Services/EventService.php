@@ -190,6 +190,12 @@ final class EventService
         }
 
         if (!$this->events->publishOwned($userId, $eventId, [])) {
+            $winner = $this->events->findOwned($userId, $eventId);
+
+            if (($winner['status'] ?? null) === 'published') {
+                return $this->success(['event_id' => $eventId, 'status' => 'published']);
+            }
+
             return $this->failure(['event' => ['The event status could not be changed.']]);
         }
 

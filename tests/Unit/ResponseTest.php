@@ -52,4 +52,24 @@ final class ResponseTest extends TestCase
             }
         }
     }
+
+    public function testStreamingResponseDefersChunkProductionUntilSendAndKeepsBodyEmpty(): void
+    {
+        $produced = false;
+        $response = Response::stream(static function (callable $emit) use (&$produced): void {
+            $produced = true;
+            $emit('first-');
+            $emit('second');
+        }, 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+
+        $this->assertFalse($produced);
+        $this->assertSame('', $response->body());
+        ob_start();
+        $response->send();
+        $streamed = ob_get_clean();
+
+        $this->assertTrue($produced);
+        $this->assertSame('first-second', $streamed);
+        $this->assertSame('text/plain; charset=UTF-8', $response->header('Content-Type'));
+    }
 }

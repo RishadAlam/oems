@@ -19,6 +19,8 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public bool $failGalleryReplacement = false;
 
+    public bool $publishLostToConcurrentWinner = false;
+
     public int $forAdminCalls = 0;
 
     public int $countPendingForAdminCalls = 0;
@@ -237,6 +239,14 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public function publishOwned(int $userId, int $eventId, array $context): bool
     {
+        if ($this->publishLostToConcurrentWinner
+            && ($this->events[$eventId]['status'] ?? null) === 'approved'
+            && $this->findOwned($userId, $eventId) !== null) {
+            $this->events[$eventId]['status'] = 'published';
+
+            return false;
+        }
+
         return $this->transitionOwned($userId, $eventId, $context, 'published');
     }
 

@@ -65,7 +65,7 @@ final class OrganizerOperationsControllerTest extends TestCase
             'id' => 101,
             'event_id' => 10,
             'user_id' => 1,
-            'participant_name' => "=2+2\r\nInjected",
+            'participant_name' => "=<strong>2+2</strong>\r\nInjected",
             'participant_email' => "\tformula@example.test",
             'registration_number' => '+REG-101',
             'status' => 'confirmed',
@@ -126,14 +126,18 @@ final class OrganizerOperationsControllerTest extends TestCase
     {
         $response = $this->participants->index($this->routed('GET', '/organizer/events/10/participants', '10', query: [
             'registration_status' => 'confirmed',
-            'search' => '=2+2',
+            'search' => '=<strong>2+2</strong>',
         ]));
 
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'Eligible Event'));
-        $this->assertTrue(str_contains($response->body(), '=2+2'));
+        $this->assertTrue(str_contains($response->body(), '=&lt;strong&gt;2+2&lt;/strong&gt;'));
+        $this->assertFalse(str_contains($response->body(), '<strong>2+2</strong>'));
         $this->assertTrue(str_contains($response->body(), 'participant-name'));
         $this->assertTrue(str_contains($response->body(), 'Payment'));
+        foreach (['Participant', 'Registration', 'Payment', 'Ticket', 'Attendance'] as $label) {
+            $this->assertTrue(str_contains($response->body(), 'data-label="' . $label . '"'));
+        }
         $this->assertFalse(str_contains($response->body(), 'qr_payload_hash'));
         $this->assertFalse(str_contains($response->body(), 'gateway_response'));
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/99/participants', '99'))->status());
@@ -163,17 +167,59 @@ final class OrganizerOperationsControllerTest extends TestCase
         $response = $this->participants->export($this->routed('GET', '/organizer/events/10/participants.csv', '10'));
 
         $this->assertSame(200, $response->status());
+        $this->assertSame('', $response->body());
         $this->assertSame('text/csv; charset=UTF-8', $response->header('Content-Type'));
         $this->assertSame('attachment; filename="eligible-event-participants.csv"', $response->header('Content-Disposition'));
         $this->assertSame('nosniff', $response->header('X-Content-Type-Options'));
         $this->assertSame('private, no-store', $response->header('Cache-Control'));
-        $this->assertTrue(str_starts_with($response->body(), "\xEF\xBB\xBF"));
-        $this->assertTrue(str_contains($response->body(), "'=2+2 Injected"));
-        $this->assertTrue(str_contains($response->body(), "' formula@example.test"));
-        $this->assertTrue(str_contains($response->body(), "'+REG-101"));
-        $this->assertTrue(str_contains($response->body(), "'-OEMS-"));
-        $this->assertFalse(str_contains($response->body(), "\r"));
+        $this->assertSame([], $this->registrations->organizerPageRequests);
+        ob_start();
+        $response->send();
+        $csv = ob_get_clean();
+
+        $this->assertTrue(str_starts_with($csv, "\xEF\xBB\xBF"));
+        $this->assertTrue(str_contains($csv, "'=<strong>2+2</strong> Injected"));
+        $this->assertTrue(str_contains($csv, "' formula@example.test"));
+        $this->assertTrue(str_contains($csv, "'+REG-101"));
+        $this->assertTrue(str_contains($csv, "'-OEMS-"));
+        $this->assertFalse(str_contains($csv, "\r"));
         $this->assertFalse(str_contains((string) $response->header('Content-Disposition'), "\n"));
+    }
+
+    public function testLargeCsvExportStreamsEveryPageOnlyWhenResponseIsSent(): void
+    {
+        foreach (range(102, 350) as $registrationId) {
+            $this->registrations->registrations[$registrationId] = [
+                'id' => $registrationId,
+                'event_id' => 10,
+                'participant_name' => 'Participant ' . $registrationId,
+                'participant_email' => 'participant' . $registrationId . '@example.test',
+                'registration_number' => 'REG-' . $registrationId,
+                'status' => 'confirmed',
+                'payment_status' => 'paid',
+                'ticket_status' => 'none',
+                'attendance_status' => 'not_checked_in',
+                'registered_at' => '2026-08-08 10:00:00',
+                'organizer_user_id' => 10,
+            ];
+        }
+
+        $response = $this->participants->export($this->routed('GET', '/organizer/events/10/participants.csv', '10'));
+
+        $this->assertSame('', $response->body());
+        $this->assertSame([], $this->registrations->organizerPageRequests);
+        ob_start();
+        $response->send();
+        $csv = ob_get_clean();
+
+        $this->assertSame([
+            ['limit' => 100, 'offset' => 0],
+            ['limit' => 100, 'offset' => 100],
+            ['limit' => 100, 'offset' => 200],
+        ], $this->registrations->organizerPageRequests);
+        $this->assertSame(251, substr_count($csv, "\n"));
+        $this->assertTrue(str_contains($csv, 'Participant 350'));
+        $this->assertTrue(str_contains($csv, 'participant350@example.test'));
     }
 
     public function testCheckInWorkspaceKeepsManualFallbackAndDoesNotEchoScanSecrets(): void

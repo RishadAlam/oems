@@ -14,6 +14,8 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
     public array $organizerEvents = [];
 
+    public array $organizerPageRequests = [];
+
     public bool $failReserve = false;
 
     public bool $failReactivate = false;
@@ -100,6 +102,7 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         int $limit,
         int $offset,
     ): array {
+        $this->organizerPageRequests[] = ['limit' => $limit, 'offset' => $offset];
         $rows = $this->filteredOrganizerEventRows($organizerUserId, $eventId, $filters);
 
         return array_map(

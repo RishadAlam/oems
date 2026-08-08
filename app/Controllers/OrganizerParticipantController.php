@@ -13,6 +13,7 @@ use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
+use RuntimeException;
 
 final class OrganizerParticipantController extends Controller
 {
@@ -79,50 +80,86 @@ final class OrganizerParticipantController extends Controller
 
         [$userId, $eventId, $event] = $context;
         $filters = $this->filters($request);
-        $total = $this->registrations->countForOrganizerEvent($userId, $eventId, $filters);
-        $stream = fopen('php://temp/maxmemory:2097152', 'w+');
-
-        if ($stream === false) {
-            return Response::text('Export unavailable', 500);
-        }
-
-        fwrite($stream, "\xEF\xBB\xBF");
-        fputcsv($stream, [
-            'Participant name',
-            'Participant email',
-            'Registration number',
-            'Registration status',
-            'Payment status',
-            'Ticket number',
-            'Ticket status',
-            'Attendance status',
-            'Checked in at',
-            'Registered at',
-        ]);
-
-        for ($offset = 0; $offset < $total; $offset += 100) {
-            foreach ($this->registrations->forOrganizerEvent($userId, $eventId, $filters, 100, $offset) as $row) {
-                fputcsv($stream, array_map($this->csvCell(...), [
-                    $row['participant_name'] ?? '',
-                    $row['participant_email'] ?? '',
-                    $row['registration_number'] ?? '',
-                    $row['registration_status'] ?? '',
-                    $row['payment_status'] ?? 'none',
-                    $row['ticket_number'] ?? '',
-                    $row['ticket_status'] ?? 'none',
-                    $row['attendance_status'] ?? 'not_checked_in',
-                    $row['scanned_at'] ?? '',
-                    $row['registered_at'] ?? '',
-                ]));
-            }
-        }
-
-        rewind($stream);
-        $csv = stream_get_contents($stream);
-        fclose($stream);
         $filename = $this->safeFilename((string) ($event['event_slug'] ?? ''), $eventId);
 
-        return Response::binary(is_string($csv) ? $csv : '', 200, [
+        return Response::stream(function (callable $emit) use ($userId, $eventId, $filters): void {
+            $emit("\xEF\xBB\xBF");
+            $rowStream = fopen('php://temp/maxmemory:65536', 'w+');
+
+            if ($rowStream === false) {
+                throw new RuntimeException('The export stream could not be opened.');
+            }
+
+            $emitRow = static function (array $cells) use ($rowStream, $emit): void {
+                if (!ftruncate($rowStream, 0) || !rewind($rowStream)) {
+                    throw new RuntimeException('The export row stream could not be reset.');
+                }
+
+                if (fputcsv($rowStream, $cells, ',', '"', '') === false || !rewind($rowStream)) {
+                    throw new RuntimeException('The export row could not be encoded.');
+                }
+
+                while (!feof($rowStream)) {
+                    $chunk = fread($rowStream, 8192);
+
+                    if ($chunk === false) {
+                        throw new RuntimeException('The export row could not be read.');
+                    }
+
+                    if ($chunk === '') {
+                        break;
+                    }
+
+                    $emit($chunk);
+                }
+            };
+
+            try {
+                $emitRow([
+                    'Participant name',
+                    'Participant email',
+                    'Registration number',
+                    'Registration status',
+                    'Payment status',
+                    'Ticket number',
+                    'Ticket status',
+                    'Attendance status',
+                    'Checked in at',
+                    'Registered at',
+                ]);
+
+                for ($offset = 0; ; $offset += 100) {
+                    $participants = $this->registrations->forOrganizerEvent(
+                        $userId,
+                        $eventId,
+                        $filters,
+                        100,
+                        $offset,
+                    );
+
+                    foreach ($participants as $row) {
+                        $emitRow(array_map($this->csvCell(...), [
+                            $row['participant_name'] ?? '',
+                            $row['participant_email'] ?? '',
+                            $row['registration_number'] ?? '',
+                            $row['registration_status'] ?? '',
+                            $row['payment_status'] ?? 'none',
+                            $row['ticket_number'] ?? '',
+                            $row['ticket_status'] ?? 'none',
+                            $row['attendance_status'] ?? 'not_checked_in',
+                            $row['scanned_at'] ?? '',
+                            $row['registered_at'] ?? '',
+                        ]));
+                    }
+
+                    if (count($participants) < 100) {
+                        break;
+                    }
+                }
+            } finally {
+                fclose($rowStream);
+            }
+        }, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '-participants.csv"',
             'X-Content-Type-Options' => 'nosniff',

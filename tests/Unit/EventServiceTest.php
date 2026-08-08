@@ -331,6 +331,19 @@ final class EventServiceTest extends TestCase
         $this->assertSame('published', $repeat['status']);
     }
 
+    public function testOrganizerPublicationReturnsConcurrentWinnersTruthfulPublishedState(): void
+    {
+        $this->events->events[1] = $this->storedEvent(1, 10, 'approved');
+        $this->events->publishLostToConcurrentWinner = true;
+
+        $result = $this->service->publish(10, 1);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(1, $result['event_id']);
+        $this->assertSame('published', $result['status']);
+        $this->assertSame('published', $this->events->events[1]['status']);
+    }
+
     public function testAdministratorLifecycleAllowsOnlyTheSpecifiedNextState(): void
     {
         $this->events->events[1] = $this->storedEvent(1, 10, 'pending');

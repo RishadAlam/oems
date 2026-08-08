@@ -294,6 +294,18 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertFalse(str_contains($after->body(), '/organizer/events/13/publish'));
     }
 
+    public function testConcurrentPublicationWinnerRedirectsWithTruthfulSuccess(): void
+    {
+        $this->events->publishLostToConcurrentWinner = true;
+
+        $response = $this->controller->publish($this->routed('POST', '/organizer/events/13/publish', '13'));
+
+        $this->assertSame('/organizer/events/13', $response->header('Location'));
+        $this->assertSame(302, $response->status());
+        $this->assertSame('published', $this->events->events[13]['status']);
+        $this->assertSame('Event published.', $this->session->get('_flash.success'));
+    }
+
     public function testWrongStatePublishIsConflictWhileForeignPublishIsNotFound(): void
     {
         $wrongState = $this->controller->publish($this->routed('POST', '/organizer/events/11/publish', '11'));

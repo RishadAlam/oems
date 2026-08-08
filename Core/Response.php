@@ -16,6 +16,7 @@ final class Response
         private readonly int $status = 200,
         private readonly array $headers = [],
         private readonly ?string $filePath = null,
+        private readonly ?\Closure $streamCallback = null,
     ) {
     }
 
@@ -63,6 +64,11 @@ final class Response
         return new self('', $status, $headers, $path);
     }
 
+    public static function stream(callable $callback, int $status = 200, array $headers = []): self
+    {
+        return new self('', $status, $headers, null, \Closure::fromCallable($callback));
+    }
+
     public function body(): string
     {
         return $this->body;
@@ -97,6 +103,14 @@ final class Response
             foreach ($this->headers as $name => $value) {
                 header($name . ': ' . $value);
             }
+        }
+
+        if ($this->streamCallback !== null) {
+            ($this->streamCallback)(static function (string $chunk): void {
+                echo $chunk;
+            });
+
+            return;
         }
 
         if ($this->filePath === null) {

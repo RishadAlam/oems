@@ -81,3 +81,28 @@ Implemented organizer-owned event publication, participant operations, CSV expor
 
 - Only Task 8 implementation, view, compiled asset, test, and this report are intended for staging.
 - Existing `.tmp`, presentation, pnpm workspace, and unrelated documentation files remain untouched and unstaged.
+
+## Fix Round 1
+
+External review requested three important corrections. Each was reproduced before production changes:
+
+- Streaming RED: `ResponseTest` failed because `Response::stream` did not exist. Organizer export tests then showed that CSV bytes and every repository page were produced before `Response::send()`.
+- Publication RED: service and controller failure-injection tests simulated a concurrent winner changing the event to published while the local compare-and-set reported false. Both returned failure instead of the truthful published state.
+- Mobile table RED: the rendered participant row escaped hostile markup but lacked the five `data-label` values required by the existing responsive table CSS.
+
+The fixes are:
+
+- `Response::stream` now holds an empty body and defers a bounded chunk-emitter callback until `send()`. Participant CSV export writes the BOM and header at send time, fetches at most 100 rows per repository call, encodes one row in a 64 KiB spillable temporary stream, and emits that row in 8 KiB chunks. No full export string or count-sized buffer is assembled.
+- When organizer publication loses its atomic compare-and-set, EventService performs one owner-scoped reread. A concurrent published winner returns success; foreign, deleted, or any other current state remains a failure.
+- Every participant table cell now provides its matching mobile label: Participant, Registration, Payment, Ticket, and Attendance. The render regression checks all labels and HTML escaping.
+
+Fix Round 1 verification:
+
+- Response: 3 tests, 15 assertions, 0 failures.
+- Organizer operations: 7 tests, 52 assertions, 0 failures.
+- Event service: 21 tests, 96 assertions, 0 failures.
+- Organizer event controller: 14 tests, 106 assertions, 0 failures.
+- Event repository: 28 tests, 154 assertions, 0 failures.
+- Registration repository: 11 tests, 98 assertions, 0 failures.
+- Full suite: 351 tests, 2,081 assertions, 0 failures.
+- PHP syntax and diff, visible-string, and view-query audits passed. CSS and JavaScript sources were not changed in this round.
