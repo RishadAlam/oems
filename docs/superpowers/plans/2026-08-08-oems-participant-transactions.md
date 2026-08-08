@@ -30,7 +30,7 @@
 
 1. Write failing schema tests for registration/payment/ticket foreign keys, status constraints, unique participant-event registration, unique transaction references, unique ticket numbers, QR digests, one review per participant-event, one favorite per participant-event, and attendance uniqueness.
 2. Add PHP 8.2-compatible QR and PDF packages with Composer and verify the installed package platform requirements.
-3. Add only the missing non-destructive indexes or columns needed for queue, lookup, and idempotency. Keep current table names and demo rows compatible.
+3. Add only the missing non-destructive indexes or columns needed for queue, lookup, idempotency, or payment-settlement audit traceability. Keep current table names and demo rows compatible.
 4. Define narrow interfaces for the data operations required by later services.
 5. Run `rtk php tests/run.php TransactionSchemaTest`, `rtk php tests/run.php DemoSeedIntegrityTest`, `rtk composer validate --strict`, and `rtk composer check-platform-reqs`.
 6. Commit: `build: prepare transaction domain`.

@@ -114,7 +114,7 @@ Publishing requires a valid future schedule, registration deadline, active categ
 7. Verification atomically marks the payment paid, confirms the registration, and issues a ticket.
 8. Rejection marks the payment failed, cancels the registration, and releases the seat.
 
-Every transition is idempotent and uses an eligible-status compare-and-set guard. Payment metadata stores bounded JSON without credentials or sensitive account data.
+Every transition is idempotent and uses an eligible-status compare-and-set guard. Payment settlement retains the reviewing administrator in `reviewed_by`, its timestamp in `reviewed_at`, and an optional bounded `review_note` for audit-friendly oversight. Payment metadata stores bounded JSON without credentials or sensitive account data.
 
 ## Ticket and Attendance Security
 
