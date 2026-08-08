@@ -8,8 +8,11 @@
 /storage/logs/*.log
 /storage/cache/*
 /public/uploads/*
+/public/uploads/tickets/*
 /public/tickets/*
 !/storage/logs/.gitkeep
 !/storage/cache/.gitkeep
 !/public/uploads/.gitkeep
+!/public/uploads/tickets/
+!/public/uploads/tickets/.gitkeep
 !/public/tickets/.gitkeep

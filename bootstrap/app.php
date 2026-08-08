@@ -28,6 +28,7 @@ use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -130,6 +131,10 @@ $container->singleton(
 $container->singleton(
     ImageUploadService::class,
     static fn (): ImageUploadService => new ImageUploadService($basePath . '/public/uploads/events'),
+);
+$container->singleton(
+    TicketArtifactService::class,
+    static fn (): TicketArtifactService => new TicketArtifactService($basePath . '/public/uploads/tickets'),
 );
 $container->singleton(
     CategoryService::class,
