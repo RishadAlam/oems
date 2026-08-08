@@ -77,7 +77,7 @@ final class RegistrationRepositoryTest extends TestCase
         $this->assertNull($this->repository->findForParticipantCurrent(2, 101));
         $this->assertNull($this->repository->findForParticipantEvent(1, 16));
         $this->assertNull($this->repository->findForParticipantEventCurrent(1, 16));
-        $this->assertSame([105, 101], array_column($this->repository->forParticipant(1), 'id'));
+        $this->assertSame([108, 105, 101], array_column($this->repository->forParticipant(1), 'id'));
     }
 
     public function testDuplicateEventUserRowIsNotInsertedAndCancelledRowCanBeReactivated(): void
@@ -293,7 +293,7 @@ final class RegistrationRepositoryTest extends TestCase
                 UNIQUE (event_id, user_id)
             )',
         );
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL, gateway_response TEXT NULL, created_at TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL UNIQUE, ticket_number TEXT NOT NULL, qr_payload_hash TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE attendance (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL UNIQUE, ticket_id INTEGER NULL UNIQUE, status TEXT NOT NULL DEFAULT "present", scanned_at TEXT NULL)');
@@ -316,7 +316,7 @@ final class RegistrationRepositoryTest extends TestCase
                 (18, 1, 1, NULL, 'Started Event', 'started-event', datetime('now', '-1 minute'), datetime('now', '-1 day'), 3, 3, 0, 'BDT', 'published', NULL),
                 (19, 1, 1, NULL, 'Confirmed Full', 'confirmed-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 0, 'BDT', 'published', NULL)",
         );
-        $this->connection->exec("INSERT INTO users (id, name, email) VALUES (1, '=Formula Person', 'participant-one@example.test'), (2, 'Participant Two', 'participant-two@example.test')");
+        $this->connection->exec("INSERT INTO users (id, name, email, deleted_at) VALUES (1, '=Formula Person', 'participant-one@example.test', NULL), (2, 'Participant Two', 'participant-two@example.test', NULL), (5, 'Deleted Participant', 'deleted@example.test', '2026-08-07 00:00:00')");
         $this->connection->exec("INSERT INTO payments (id, registration_id, status, gateway_response, created_at) VALUES (1, 101, 'failed', 'secret-one', '2026-08-01 09:00:00'), (2, 102, 'paid', 'secret-two', '2026-08-01 10:00:00')");
         $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status) VALUES (1, 101, 'OEMS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cancelled'), (2, 102, 'OEMS-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'used')");
         $this->connection->exec("INSERT INTO attendance (id, registration_id, ticket_id, status, scanned_at) VALUES (1, 102, 2, 'present', '2026-08-08 10:00:00')");
@@ -326,7 +326,9 @@ final class RegistrationRepositoryTest extends TestCase
                 (102, 10, 2, 'REG-CONFIRMED', 'confirmed', 100, 'BDT', '2026-08-01 10:00:00', NULL, NULL, '2026-08-01 10:00:00', '2026-08-01 10:00:00'),
                 (103, 16, 2, 'REG-PENDING', 'pending', 0, 'BDT', '2026-08-03 10:00:00', NULL, NULL, '2026-08-03 10:00:00', '2026-08-03 10:00:00'),
                 (104, 19, 2, 'REG-CONFIRMED-FULL', 'confirmed', 0, 'BDT', '2026-08-04 10:00:00', NULL, NULL, '2026-08-04 10:00:00', '2026-08-04 10:00:00'),
-                (105, 17, 1, 'REG-OWNED', 'confirmed', 0, 'BDT', '2026-08-05 10:00:00', NULL, NULL, '2026-08-05 10:00:00', '2026-08-05 10:00:00')",
+                (105, 17, 1, 'REG-OWNED', 'confirmed', 0, 'BDT', '2026-08-05 10:00:00', NULL, NULL, '2026-08-05 10:00:00', '2026-08-05 10:00:00'),
+                (108, 12, 1, 'REG-DELETED-EVENT', 'confirmed', 999, 'BDT', '2026-08-06 10:00:00', NULL, NULL, '2026-08-06 10:00:00', '2026-08-06 10:00:00'),
+                (109, 11, 5, 'REG-DELETED-PARTICIPANT', 'confirmed', 999, 'BDT', '2026-08-07 10:00:00', NULL, NULL, '2026-08-07 10:00:00', '2026-08-07 10:00:00')",
         );
     }
 

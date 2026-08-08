@@ -30,9 +30,9 @@ final class TicketRepositoryTest extends TestCase
         $tickets = $this->repository->forParticipant(1);
         $current = $this->repository->findForRegistrationCurrent(101);
 
-        $this->assertSame([202, 201], array_column($tickets, 'id'));
-        $this->assertSame('pending', $tickets[0]['registration_status']);
-        $this->assertSame('published', $tickets[0]['event_status']);
+        $this->assertSame([205, 202, 201], array_column($tickets, 'id'));
+        $this->assertSame('pending', $tickets[1]['registration_status']);
+        $this->assertSame('published', $tickets[1]['event_status']);
         $this->assertFalse(array_key_exists('qr_payload_hash', $tickets[0]));
         $this->assertNotNull($this->repository->findForParticipant(1, 201));
         $this->assertNull($this->repository->findForParticipant(2, 201));
@@ -215,8 +215,9 @@ final class TicketRepositoryTest extends TestCase
 
     private function createSchema(): void
     {
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL)');
-        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, status TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, status TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec(
             'CREATE TABLE tickets (
@@ -248,15 +249,18 @@ final class TicketRepositoryTest extends TestCase
 
     private function seedRows(): void
     {
+        $this->connection->exec("INSERT INTO users (id, deleted_at) VALUES (1, NULL), (2, NULL), (3, NULL), (4, '2026-08-07 00:00:00')");
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (10, 100, 'Organizer One'), (20, 200, 'Organizer Two')");
-        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, start_date, status) VALUES (10, 10, 'Owned Event', 'owned-event', '2026-08-20 10:00:00', 'published'), (20, 20, 'Foreign Event', 'foreign-event', '2026-08-21 11:00:00', 'published')");
-        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 10, 1, 'REG-101', 'confirmed'), (102, 10, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed'), (104, 10, 3, 'REG-104', 'confirmed'), (105, 10, 1, 'REG-105', 'confirmed')");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, start_date, status, deleted_at) VALUES (10, 10, 'Owned Event', 'owned-event', '2026-08-20 10:00:00', 'published', NULL), (20, 20, 'Foreign Event', 'foreign-event', '2026-08-21 11:00:00', 'published', NULL), (30, 10, 'Deleted Event', 'deleted-event', '2026-08-22 11:00:00', 'published', '2026-08-08 00:00:00')");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 10, 1, 'REG-101', 'confirmed'), (102, 10, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed'), (104, 10, 3, 'REG-104', 'confirmed'), (105, 10, 1, 'REG-105', 'confirmed'), (106, 30, 1, 'REG-106', 'confirmed'), (107, 10, 4, 'REG-107', 'confirmed')");
         $this->connection->exec(
             "INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, qr_path, pdf_path, status, issued_at, created_at, updated_at) VALUES
                 (201, 101, 'OEMS-TICKET-201', '" . str_repeat('a', 64) . "', 'tickets/201.png', 'tickets/201.pdf', 'valid', '2026-08-01 09:00:00', '2026-08-01 09:00:00', '2026-08-01 09:00:00'),
                 (202, 102, 'OEMS-TICKET-202', '" . str_repeat('b', 64) . "', 'tickets/202.png', 'tickets/202.pdf', 'valid', '2026-08-02 09:00:00', '2026-08-02 09:00:00', '2026-08-02 09:00:00'),
                 (203, 103, 'OEMS-TICKET-203', '" . str_repeat('c', 64) . "', 'tickets/203.png', 'tickets/203.pdf', 'valid', '2026-08-03 09:00:00', '2026-08-03 09:00:00', '2026-08-03 09:00:00'),
-                (204, 104, 'OEMS-TICKET-204', '" . str_repeat('d', 64) . "', 'tickets/204.png', 'tickets/204.pdf', 'cancelled', '2026-08-04 09:00:00', '2026-08-04 09:00:00', '2026-08-04 09:00:00')",
+                (204, 104, 'OEMS-TICKET-204', '" . str_repeat('d', 64) . "', 'tickets/204.png', 'tickets/204.pdf', 'cancelled', '2026-08-04 09:00:00', '2026-08-04 09:00:00', '2026-08-04 09:00:00'),
+                (205, 106, 'OEMS-TICKET-205', '" . str_repeat('f', 64) . "', 'tickets/205.png', 'tickets/205.pdf', 'valid', '2026-08-05 09:00:00', '2026-08-05 09:00:00', '2026-08-05 09:00:00'),
+                (206, 107, 'OEMS-TICKET-206', '" . str_repeat('1', 64) . "', 'tickets/206.png', 'tickets/206.pdf', 'valid', '2026-08-06 09:00:00', '2026-08-06 09:00:00', '2026-08-06 09:00:00')",
         );
     }
 

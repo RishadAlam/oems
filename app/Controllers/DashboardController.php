@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace OEMS\App\Controllers;
 
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\PaymentRepositoryInterface;
+use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -25,6 +28,9 @@ final class DashboardController extends Controller
         Config $config,
         private readonly DashboardMetricsRepository $dashboardMetrics,
         private readonly EventRepositoryInterface $events,
+        private readonly RegistrationRepositoryInterface $registrations,
+        private readonly PaymentRepositoryInterface $payments,
+        private readonly TicketRepositoryInterface $tickets,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -41,7 +47,20 @@ final class DashboardController extends Controller
 
     public function participant(Request $request): Response
     {
-        return $this->render('dashboard/participant', ['pageTitle' => 'Your dashboard'], 'dashboard');
+        $userId = $this->auth->id();
+        if ($userId === null) {
+            return Response::redirect('/login');
+        }
+
+        return $this->render('dashboard/participant', [
+            'pageTitle' => 'Your dashboard',
+            'metrics' => [
+                'registration' => $this->registrations->summaryForParticipant($userId),
+                'payment' => $this->payments->summaryForParticipant($userId),
+                'ticket' => $this->tickets->summaryForParticipant($userId),
+                'reviews' => $this->dashboardMetrics->reviewsForParticipant($userId),
+            ],
+        ], 'dashboard');
     }
 
     public function organizer(Request $request): Response
@@ -56,6 +75,12 @@ final class DashboardController extends Controller
             'pageTitle' => 'Organizer workspace',
             'summary' => $this->events->organizerSummary($userId),
             'events' => $this->events->recentForOrganizerUser($userId, 5),
+            'transactionMetrics' => [
+                'registration' => $this->registrations->summaryForOrganizer($userId),
+                'payment' => $this->payments->summaryForOrganizer($userId),
+                'ticket' => $this->tickets->summaryForOrganizer($userId),
+                'reviews' => $this->dashboardMetrics->reviewsForOrganizer($userId),
+            ],
         ], 'dashboard');
     }
 
@@ -63,6 +88,10 @@ final class DashboardController extends Controller
     {
         $metrics = $this->dashboardMetrics->totals();
         $metrics['pending_reviews'] = $this->events->countPendingForAdmin();
+        $metrics['registration'] = $this->registrations->summaryForAdmin();
+        $metrics['payment'] = $this->payments->summaryForAdmin();
+        $metrics['ticket'] = $this->tickets->summaryForAdmin();
+        $metrics['reviews'] = $this->dashboardMetrics->reviewsForAdmin();
 
         return $this->render('dashboard/admin', [
             'pageTitle' => 'Platform overview',

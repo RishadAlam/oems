@@ -83,6 +83,51 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
         return array_map($this->withAliases(...), $payments);
     }
 
+    public function forAdmin(array $filters, int $limit, int $offset): array
+    {
+        $status = is_scalar($filters['status'] ?? null) ? (string) $filters['status'] : 'pending';
+        $allowed = ['pending', 'paid', 'failed', 'refunded', 'all'];
+        $status = in_array($status, $allowed, true) ? $status : 'pending';
+        $search = is_scalar($filters['search'] ?? null) ? trim((string) $filters['search']) : '';
+        if (mb_strlen($search) > 120) {
+            return [];
+        }
+
+        $payments = array_values(array_filter($this->payments, static function (array $payment) use ($status, $search): bool {
+            if ($status !== 'all' && ($payment['status'] ?? null) !== $status) {
+                return false;
+            }
+            if ($search === '') {
+                return true;
+            }
+
+            return str_contains(mb_strtolower(implode(' ', [
+                $payment['participant_name'] ?? '',
+                $payment['participant_email'] ?? '',
+                $payment['event_title'] ?? '',
+                $payment['transaction_reference'] ?? '',
+            ])), mb_strtolower($search));
+        }));
+        usort($payments, static function (array $left, array $right): int {
+            $leftPending = ($left['status'] ?? null) === 'pending';
+            $rightPending = ($right['status'] ?? null) === 'pending';
+            if ($leftPending !== $rightPending) {
+                return $leftPending ? -1 : 1;
+            }
+
+            return $leftPending
+                ? [($left['created_at'] ?? ''), ($left['id'] ?? 0)] <=> [($right['created_at'] ?? ''), ($right['id'] ?? 0)]
+                : [($right['created_at'] ?? ''), ($right['id'] ?? 0)] <=> [($left['created_at'] ?? ''), ($left['id'] ?? 0)];
+        });
+
+        return array_map($this->withAliases(...), array_slice($payments, max(0, $offset), min(100, max(1, $limit))));
+    }
+
+    public function countForAdmin(array $filters): int
+    {
+        return count($this->forAdmin($filters, 100, 0));
+    }
+
     public function findForAdmin(int $paymentId): ?array
     {
         return isset($this->payments[$paymentId])
@@ -178,6 +223,9 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
     private function withAliases(array $payment): array
     {
         $payment['payment_status'] = $payment['status'];
+        $response = is_array($payment['gateway_response'] ?? null) ? $payment['gateway_response'] : [];
+        $payment['payment_channel'] = is_string($response['channel'] ?? null) ? $response['channel'] : null;
+        unset($payment['gateway_response']);
 
         return $payment;
     }

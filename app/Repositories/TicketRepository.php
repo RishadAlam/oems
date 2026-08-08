@@ -239,8 +239,9 @@ final class TicketRepository implements TicketRepositoryInterface
     public function summaryForParticipant(int $participantId): array
     {
         return $this->ticketSummary(
-            '',
-            'WHERE registrations.user_id = :participant_user_id',
+            'INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE registrations.user_id = :participant_user_id AND events.deleted_at IS NULL AND users.deleted_at IS NULL',
             ['participant_user_id' => $participantId],
         );
     }
@@ -249,15 +250,21 @@ final class TicketRepository implements TicketRepositoryInterface
     {
         return $this->ticketSummary(
             'INNER JOIN events ON events.id = registrations.event_id
-             INNER JOIN organizers ON organizers.id = events.organizer_id',
-            'WHERE organizers.user_id = :organizer_user_id',
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE organizers.user_id = :organizer_user_id AND events.deleted_at IS NULL AND users.deleted_at IS NULL',
             ['organizer_user_id' => $organizerUserId],
         );
     }
 
     public function summaryForAdmin(): array
     {
-        return $this->ticketSummary('', '', []);
+        return $this->ticketSummary(
+            'INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE events.deleted_at IS NULL AND users.deleted_at IS NULL',
+            [],
+        );
     }
 
     private function ticketSelect(): string

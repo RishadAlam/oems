@@ -783,7 +783,7 @@ final class RegistrationService
     {
         $note = $note === null ? null : trim($note);
 
-        return $note === '' ? null : mb_substr($note, 0, 500);
+        return $note === null || $note === '' ? null : mb_substr($note, 0, 500);
     }
 
     private function paymentParticipant(array $payment): array

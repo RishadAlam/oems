@@ -34,6 +34,7 @@
     $participantFavoritesActive = str_starts_with($currentPath, '/participant/favorites');
     $participantReviewsActive = str_starts_with($currentPath, '/participant/reviews') || $participantReviewFormActive;
     $adminEventsActive = str_starts_with($currentPath, '/admin/events');
+    $adminPaymentsActive = str_starts_with($currentPath, '/admin/payments');
     $adminCategoriesActive = str_starts_with($currentPath, '/admin/categories');
     $organizerReviewsActive = str_starts_with($currentPath, '/organizer/reviews');
     $adminReviewsActive = str_starts_with($currentPath, '/admin/reviews');
@@ -68,6 +69,7 @@
                         <a class="dashboard-nav-link<?= $organizerReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/reviews"<?= $organizerReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Reviews</span></a>
                     <?php endif; ?>
                     <?php if (($currentUser['role_slug'] ?? '') === 'super-admin'): ?>
+                        <a class="dashboard-nav-link<?= $adminPaymentsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/payments"<?= $adminPaymentsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-receipt" aria-hidden="true"></i><span>Payment review</span></a>
                         <a class="dashboard-nav-link<?= $adminEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/events"<?= $adminEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-chevron" aria-hidden="true"></i><span>Event moderation</span></a>
                         <a class="dashboard-nav-link<?= $adminCategoriesActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/categories"<?= $adminCategoriesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-tag" aria-hidden="true"></i><span>Categories</span></a>
                         <a class="dashboard-nav-link<?= $adminReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/reviews"<?= $adminReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Review moderation</span></a>

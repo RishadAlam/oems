@@ -6,6 +6,7 @@ use OEMS\App\Controllers\AuthController;
 use OEMS\App\Controllers\AdminCategoryController;
 use OEMS\App\Controllers\AdminEventController;
 use OEMS\App\Controllers\AdminReviewController;
+use OEMS\App\Controllers\AdminPaymentController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerEventController;
@@ -96,6 +97,10 @@ return static function (Router $router): void {
     $router->get('/admin/reviews', [AdminReviewController::class, 'index'], ['role:super-admin'], 'admin.reviews.index');
     $router->post('/admin/reviews/{id}/publish', [AdminReviewController::class, 'publish'], ['role:super-admin', 'csrf'], 'admin.reviews.publish');
     $router->post('/admin/reviews/{id}/hide', [AdminReviewController::class, 'hide'], ['role:super-admin', 'csrf'], 'admin.reviews.hide');
+    $router->get('/admin/payments', [AdminPaymentController::class, 'index'], ['role:super-admin'], 'admin.payments.index');
+    $router->get('/admin/payments/{id}', [AdminPaymentController::class, 'show'], ['role:super-admin'], 'admin.payments.show');
+    $router->post('/admin/payments/{id}/verify', [AdminPaymentController::class, 'verify'], ['role:super-admin', 'csrf'], 'admin.payments.verify');
+    $router->post('/admin/payments/{id}/reject', [AdminPaymentController::class, 'reject'], ['role:super-admin', 'csrf'], 'admin.payments.reject');
     $router->get('/settings/password', [AuthController::class, 'showChangePassword'], ['auth'], 'password.change');
     $router->post('/settings/password', [AuthController::class, 'changePassword'], ['auth', 'csrf'], 'password.change.submit');
 };

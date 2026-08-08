@@ -10,6 +10,8 @@ use PDO;
 
 final class PaymentRepository implements PaymentRepositoryInterface
 {
+    private const ADMIN_STATUSES = ['pending', 'paid', 'failed', 'refunded', 'all'];
+
     private const REVIEW_ASSIGNMENTS = [
         'paid' => 'paid_at = CURRENT_TIMESTAMP',
         'failed' => 'paid_at = NULL',
@@ -88,14 +90,43 @@ final class PaymentRepository implements PaymentRepositoryInterface
 
     public function pendingForAdmin(): array
     {
+        return $this->forAdmin(['status' => 'pending'], 100, 0);
+    }
+
+    public function forAdmin(array $filters, int $limit, int $offset): array
+    {
+        [$where, $parameters] = $this->adminFilter($filters);
         $statement = $this->connection->prepare(
             $this->adminSelect()
-            . ' WHERE payments.status = :pending_status'
-            . ' ORDER BY payments.created_at ASC, payments.id ASC',
+            . $where
+            . " ORDER BY CASE WHEN payments.status = 'pending' THEN 0 ELSE 1 END ASC,
+                         CASE WHEN payments.status = 'pending' THEN payments.created_at END ASC,
+                         CASE WHEN payments.status = 'pending' THEN payments.id END ASC,
+                         CASE WHEN payments.status <> 'pending' THEN payments.created_at END DESC,
+                         CASE WHEN payments.status <> 'pending' THEN payments.id END DESC
+                LIMIT :admin_limit OFFSET :admin_offset",
         );
-        $statement->execute(['pending_status' => 'pending']);
+        foreach ($parameters as $name => $value) {
+            $statement->bindValue(':' . $name, $value);
+        }
+        $statement->bindValue(':admin_limit', min(100, max(1, $limit)), PDO::PARAM_INT);
+        $statement->bindValue(':admin_offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
 
         return array_map(fn (array $row): array => $this->hydrate($row) ?? [], $statement->fetchAll());
+    }
+
+    public function countForAdmin(array $filters): int
+    {
+        [$where, $parameters] = $this->adminFilter($filters);
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*)'
+            . $this->adminJoins()
+            . $where,
+        );
+        $statement->execute($parameters);
+
+        return (int) $statement->fetchColumn();
     }
 
     public function findForAdmin(int $paymentId): ?array
@@ -182,8 +213,10 @@ final class PaymentRepository implements PaymentRepositoryInterface
     public function summaryForParticipant(int $participantId): array
     {
         return $this->paymentSummary(
-            'INNER JOIN registrations ON registrations.id = payments.registration_id',
-            'WHERE registrations.user_id = :participant_user_id',
+            'INNER JOIN registrations ON registrations.id = payments.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE registrations.user_id = :participant_user_id AND events.deleted_at IS NULL AND users.deleted_at IS NULL',
             ['participant_user_id' => $participantId],
         );
     }
@@ -193,15 +226,22 @@ final class PaymentRepository implements PaymentRepositoryInterface
         return $this->paymentSummary(
             'INNER JOIN registrations ON registrations.id = payments.registration_id
              INNER JOIN events ON events.id = registrations.event_id
-             INNER JOIN organizers ON organizers.id = events.organizer_id',
-            'WHERE organizers.user_id = :organizer_user_id',
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE organizers.user_id = :organizer_user_id AND events.deleted_at IS NULL AND users.deleted_at IS NULL',
             ['organizer_user_id' => $organizerUserId],
         );
     }
 
     public function summaryForAdmin(): array
     {
-        return $this->paymentSummary('', '', []);
+        return $this->paymentSummary(
+            'INNER JOIN registrations ON registrations.id = payments.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id',
+            'WHERE events.deleted_at IS NULL AND users.deleted_at IS NULL',
+            [],
+        );
     }
 
     private function adminSelect(): string
@@ -234,13 +274,56 @@ final class PaymentRepository implements PaymentRepositoryInterface
                        organizers.user_id AS organizer_user_id,
                        organizers.organization_name AS organizer_name,
                        payment_methods.name AS payment_method_name,
-                       payment_methods.slug AS payment_method_slug
-                FROM payments
+                       payment_methods.slug AS payment_method_slug,
+                       reviewer.name AS reviewer_name,
+                       COALESCE(tickets.status, \'none\') AS ticket_status'
+                . $this->adminJoins();
+    }
+
+    private function adminJoins(): string
+    {
+        return ' FROM payments
                 INNER JOIN registrations ON registrations.id = payments.registration_id
                 INNER JOIN users ON users.id = registrations.user_id
                 INNER JOIN events ON events.id = registrations.event_id
                 INNER JOIN organizers ON organizers.id = events.organizer_id
-                LEFT JOIN payment_methods ON payment_methods.id = payments.payment_method_id';
+                LEFT JOIN payment_methods ON payment_methods.id = payments.payment_method_id
+                LEFT JOIN users AS reviewer ON reviewer.id = payments.reviewed_by
+                LEFT JOIN tickets ON tickets.registration_id = registrations.id';
+    }
+
+    private function adminFilter(array $filters): array
+    {
+        $requestedStatus = is_scalar($filters['status'] ?? null)
+            ? mb_strtolower(trim((string) $filters['status']))
+            : 'pending';
+        $status = in_array($requestedStatus, self::ADMIN_STATUSES, true) ? $requestedStatus : 'pending';
+        $search = is_scalar($filters['search'] ?? null) ? trim((string) $filters['search']) : '';
+        $clauses = ['users.deleted_at IS NULL', 'events.deleted_at IS NULL'];
+        $parameters = [];
+
+        if ($status !== 'all') {
+            $clauses[] = 'payments.status = :admin_status';
+            $parameters['admin_status'] = $status;
+        }
+
+        if ($search !== '') {
+            if (mb_strlen($search) > 120) {
+                $clauses[] = '1 = 0';
+            } else {
+                $needle = '%' . strtr(mb_strtolower($search), ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+                $clauses[] = "(LOWER(users.name) LIKE :admin_search_participant_name ESCAPE '!'
+                    OR LOWER(users.email) LIKE :admin_search_participant_email ESCAPE '!'
+                    OR LOWER(events.title) LIKE :admin_search_event ESCAPE '!'
+                    OR LOWER(COALESCE(payments.transaction_reference, '')) LIKE :admin_search_reference ESCAPE '!')";
+                $parameters['admin_search_participant_name'] = $needle;
+                $parameters['admin_search_participant_email'] = $needle;
+                $parameters['admin_search_event'] = $needle;
+                $parameters['admin_search_reference'] = $needle;
+            }
+        }
+
+        return [' WHERE ' . implode(' AND ', $clauses), $parameters];
     }
 
     private function paymentSummary(string $joins, string $where, array $bindings): array
@@ -269,18 +352,20 @@ final class PaymentRepository implements PaymentRepositoryInterface
             return null;
         }
 
-        if (!is_string($row['gateway_response'] ?? null) || $row['gateway_response'] === '') {
-            $row['gateway_response'] = null;
-
-            return $row;
-        }
-
+        $channel = null;
         try {
-            $decoded = json_decode($row['gateway_response'], true, 512, JSON_THROW_ON_ERROR);
-            $row['gateway_response'] = is_array($decoded) ? $decoded : null;
+            $decoded = is_string($row['gateway_response'] ?? null) && $row['gateway_response'] !== ''
+                ? json_decode($row['gateway_response'], true, 512, JSON_THROW_ON_ERROR)
+                : null;
+            $candidate = is_array($decoded) ? ($decoded['channel'] ?? null) : null;
+            $channel = is_string($candidate) && mb_strlen($candidate) <= 50 ? $candidate : null;
         } catch (JsonException) {
-            $row['gateway_response'] = null;
+            $channel = null;
         }
+
+        unset($row['gateway_response']);
+        $row['payment_channel'] = $channel;
+        $row['amount'] = number_format((float) ($row['amount'] ?? 0), 2, '.', '');
 
         return $row;
     }

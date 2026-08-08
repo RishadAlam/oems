@@ -16,6 +16,10 @@ interface PaymentRepositoryInterface
 
     public function pendingForAdmin(): array;
 
+    public function forAdmin(array $filters, int $limit, int $offset): array;
+
+    public function countForAdmin(array $filters): int;
+
     public function findForAdmin(int $paymentId): ?array;
 
     public function findForAdminCurrent(int $paymentId): ?array;

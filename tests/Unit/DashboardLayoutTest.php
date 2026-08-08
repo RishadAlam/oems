@@ -13,6 +13,9 @@ use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
 use OEMS\Tests\Support\FakeEventRepository;
+use OEMS\Tests\Support\FakePaymentRepository;
+use OEMS\Tests\Support\FakeRegistrationRepository;
+use OEMS\Tests\Support\FakeTicketRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
@@ -45,6 +48,10 @@ final class DashboardLayoutTest extends TestCase
                 'organizers' => 3,
                 'events' => 6,
                 'pending_reviews' => 4,
+                'registration' => ['active' => 9, 'pending' => 4, 'confirmed' => 5],
+                'payment' => ['pending' => 3, 'paid' => 5, 'paid_total' => '825.50'],
+                'ticket' => ['issued' => 5, 'checked_in' => 2],
+                'reviews' => ['total' => 7, 'pending' => 2, 'published' => 5],
             ],
         ]);
 
@@ -58,6 +65,11 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, '>4<'));
         $this->assertTrue(str_contains($html, 'href="/admin/events?status=pending"'));
         $this->assertTrue(str_contains($html, 'Review events'));
+        $this->assertTrue(str_contains($html, 'aria-label="Pending payments: 3"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Paid total: BDT 825.50"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Issued tickets: 5"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Checked in: 2"'));
+        $this->assertTrue(str_contains($html, 'href="/admin/payments?status=pending"'));
     }
 
     public function testAdminReviewActionsCanWrapWithTheCompiledStylesheet(): void
@@ -133,6 +145,12 @@ final class DashboardLayoutTest extends TestCase
                 'status' => 'draft',
                 'start_date' => '2026-09-18 09:00:00',
             ]],
+            'transactionMetrics' => [
+                'registration' => ['active' => 18, 'pending' => 6, 'confirmed' => 12],
+                'payment' => ['pending' => 6, 'paid' => 12, 'paid_total' => '4800.00'],
+                'ticket' => ['issued' => 12, 'checked_in' => 8],
+                'reviews' => ['published' => 5, 'awaiting_reply' => 2],
+            ],
         ]);
 
         $this->assertTrue(str_contains($organizer, 'aria-label="Total events: 7"'));
@@ -144,9 +162,11 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($organizer, 'Draft'));
         $this->assertTrue(str_contains($organizer, 'href="/organizer/events/91/edit"'));
         $this->assertFalse(str_contains($organizer, 'type="button" disabled'));
-        $this->assertTrue(str_contains($organizer, 'Registration and ticket revenue begin in Week 3'));
-        $this->assertFalse(str_contains($organizer, 'Participants: 0'));
-        $this->assertFalse(str_contains($organizer, 'Revenue: ৳0'));
+        $this->assertTrue(str_contains($organizer, 'aria-label="Active registrations: 18"'));
+        $this->assertTrue(str_contains($organizer, 'aria-label="Paid total: BDT 4800.00"'));
+        $this->assertTrue(str_contains($organizer, 'aria-label="Checked in: 8"'));
+        $this->assertTrue(str_contains($organizer, 'aria-label="Reviews awaiting reply: 2"'));
+        $this->assertFalse(str_contains($organizer, 'Week 3'));
     }
 
     public function testOrganizerDashboardEscapesHostileRecentEventContent(): void
@@ -173,6 +193,28 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, 'Find an event'));
     }
 
+    public function testParticipantDashboardRendersRealTransactionAndReviewMetrics(): void
+    {
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant', [
+            'metrics' => [
+                'registration' => ['active' => 3, 'pending' => 1, 'confirmed' => 2],
+                'payment' => ['pending' => 1, 'paid' => 2, 'paid_total' => '250.50'],
+                'ticket' => ['issued' => 2, 'checked_in' => 1],
+                'reviews' => ['submitted' => 4, 'pending' => 1, 'published' => 3],
+            ],
+        ]);
+
+        $this->assertTrue(str_contains($participant, 'aria-label="Active registrations: 3"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Pending registrations: 1"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Confirmed registrations: 2"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Pending payments: 1"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Paid total: BDT 250.50"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Issued tickets: 2"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Checked in: 1"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="Submitted reviews: 4"'));
+        $this->assertFalse(str_contains($participant, 'Unread updates'));
+    }
+
     public function testParticipantNavigationIncludesRegistrationsAndTicketsOnlyForParticipants(): void
     {
         $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
@@ -187,6 +229,18 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, '>Tickets</span>'));
         $this->assertFalse(str_contains($organizer, 'href="/participant/registrations"'));
         $this->assertFalse(str_contains($organizer, 'href="/participant/tickets"'));
+    }
+
+    public function testPaymentAdministrationNavigationIsVisibleOnlyToSuperAdministrators(): void
+    {
+        $admin = $this->renderAdminDashboard();
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', ['summary' => [], 'events' => []]);
+
+        $this->assertTrue(str_contains($admin, 'href="/admin/payments"'));
+        $this->assertTrue(str_contains($admin, '>Payment review</span>'));
+        $this->assertFalse(str_contains($participant, 'href="/admin/payments"'));
+        $this->assertFalse(str_contains($organizer, 'href="/admin/payments"'));
     }
 
     public function testOrganizerControllerLoadsAuthenticatedRepositorySummaryAndRecentEvents(): void
@@ -225,6 +279,22 @@ final class DashboardLayoutTest extends TestCase
         $this->assertSame(0, $events->forAdminCalls);
     }
 
+    public function testParticipantControllerUsesAggregateSummaryApisForEveryMetricFamily(): void
+    {
+        [$controller, , $registrations, $payments, $tickets] = $this->dashboardController('participant', 10);
+        $registrations->registrations[1] = ['id' => 1, 'user_id' => 10, 'status' => 'confirmed'];
+        $payments->payments[1] = ['id' => 1, 'participant_id' => 10, 'status' => 'paid', 'amount' => '75.25'];
+        $tickets->tickets[1] = ['id' => 1, 'participant_id' => 10, 'registration_status' => 'confirmed', 'status' => 'used'];
+        $tickets->attendance[1] = ['status' => 'present'];
+
+        $response = $controller->participant(Request::create('GET', '/participant/dashboard'));
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($response->body(), 'aria-label="Confirmed registrations: 1"'));
+        $this->assertTrue(str_contains($response->body(), 'aria-label="Paid total: BDT 75.25"'));
+        $this->assertTrue(str_contains($response->body(), 'aria-label="Checked in: 1"'));
+    }
+
     public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void
     {
         $previousUri = $_SERVER['REQUEST_URI'] ?? null;
@@ -253,6 +323,7 @@ final class DashboardLayoutTest extends TestCase
                 'name' => 'Super Admin',
                 'email' => 'admin@oems.local',
                 'role_name' => 'Super Admin',
+                'role_slug' => 'super-admin',
             ],
             'flash' => [],
             'metrics' => [
@@ -260,6 +331,10 @@ final class DashboardLayoutTest extends TestCase
                 'organizers' => 0,
                 'events' => 0,
                 'pending_reviews' => 0,
+                'registration' => ['active' => 0, 'pending' => 0, 'confirmed' => 0],
+                'payment' => ['pending' => 0, 'paid' => 0, 'paid_total' => '0.00'],
+                'ticket' => ['issued' => 0, 'checked_in' => 0],
+                'reviews' => ['total' => 0, 'pending' => 0, 'published' => 0],
             ],
             'pageTitle' => 'Platform overview',
         ], $overrides);
@@ -300,11 +375,15 @@ final class DashboardLayoutTest extends TestCase
             'status' => 'active',
         ];
         $events = new FakeEventRepository();
+        $registrations = new FakeRegistrationRepository();
+        $payments = new FakePaymentRepository();
+        $tickets = new FakeTicketRepository();
         $connection = new PDO('sqlite::memory:');
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
-        $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY)');
-        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL)');
+        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE reviews (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT NOT NULL, organizer_reply TEXT NULL)');
 
         return [
             new DashboardController(
@@ -315,8 +394,14 @@ final class DashboardLayoutTest extends TestCase
                 new Config(['name' => 'OEMS']),
                 new DashboardMetricsRepository($connection),
                 $events,
+                $registrations,
+                $payments,
+                $tickets,
             ),
             $events,
+            $registrations,
+            $payments,
+            $tickets,
         ];
     }
 }

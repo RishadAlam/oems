@@ -173,7 +173,7 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame('0', (string) $result['registration']['amount']);
         $this->assertSame('BDT', $result['registration']['currency']);
         $this->assertSame('paid', $result['payment']['payment_status']);
-        $this->assertSame('0', (string) $result['payment']['amount']);
+        $this->assertSame('0.00', (string) $result['payment']['amount']);
         $this->assertSame('free', $result['payment']['payment_method_slug']);
         $this->assertNotSame('ATTACKER-CONTROLLED', $result['payment']['transaction_reference']);
         $this->assertSame('valid', $result['ticket']['ticket_status']);
@@ -235,9 +235,10 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame('125.5', (string) $result['registration']['amount']);
         $this->assertSame('BDT', $result['registration']['currency']);
         $this->assertSame('pending', $result['payment']['payment_status']);
-        $this->assertSame('125.5', (string) $result['payment']['amount']);
+        $this->assertSame('125.50', (string) $result['payment']['amount']);
         $this->assertSame('BANK-REFERENCE-001', $result['payment']['transaction_reference']);
-        $this->assertSame(['channel' => 'bank'], $result['payment']['gateway_response']);
+        $this->assertSame('bank', $result['payment']['payment_channel']);
+        $this->assertFalse(array_key_exists('gateway_response', $result['payment']));
         $this->assertSame(0, $this->countRows('tickets'));
         $this->assertSame(1, count($this->transport->messages));
     }

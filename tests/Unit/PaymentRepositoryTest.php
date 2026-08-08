@@ -53,7 +53,8 @@ final class PaymentRepositoryTest extends TestCase
         $payment = $this->repository->findForAdmin($paymentId);
         $this->assertNotNull($payment);
         $this->assertSame('MANUAL-UNIQUE', $payment['transaction_reference']);
-        $this->assertSame(['channel' => 'bank'], $payment['gateway_response']);
+        $this->assertSame('bank', $payment['payment_channel']);
+        $this->assertFalse(array_key_exists('gateway_response', $payment));
 
         try {
             $this->repository->createForRegistration(103, [
@@ -86,11 +87,61 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertSame('failed', $current['payment_status']);
     }
 
-    public function testPendingQueueAndAdminDetailConnectTheFullAuditContext(): void
+    public function testAdminQueueFiltersSearchesPaginatesAndOrdersWithoutHydratingSecrets(): void
     {
-        $queue = $this->repository->pendingForAdmin();
+        $queue = $this->repository->forAdmin(['status' => 'all'], 2, 0);
 
         $this->assertSame([1, 4], array_column($queue, 'id'));
+        $this->assertSame([3, 2], array_column(
+            $this->repository->forAdmin(['status' => 'all'], 2, 2),
+            'id',
+        ));
+        $this->assertSame([2], array_column(
+            $this->repository->forAdmin(['status' => 'paid'], 25, 0),
+            'id',
+        ));
+        $this->assertSame([1, 4], array_column(
+            $this->repository->forAdmin(['status' => 'not-allowed'], 25, 0),
+            'id',
+        ));
+        $this->assertSame([2], array_column(
+            $this->repository->forAdmin(['status' => 'all', 'search' => 'PARTICIPANT TWO'], 25, 0),
+            'id',
+        ));
+        $this->assertSame([2], array_column(
+            $this->repository->forAdmin(['status' => 'paid', 'search' => 'transaction event'], 25, 0),
+            'id',
+        ));
+        $this->assertSame([2], array_column(
+            $this->repository->forAdmin(['status' => 'all', 'search' => 'REF-PAID'], 25, 0),
+            'id',
+        ));
+        $this->assertSame(4, $this->repository->countForAdmin(['status' => 'all']));
+        $this->assertSame(2, $this->repository->countForAdmin(['status' => 'pending']));
+        $this->assertSame(0, $this->repository->countForAdmin([
+            'status' => 'all',
+            'search' => str_repeat('x', 121),
+        ]));
+
+        $searchQueries = array_values(array_filter(
+            $this->connection->preparedQueries,
+            static fn (string $query): bool => str_contains($query, ':admin_search_participant_name'),
+        ));
+        $lastQueueQuery = $searchQueries[array_key_last($searchQueries)];
+        $this->assertTrue(str_contains($lastQueueQuery, ':admin_search_participant_name'));
+        $this->assertTrue(str_contains($lastQueueQuery, ':admin_search_participant_email'));
+        $this->assertTrue(str_contains($lastQueueQuery, ':admin_search_event'));
+        $this->assertTrue(str_contains($lastQueueQuery, ':admin_search_reference'));
+        $this->assertSame(4, preg_match_all('/:admin_search_[a-z_]+/', $lastQueueQuery, $matches));
+        $this->assertSame(4, count(array_unique($matches[0])));
+
+        foreach ($queue as $payment) {
+            $this->assertFalse(array_key_exists('gateway_response', $payment));
+        }
+    }
+
+    public function testAdminDetailConnectsOnlySafeSettlementAndFulfillmentContext(): void
+    {
         $detail = $this->repository->findForAdmin(1);
         $currentDetail = $this->repository->findForAdminCurrent(1);
         $this->assertNotNull($detail);
@@ -101,9 +152,13 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertSame('Transaction Event', $detail['event_title']);
         $this->assertSame('Organizer Company', $detail['organizer_name']);
         $this->assertSame('Manual Bank', $detail['payment_method_name']);
+        $this->assertSame('bank', $detail['payment_channel']);
+        $this->assertSame('none', $detail['ticket_status']);
         $this->assertArrayHasKey('reviewed_by', $detail);
         $this->assertArrayHasKey('reviewed_at', $detail);
         $this->assertArrayHasKey('review_note', $detail);
+        $this->assertFalse(array_key_exists('gateway_response', $detail));
+        $this->assertFalse(array_key_exists('qr_payload_hash', $detail));
         $this->assertNotNull($currentDetail);
         $this->assertSame($detail, $currentDetail);
         $this->assertNull($this->repository->findForAdminCurrent(999));
@@ -160,9 +215,9 @@ final class PaymentRepositoryTest extends TestCase
 
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL)');
-        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE payment_methods (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL)');
         $this->connection->exec(
@@ -184,21 +239,25 @@ final class PaymentRepositoryTest extends TestCase
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )',
         );
+        $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL)');
     }
 
     private function seedRows(): void
     {
-        $this->connection->exec("INSERT INTO users (id, name, email) VALUES (1, 'Participant One', 'participant@example.test'), (2, 'Participant Two', 'participant-two@example.test'), (900, 'Admin One', 'admin@example.test'), (901, 'Admin Two', 'admin-two@example.test')");
+        $this->connection->exec("INSERT INTO users (id, name, email, deleted_at) VALUES (1, 'Participant One', 'participant@example.test', NULL), (2, 'Participant Two', 'participant-two@example.test', NULL), (4, 'Deleted Participant', 'deleted@example.test', '2026-08-06 00:00:00'), (900, 'Admin One', 'admin@example.test', NULL), (901, 'Admin Two', 'admin-two@example.test', NULL)");
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (10, 50, 'Organizer Company')");
         $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug) VALUES (20, 10, 'Transaction Event', 'transaction-event')");
-        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 20, 1, 'REG-101', 'pending'), (102, 20, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed')");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, deleted_at) VALUES (21, 10, 'Deleted Event', 'deleted-event', '2026-08-05 00:00:00')");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 20, 1, 'REG-101', 'pending'), (102, 20, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed'), (104, 21, 1, 'REG-104', 'confirmed'), (105, 20, 4, 'REG-105', 'confirmed')");
         $this->connection->exec("INSERT INTO payment_methods (id, name, slug) VALUES (1, 'Manual Bank', 'manual-bank')");
         $this->connection->exec(
             "INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status, gateway_response, paid_at, reviewed_by, reviewed_at, review_note, created_at, updated_at) VALUES
                 (1, 101, 1, 'REF-PENDING-OLD', 450, 'BDT', 'pending', '{\"channel\":\"bank\"}', NULL, NULL, NULL, NULL, '2026-08-01 09:00:00', '2026-08-01 09:00:00'),
                 (2, 103, 1, 'REF-PAID', 450, 'BDT', 'paid', NULL, '2026-08-02 09:00:00', 900, '2026-08-02 09:00:00', 'Verified', '2026-08-02 09:00:00', '2026-08-02 09:00:00'),
                 (3, 101, 1, 'REF-FAILED-LATEST', 450, 'BDT', 'failed', NULL, NULL, 900, '2026-08-03 09:00:00', 'Rejected', '2026-08-03 09:00:00', '2026-08-03 09:00:00'),
-                (4, 102, 1, 'REF-PENDING-NEW', 450, 'BDT', 'pending', NULL, NULL, NULL, NULL, NULL, '2026-08-04 09:00:00', '2026-08-04 09:00:00')",
+                (4, 102, 1, 'REF-PENDING-NEW', 450, 'BDT', 'pending', NULL, NULL, NULL, NULL, NULL, '2026-08-04 09:00:00', '2026-08-04 09:00:00'),
+                (5, 104, 1, 'REF-DELETED-EVENT', 999, 'BDT', 'paid', NULL, '2026-08-05 09:00:00', 900, '2026-08-05 09:00:00', 'Verified', '2026-08-05 09:00:00', '2026-08-05 09:00:00'),
+                (6, 105, 1, 'REF-DELETED-PARTICIPANT', 777, 'BDT', 'paid', NULL, '2026-08-06 09:00:00', 900, '2026-08-06 09:00:00', 'Verified', '2026-08-06 09:00:00', '2026-08-06 09:00:00')",
         );
     }
 }
