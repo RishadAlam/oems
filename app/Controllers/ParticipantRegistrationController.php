@@ -141,12 +141,16 @@ final class ParticipantRegistrationController extends Controller
         }
 
         $registrationId = (int) $registration['id'];
+        $userId = $this->auth->id();
         $payment = $this->payments->findForRegistration($registrationId);
         $ticket = $this->tickets->findForRegistration($registrationId);
+        $cancellationState = $userId === null
+            ? ['allowed' => false, 'code' => 'not_found', 'reason' => null]
+            : $this->registrationService->cancellationState($userId, $registrationId);
 
         return $this->render('participant/registrations/show', [
             'pageTitle' => 'Registration ' . (string) $registration['registration_number'],
-            'registration' => $this->presentRegistration($registration, $payment, $ticket),
+            'registration' => $this->presentRegistration($registration, $payment, $ticket, $cancellationState),
         ], 'dashboard');
     }
 
@@ -225,7 +229,12 @@ final class ParticipantRegistrationController extends Controller
         ]);
     }
 
-    private function presentRegistration(array $registration, ?array $payment = null, ?array $ticket = null): array
+    private function presentRegistration(
+        array $registration,
+        ?array $payment = null,
+        ?array $ticket = null,
+        ?array $cancellationState = null,
+    ): array
     {
         $registrationId = (int) ($registration['id'] ?? 0);
         $payment ??= $registrationId > 0 ? $this->payments->findForRegistration($registrationId) : null;
@@ -233,7 +242,7 @@ final class ParticipantRegistrationController extends Controller
         $status = (string) ($registration['registration_status'] ?? $registration['status'] ?? 'pending');
         $paymentStatus = (string) ($payment['payment_status'] ?? $payment['status'] ?? 'not_required');
         $start = trim((string) ($registration['event_start_date'] ?? ''));
-        $canCancel = $this->registrationService->canCancel($registration, $ticket);
+        $cancellationState ??= ['allowed' => false, 'code' => 'not_loaded', 'reason' => null];
 
         return array_merge($registration, [
             'registration_status' => $status,
@@ -243,7 +252,8 @@ final class ParticipantRegistrationController extends Controller
             'amount_display' => $this->currency((float) ($registration['amount'] ?? 0), (string) ($registration['currency'] ?? 'BDT')),
             'registered_display' => $this->date((string) $registration['registered_at'])->format('M j, Y, g:i A'),
             'event_start_display' => $start === '' ? 'Schedule unavailable' : $this->date($start)->format('M j, Y, g:i A'),
-            'can_cancel' => $canCancel,
+            'can_cancel' => (bool) ($cancellationState['allowed'] ?? false),
+            'cancellation_state' => $cancellationState,
         ]);
     }
 

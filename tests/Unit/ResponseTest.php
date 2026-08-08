@@ -25,4 +25,31 @@ final class ResponseTest extends TestCase
         $this->assertSame('inline; filename="ticket.png"', $response->header('Content-Disposition'));
         $this->assertSame('nosniff', $response->header('X-Content-Type-Options'));
     }
+
+    public function testFileResponseKeepsArtifactOutOfBodyAndStreamsEveryByteWithLength(): void
+    {
+        $path = sys_get_temp_dir() . '/oems-response-stream-' . bin2hex(random_bytes(6));
+        $bytes = str_repeat('bounded-stream-chunk-', 8192);
+        file_put_contents($path, $bytes);
+
+        try {
+            $this->assertTrue(method_exists(Response::class, 'file'), 'File responses are not implemented.');
+            $response = Response::file($path, 200, [
+                'Content-Type' => 'application/octet-stream',
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+
+            $this->assertSame('', $response->body());
+            $this->assertSame((string) strlen($bytes), $response->header('Content-Length'));
+            ob_start();
+            $response->send();
+            $streamed = ob_get_clean();
+
+            $this->assertSame($bytes, $streamed);
+        } finally {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
 }

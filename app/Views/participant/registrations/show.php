@@ -1,6 +1,13 @@
 <?php
 $registrationStatus = (string) $registration['registration_status'];
 $paymentStatus = (string) $registration['payment_status'];
+$cancellationState = is_array($registration['cancellation_state'] ?? null)
+    ? $registration['cancellation_state']
+    : ['allowed' => false, 'reason' => null];
+$cancellationReason = is_string($cancellationState['reason'] ?? null)
+    ? $cancellationState['reason']
+    : null;
+$reasonError = field_error($errors, 'reason') ?? field_error($errors, 'registration');
 $statusCopy = match (true) {
     $paymentStatus === 'failed' => 'The payment reference was rejected and your place was released.',
     $registrationStatus === 'confirmed' => 'Your place is confirmed.',
@@ -43,15 +50,19 @@ $statusCopy = match (true) {
     </ol>
 </section>
 
-<?php if ($registrationStatus === 'cancelled' && !empty($registration['cancellation_reason'])): ?>
-    <section class="dashboard-panel mt-6"><h2 class="text-lg font-bold">Cancellation</h2><p class="mt-2 text-sm text-[var(--ink-muted)]"><?= e($registration['cancellation_reason']) ?></p></section>
-<?php elseif ($registration['can_cancel']): ?>
+<?php if ($registration['can_cancel']): ?>
     <section class="dashboard-panel mt-6" aria-labelledby="cancel-registration-heading">
         <h2 id="cancel-registration-heading" class="text-lg font-bold">Cancel registration</h2><p class="mt-2 text-sm text-[var(--ink-muted)]">Cancellation releases your place and invalidates related payment or ticket state.</p>
         <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/cancel" method="post" novalidate>
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-            <div class="field-group"><label for="reason">Cancellation reason</label><textarea id="reason" name="reason" rows="3" maxlength="500" required<?= field_error($errors, 'reason') ? ' aria-invalid="true" aria-describedby="reason-error"' : '' ?>></textarea><?php if ($error = field_error($errors, 'reason') ?? field_error($errors, 'registration')): ?><p id="reason-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+            <div class="field-group"><label for="reason">Cancellation reason</label><textarea id="reason" name="reason" rows="3" maxlength="500" required<?= $reasonError !== null ? ' aria-invalid="true" aria-describedby="reason-error"' : '' ?>></textarea><?php if ($reasonError !== null): ?><p id="reason-error" class="field-error" role="alert"><?= e($reasonError) ?></p><?php endif; ?></div>
             <button class="button button--danger w-full sm:w-auto" type="submit"><i class="ph ph-x-circle" aria-hidden="true"></i><span>Cancel registration</span></button>
         </form>
+    </section>
+<?php elseif ($cancellationReason !== null): ?>
+    <section class="dashboard-panel mt-6" aria-labelledby="cancellation-unavailable-heading">
+        <h2 id="cancellation-unavailable-heading" class="text-lg font-bold">Cancellation unavailable</h2>
+        <p class="mt-2 text-sm text-[var(--ink-muted)]"><?= e($cancellationReason) ?></p>
+        <?php if (!empty($registration['cancellation_reason'])): ?><p class="mt-2 text-sm text-[var(--ink-muted)]">Recorded reason: <?= e($registration['cancellation_reason']) ?></p><?php endif; ?>
     </section>
 <?php endif; ?>

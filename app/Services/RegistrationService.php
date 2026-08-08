@@ -576,20 +576,86 @@ final class RegistrationService
 
     public function canCancel(array $registration, ?array $ticket): bool
     {
+        return $this->cancellationEligibility($registration, $ticket)['allowed'];
+    }
+
+    public function cancellationState(int $actorId, int $registrationId): array
+    {
+        if ($this->authorizedUser($actorId, 'participant') === null) {
+            return $this->unavailableCancellation('not_found');
+        }
+
+        $registration = $this->registrations->findForParticipant($actorId, $registrationId);
+
+        if ($registration === null) {
+            return $this->unavailableCancellation('not_found');
+        }
+
+        return $this->cancellationEligibility(
+            $registration,
+            $this->tickets->forRegistration($registrationId),
+        );
+    }
+
+    private function cancellationEligibility(array $registration, ?array $ticket): array
+    {
         $status = (string) ($registration['registration_status'] ?? $registration['status'] ?? '');
+
+        if (!in_array($status, ['pending', 'confirmed'], true)) {
+            return $this->unavailableCancellation(
+                'terminal',
+                match ($status) {
+                    'cancelled' => 'This registration is already cancelled.',
+                    'refunded' => 'This registration has already been refunded.',
+                    default => 'This registration can no longer be cancelled.',
+                },
+            );
+        }
+
+        if (!empty($ticket['attendance_id']) || ($ticket['ticket_status'] ?? null) === 'used') {
+            return $this->unavailableCancellation(
+                'checked_in',
+                'Cancellation is unavailable after event check-in.',
+            );
+        }
+
         $startValue = trim((string) ($registration['event_start_date'] ?? ''));
 
-        if (!in_array($status, ['pending', 'confirmed'], true)
-            || $startValue === ''
-            || !empty($ticket['attendance_id'])) {
-            return false;
+        if ($startValue === '') {
+            return $this->unavailableCancellation(
+                'schedule_unavailable',
+                'Cancellation is unavailable because the event schedule could not be confirmed.',
+            );
         }
 
         try {
-            return new \DateTimeImmutable($startValue) > new \DateTimeImmutable('now');
+            if (new \DateTimeImmutable($startValue) <= new \DateTimeImmutable('now')) {
+                return $this->unavailableCancellation(
+                    'started',
+                    'Cancellation is unavailable because this event has already started.',
+                );
+            }
         } catch (Throwable) {
-            return false;
+            return $this->unavailableCancellation(
+                'schedule_unavailable',
+                'Cancellation is unavailable because the event schedule could not be confirmed.',
+            );
         }
+
+        return [
+            'allowed' => true,
+            'code' => 'allowed',
+            'reason' => null,
+        ];
+    }
+
+    private function unavailableCancellation(string $code, ?string $reason = null): array
+    {
+        return [
+            'allowed' => false,
+            'code' => $code,
+            'reason' => $reason,
+        ];
     }
 
     private function truthfulRegistrationResult(array $registration): array

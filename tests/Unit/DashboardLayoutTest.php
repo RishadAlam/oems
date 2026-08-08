@@ -72,6 +72,19 @@ final class DashboardLayoutTest extends TestCase
         );
     }
 
+    public function testCompactButtonsKeepAMinimumFortyFourPixelInteractiveTargetInCompiledCss(): void
+    {
+        $html = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $stylesheet = file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue(str_contains($html, 'button--compact'));
+        $this->assertTrue(
+            is_string($stylesheet)
+                && str_contains($stylesheet, '.button--compact{min-height:calc(var(--spacing) * 11);'),
+            'Compact buttons must retain the 44px minimum target in the committed stylesheet.',
+        );
+    }
+
     public function testMobileDashboardNavigationExposesItsDisclosureContract(): void
     {
         $html = $this->renderAdminDashboard();

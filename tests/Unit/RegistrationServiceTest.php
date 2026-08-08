@@ -116,6 +116,38 @@ final class RegistrationServiceTest extends TestCase
         $this->assertFalse($this->service->canCancel($eligible, ['attendance_id' => 91]));
     }
 
+    public function testCancellationStateIsOwnershipScopedAndExplainsWhyCancellationIsUnavailable(): void
+    {
+        $allowedRegistration = $this->service->register(1, 10);
+        $registrationId = (int) $allowedRegistration['registration']['id'];
+        $ticketId = (int) $allowedRegistration['ticket']['id'];
+
+        $this->assertSame([
+            'allowed' => true,
+            'code' => 'allowed',
+            'reason' => null,
+        ], $this->service->cancellationState(1, $registrationId));
+        $this->assertSame('not_found', $this->service->cancellationState(5, $registrationId)['code']);
+
+        $this->connection->exec("INSERT INTO attendance (registration_id, ticket_id, scanned_by, status, scanned_at) VALUES ({$registrationId}, {$ticketId}, 2, 'present', CURRENT_TIMESTAMP)");
+        $checkedIn = $this->service->cancellationState(1, $registrationId);
+        $this->assertFalse($checkedIn['allowed']);
+        $this->assertSame('checked_in', $checkedIn['code']);
+        $this->assertSame('Cancellation is unavailable after event check-in.', $checkedIn['reason']);
+
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (80, 15, 1, 'REG-STARTED-STATE', 'confirmed', 0, 'BDT', CURRENT_TIMESTAMP)");
+        $started = $this->service->cancellationState(1, 80);
+        $this->assertFalse($started['allowed']);
+        $this->assertSame('started', $started['code']);
+        $this->assertSame('Cancellation is unavailable because this event has already started.', $started['reason']);
+
+        $this->connection->exec("UPDATE registrations SET status = 'cancelled' WHERE id = {$registrationId}");
+        $terminal = $this->service->cancellationState(1, $registrationId);
+        $this->assertFalse($terminal['allowed']);
+        $this->assertSame('terminal', $terminal['code']);
+        $this->assertSame('This registration is already cancelled.', $terminal['reason']);
+    }
+
     public function testRepositoryEligibilityRejectsUnpublishedInactiveClosedStartedAndFullEvents(): void
     {
         foreach ([12, 13, 14, 15, 16] as $eventId) {

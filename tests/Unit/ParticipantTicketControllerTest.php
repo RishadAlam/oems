@@ -97,11 +97,15 @@ final class ParticipantTicketControllerTest extends TestCase
         $response = $this->controller()->qr($this->routed(41, 'qr'));
 
         $this->assertSame(200, $response->status());
-        $this->assertSame("\x89PNG\r\nowned", $response->body());
+        $this->assertSame('', $response->body());
         $this->assertSame('image/png', $response->header('Content-Type'));
         $this->assertSame('inline; filename="OEMS-ABC-123-qr.png"', $response->header('Content-Disposition'));
         $this->assertSame('nosniff', $response->header('X-Content-Type-Options'));
         $this->assertSame('private, no-store, max-age=0', $response->header('Cache-Control'));
+        $this->assertSame((string) strlen("\x89PNG\r\nowned"), $response->header('Content-Length'));
+        ob_start();
+        $response->send();
+        $this->assertSame("\x89PNG\r\nowned", ob_get_clean());
     }
 
     public function testOwnedPdfUsesSafeAttachmentHeadersDerivedFromTicketNumber(): void
@@ -109,11 +113,15 @@ final class ParticipantTicketControllerTest extends TestCase
         $response = $this->controller()->pdf($this->routed(41, 'pdf'));
 
         $this->assertSame(200, $response->status());
-        $this->assertSame("%PDF-1.4\nowned", $response->body());
+        $this->assertSame('', $response->body());
         $this->assertSame('application/pdf', $response->header('Content-Type'));
         $this->assertSame('attachment; filename="OEMS-ABC-123.pdf"', $response->header('Content-Disposition'));
         $this->assertSame('nosniff', $response->header('X-Content-Type-Options'));
         $this->assertSame('private, no-store, max-age=0', $response->header('Cache-Control'));
+        $this->assertSame((string) strlen("%PDF-1.4\nowned"), $response->header('Content-Length'));
+        ob_start();
+        $response->send();
+        $this->assertSame("%PDF-1.4\nowned", ob_get_clean());
     }
 
     public function testForeignMissingAndUnconfinedArtifactsReturnTheSame404(): void

@@ -234,6 +234,63 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertFalse(str_contains($body, '>Cancel registration</span>'));
     }
 
+    public function testDetailExplainsStartedAndCheckedInCancellationStatesWithoutDisclosingForeignRecords(): void
+    {
+        $this->registrations->registrations = [
+            4 => array_merge($this->registrationFixture(), [
+                'id' => 4,
+                'user_id' => 7,
+                'event_start_date' => '2000-08-22 10:00:00',
+            ]),
+            5 => array_merge($this->registrationFixture(), [
+                'id' => 5,
+                'user_id' => 7,
+                'status' => 'confirmed',
+            ]),
+            6 => array_merge($this->registrationFixture(), ['id' => 6, 'user_id' => 88]),
+        ];
+        $this->tickets->tickets[12] = [
+            'id' => 12,
+            'registration_id' => 5,
+            'participant_id' => 7,
+            'ticket_number' => 'OEMS-CHECKED-IN',
+            'status' => 'used',
+            'attendance_id' => 91,
+        ];
+
+        $started = $this->controller()->show($this->idRouted('GET', 4));
+        $checkedIn = $this->controller()->show($this->idRouted('GET', 5));
+        $foreign = $this->controller()->show($this->idRouted('GET', 6));
+
+        $this->assertTrue(str_contains($started->body(), 'Cancellation unavailable'));
+        $this->assertTrue(str_contains($started->body(), 'event has already started'));
+        $this->assertTrue(str_contains($checkedIn->body(), 'Cancellation unavailable'));
+        $this->assertTrue(str_contains($checkedIn->body(), 'after event check-in'));
+        $this->assertFalse(str_contains($started->body(), '>Cancel registration</span>'));
+        $this->assertFalse(str_contains($checkedIn->body(), '>Cancel registration</span>'));
+        $this->assertSame(404, $foreign->status());
+    }
+
+    public function testServiceLevelCancellationErrorIsBoundToTheReasonTextarea(): void
+    {
+        $this->registrations->registrations[4] = array_merge($this->registrationFixture(), [
+            'id' => 4,
+            'user_id' => 7,
+        ]);
+        $this->session->flash('errors', [
+            'registration' => ['This registration can no longer be cancelled.'],
+        ]);
+
+        $body = $this->controller()->show($this->idRouted('GET', 4))->body();
+
+        $this->assertTrue(str_contains(
+            $body,
+            'name="reason" rows="3" maxlength="500" required aria-invalid="true" aria-describedby="reason-error"',
+        ));
+        $this->assertTrue(str_contains($body, 'id="reason-error"'));
+        $this->assertTrue(str_contains($body, 'This registration can no longer be cancelled.'));
+    }
+
     public function testArrayShapedPaymentFieldsFailSafelyWithoutWarningsOrOldSecrets(): void
     {
         set_error_handler(static function (int $severity, string $message): never {

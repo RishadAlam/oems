@@ -145,6 +145,10 @@ final class PublicEventController extends Controller
             return ['label' => 'Event ended', 'description' => 'This event has already ended.', 'href' => null];
         }
 
+        if ($this->date((string) $event['start_date']) <= $now) {
+            return ['label' => 'Registration closed', 'description' => 'This event has already started.', 'href' => null];
+        }
+
         if ($this->date((string) $event['registration_deadline']) <= $now) {
             return ['label' => 'Registration closed', 'description' => 'The registration deadline has passed.', 'href' => null];
         }
@@ -163,9 +167,15 @@ final class PublicEventController extends Controller
             ];
         }
 
+        $description = match (true) {
+            $this->auth->guest() => 'Sign in with a participant account to reserve one place.',
+            (float) ($event['ticket_price'] ?? 0) <= 0 => 'Confirm one free place for this event.',
+            default => 'Review the total and submit your payment reference.',
+        };
+
         return [
             'label' => $label,
-            'description' => 'Sign in with a participant account to reserve one place.',
+            'description' => $description,
             'href' => $this->auth->guest() ? '/login' : '/participant/events/' . rawurlencode((string) $event['slug']) . '/register',
         ];
     }

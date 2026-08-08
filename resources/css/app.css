@@ -142,7 +142,7 @@
     }
 
     .button--compact {
-        @apply min-h-10 px-4;
+        @apply min-h-11 px-4;
     }
 
     .button--primary {

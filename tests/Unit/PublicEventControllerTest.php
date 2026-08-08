@@ -219,6 +219,13 @@ final class PublicEventControllerTest extends TestCase
         $states = [
             'sold-out' => ['available_seats' => 0, 'expected' => 'Sold out'],
             'registration-closed' => ['registration_deadline' => '2026-08-08 18:00:00', 'expected' => 'Registration closed'],
+            'event-started' => [
+                'start_date' => '2000-08-09 08:00:00',
+                'end_date' => '2099-08-10 12:30:00',
+                'registration_deadline' => '2099-08-10 09:00:00',
+                'expected' => 'Registration closed',
+                'description' => 'This event has already started.',
+            ],
             'event-ended' => [
                 'start_date' => '2026-08-07 10:00:00',
                 'end_date' => '2026-08-07 12:30:00',
@@ -229,7 +236,9 @@ final class PublicEventControllerTest extends TestCase
 
         foreach ($states as $slug => $state) {
             $expected = $state['expected'];
+            $description = $state['description'] ?? null;
             unset($state['expected']);
+            unset($state['description']);
             $this->events->events[$slug] = array_merge($this->eventFixture(), $state, ['slug' => $slug]);
 
             $body = $this->controller->show(
@@ -237,7 +246,11 @@ final class PublicEventControllerTest extends TestCase
             )->body();
 
             $this->assertTrue(str_contains($body, $expected));
+            if (is_string($description)) {
+                $this->assertTrue(str_contains($body, $description));
+            }
             $this->assertFalse(str_contains($body, 'href="/participant/events/' . $slug . '/register"'));
+            $this->assertSame(3, substr_count($body, 'href="/login"'));
         }
     }
 
@@ -272,6 +285,8 @@ final class PublicEventControllerTest extends TestCase
             Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
         )->body();
         $this->assertTrue(str_contains($checkoutBody, 'href="/participant/events/future-craft/register"'));
+        $this->assertTrue(str_contains($checkoutBody, 'Review the total and submit your payment reference.'));
+        $this->assertFalse(str_contains($checkoutBody, 'Sign in with a participant account'));
 
         $this->registrations->registrations[19] = [
             'id' => 19,

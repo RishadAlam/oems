@@ -16,6 +16,7 @@ use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
+use RuntimeException;
 
 final class ParticipantTicketController extends Controller
 {
@@ -83,23 +84,22 @@ final class ParticipantTicketController extends Controller
             return $this->notFound();
         }
 
-        $body = file_get_contents($resolved);
-        if ($body === false) {
-            return $this->notFound();
-        }
-
         $ticketNumber = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) ($ticket['ticket_number'] ?? 'ticket')) ?? 'ticket';
         $ticketNumber = trim($ticketNumber, '.-') ?: 'ticket';
         $isQr = $format === 'qr';
         $filename = $ticketNumber . ($isQr ? '-qr.png' : '.pdf');
 
-        return Response::binary($body, 200, [
-            'Content-Type' => $isQr ? 'image/png' : 'application/pdf',
-            'Content-Disposition' => ($isQr ? 'inline' : 'attachment') . '; filename="' . $filename . '"',
-            'X-Content-Type-Options' => 'nosniff',
-            'Cache-Control' => 'private, no-store, max-age=0',
-            'Pragma' => 'no-cache',
-        ]);
+        try {
+            return Response::file($resolved, 200, [
+                'Content-Type' => $isQr ? 'image/png' : 'application/pdf',
+                'Content-Disposition' => ($isQr ? 'inline' : 'attachment') . '; filename="' . $filename . '"',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store, max-age=0',
+                'Pragma' => 'no-cache',
+            ]);
+        } catch (RuntimeException) {
+            return $this->notFound();
+        }
     }
 
     private function ownedTicket(Request $request): ?array
