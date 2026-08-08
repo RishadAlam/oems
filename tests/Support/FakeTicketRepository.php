@@ -32,6 +32,30 @@ final class FakeTicketRepository implements TicketRepositoryInterface
         return $id;
     }
 
+    public function reactivateForRegistration(int $registrationId, array $attributes): bool
+    {
+        foreach ($this->tickets as $id => $ticket) {
+            if ((int) $ticket['registration_id'] === $registrationId && $ticket['status'] === 'cancelled') {
+                $this->tickets[$id] = array_merge($ticket, $attributes, ['status' => 'valid']);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function findForRegistration(int $registrationId): ?array
+    {
+        foreach ($this->tickets as $ticket) {
+            if ((int) $ticket['registration_id'] === $registrationId) {
+                return $this->publicTicket($ticket);
+            }
+        }
+
+        return null;
+    }
+
     public function forParticipant(int $participantId): array
     {
         $tickets = array_values(array_filter(

@@ -39,7 +39,13 @@ final class RegistrationRepositoryTest extends TestCase
 
     public function testReservationRequiresEveryPublicEligibilityCondition(): void
     {
-        $this->assertNotNull($this->repository->reserve(3, 17, $this->attributes('REG-ELIGIBLE')));
+        $eligible = $this->repository->reserve(3, 17, array_merge(
+            $this->attributes('REG-ELIGIBLE'),
+            ['amount' => '99999.00', 'currency' => 'USD'],
+        ));
+        $this->assertNotNull($eligible);
+        $this->assertSame('0', (string) $eligible['amount']);
+        $this->assertSame('BDT', $eligible['currency']);
 
         foreach ([11, 12, 13, 14, 15, 18] as $eventId) {
             $this->assertNull(
@@ -123,6 +129,18 @@ final class RegistrationRepositoryTest extends TestCase
         $this->assertSame('Schedule conflict', $this->registrationReason(105));
     }
 
+    public function testParticipantCancellationRejectsStartedAndAttendedRegistrations(): void
+    {
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (106, 17, 3, 'REG-ATTENDED', 'confirmed', 0, 'BDT', CURRENT_TIMESTAMP)");
+        $this->connection->exec('INSERT INTO attendance (registration_id) VALUES (106)');
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (107, 18, 4, 'REG-STARTED', 'confirmed', 0, 'BDT', CURRENT_TIMESTAMP)");
+
+        $this->assertNull($this->repository->cancelForParticipant(3, 106, 'Already attended'));
+        $this->assertNull($this->repository->cancelForParticipant(4, 107, 'Already started'));
+        $this->assertSame('confirmed', $this->registrationStatus(106));
+        $this->assertSame('confirmed', $this->registrationStatus(107));
+    }
+
     public function testDashboardSummariesUseStatusAggregatesWithParticipantOrganizerAndAdminScope(): void
     {
         $this->assertSame(
@@ -155,11 +173,13 @@ final class RegistrationRepositoryTest extends TestCase
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL)');
+        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
         $this->connection->exec(
             'CREATE TABLE events (
                 id INTEGER PRIMARY KEY,
                 organizer_id INTEGER NOT NULL,
                 category_id INTEGER NOT NULL,
+                venue_id INTEGER NULL,
                 title TEXT NOT NULL,
                 slug TEXT NOT NULL UNIQUE,
                 start_date TEXT NOT NULL,
@@ -189,6 +209,7 @@ final class RegistrationRepositoryTest extends TestCase
                 UNIQUE (event_id, user_id)
             )',
         );
+        $this->connection->exec('CREATE TABLE attendance (registration_id INTEGER NOT NULL UNIQUE)');
     }
 
     private function seedRows(): void
@@ -196,17 +217,17 @@ final class RegistrationRepositoryTest extends TestCase
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status) VALUES (1, 100, 'Approved Org', 'approved'), (2, 200, 'Other Approved Org', 'approved'), (3, 300, 'Pending Org', 'pending')");
         $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (1, 'Active', 'active', 1), (2, 'Inactive', 'inactive', 0)");
         $this->connection->exec(
-            "INSERT INTO events (id, organizer_id, category_id, title, slug, start_date, registration_deadline, capacity, ticket_price, currency, status, deleted_at) VALUES
-                (10, 1, 1, 'Eligible Event', 'eligible-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 2, 100, 'BDT', 'published', NULL),
-                (11, 1, 1, 'Draft Event', 'draft-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'draft', NULL),
-                (12, 1, 1, 'Deleted Event', 'deleted-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', CURRENT_TIMESTAMP),
-                (13, 1, 2, 'Inactive Category', 'inactive-category', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
-                (14, 1, 1, 'Closed Registration', 'closed-registration', datetime('now', '+10 days'), datetime('now', '-1 minute'), 3, 0, 'BDT', 'published', NULL),
-                (15, 3, 1, 'Pending Organizer', 'pending-organizer', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
-                (16, 1, 1, 'Pending Full', 'pending-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 'BDT', 'published', NULL),
-                (17, 2, 1, 'Other Eligible Event', 'other-eligible-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
-                (18, 1, 1, 'Started Event', 'started-event', datetime('now', '-1 minute'), datetime('now', '-1 day'), 3, 0, 'BDT', 'published', NULL),
-                (19, 1, 1, 'Confirmed Full', 'confirmed-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 'BDT', 'published', NULL)",
+            "INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, ticket_price, currency, status, deleted_at) VALUES
+                (10, 1, 1, NULL, 'Eligible Event', 'eligible-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 2, 100, 'BDT', 'published', NULL),
+                (11, 1, 1, NULL, 'Draft Event', 'draft-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'draft', NULL),
+                (12, 1, 1, NULL, 'Deleted Event', 'deleted-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', CURRENT_TIMESTAMP),
+                (13, 1, 2, NULL, 'Inactive Category', 'inactive-category', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
+                (14, 1, 1, NULL, 'Closed Registration', 'closed-registration', datetime('now', '+10 days'), datetime('now', '-1 minute'), 3, 0, 'BDT', 'published', NULL),
+                (15, 3, 1, NULL, 'Pending Organizer', 'pending-organizer', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
+                (16, 1, 1, NULL, 'Pending Full', 'pending-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 'BDT', 'published', NULL),
+                (17, 2, 1, NULL, 'Other Eligible Event', 'other-eligible-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 3, 0, 'BDT', 'published', NULL),
+                (18, 1, 1, NULL, 'Started Event', 'started-event', datetime('now', '-1 minute'), datetime('now', '-1 day'), 3, 0, 'BDT', 'published', NULL),
+                (19, 1, 1, NULL, 'Confirmed Full', 'confirmed-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 'BDT', 'published', NULL)",
         );
         $this->connection->exec(
             "INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, cancelled_at, cancellation_reason, created_at, updated_at) VALUES

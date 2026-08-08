@@ -35,6 +35,42 @@ final class TicketRepository implements TicketRepositoryInterface
         return (int) $this->connection->lastInsertId();
     }
 
+    public function reactivateForRegistration(int $registrationId, array $attributes): bool
+    {
+        $statement = $this->connection->prepare(
+            "UPDATE tickets
+             SET ticket_number = :ticket_number,
+                 qr_payload_hash = :qr_payload_hash,
+                 qr_path = :qr_path,
+                 pdf_path = :pdf_path,
+                 status = 'valid',
+                 issued_at = :issued_at,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE registration_id = :registration_id
+               AND status = 'cancelled'",
+        );
+        $statement->execute([
+            'ticket_number' => (string) $attributes['ticket_number'],
+            'qr_payload_hash' => (string) $attributes['qr_payload_hash'],
+            'qr_path' => $attributes['qr_path'] ?? null,
+            'pdf_path' => $attributes['pdf_path'] ?? null,
+            'issued_at' => (string) $attributes['issued_at'],
+            'registration_id' => $registrationId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    public function findForRegistration(int $registrationId): ?array
+    {
+        $statement = $this->connection->prepare(
+            $this->ticketSelect() . ' WHERE tickets.registration_id = :registration_id LIMIT 1',
+        );
+        $statement->execute(['registration_id' => $registrationId]);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
     public function forParticipant(int $participantId): array
     {
         $statement = $this->connection->prepare(

@@ -14,6 +14,15 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
 
     public bool $failReview = false;
 
+    public array $methods = [];
+
+    public function findActiveMethodBySlug(string $slug): ?array
+    {
+        $method = $this->methods[$slug] ?? null;
+
+        return is_array($method) && !empty($method['is_active']) ? $method : null;
+    }
+
     public function createForRegistration(int $registrationId, array $attributes): int
     {
         if ($this->failCreate) {
@@ -89,6 +98,22 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
         $this->payments[$paymentId]['paid_at'] = $status === 'paid' ? 'now' : null;
 
         return $this->withAliases($this->payments[$paymentId]);
+    }
+
+    public function cancelForRegistration(int $registrationId): bool
+    {
+        foreach (array_reverse(array_keys($this->payments)) as $id) {
+            if ((int) $this->payments[$id]['registration_id'] !== $registrationId
+                || !in_array($this->payments[$id]['status'], ['pending', 'paid'], true)) {
+                continue;
+            }
+
+            $this->payments[$id]['status'] = $this->payments[$id]['status'] === 'paid' ? 'refunded' : 'failed';
+
+            return true;
+        }
+
+        return false;
     }
 
     public function summaryForParticipant(int $participantId): array

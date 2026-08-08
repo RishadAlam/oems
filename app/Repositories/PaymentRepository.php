@@ -19,6 +19,20 @@ final class PaymentRepository implements PaymentRepositoryInterface
     {
     }
 
+    public function findActiveMethodBySlug(string $slug): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT id, name, slug, configuration, is_active
+             FROM payment_methods
+             WHERE slug = :slug AND is_active = :is_active
+             LIMIT 1',
+        );
+        $statement->execute(['slug' => $slug, 'is_active' => 1]);
+        $method = $statement->fetch();
+
+        return is_array($method) ? $method : null;
+    }
+
     public function createForRegistration(int $registrationId, array $attributes): int
     {
         $gatewayResponse = $attributes['gateway_response'] ?? null;
@@ -112,6 +126,32 @@ final class PaymentRepository implements PaymentRepositoryInterface
         }
 
         return $this->findForAdmin($paymentId);
+    }
+
+    public function cancelForRegistration(int $registrationId): bool
+    {
+        $statement = $this->connection->prepare(
+            "UPDATE payments
+             SET refunded_at = CASE WHEN status = 'paid' THEN CURRENT_TIMESTAMP ELSE refunded_at END,
+                 status = CASE status
+                    WHEN 'pending' THEN 'failed'
+                    WHEN 'paid' THEN 'refunded'
+                    ELSE status
+                 END,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = (
+                 SELECT id FROM (
+                     SELECT id FROM payments
+                     WHERE registration_id = :registration_id
+                     ORDER BY created_at DESC, id DESC
+                     LIMIT 1
+                 ) AS latest_payment
+             )
+               AND status IN ('pending', 'paid')",
+        );
+        $statement->execute(['registration_id' => $registrationId]);
+
+        return $statement->rowCount() === 1;
     }
 
     public function summaryForParticipant(int $participantId): array

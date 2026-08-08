@@ -16,6 +16,13 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
     public bool $failConfirm = false;
 
+    public array $eligibleEvents = [];
+
+    public function findEligibleEventForReservation(int $eventId): ?array
+    {
+        return $this->eligibleEvents[$eventId] ?? null;
+    }
+
     public function findForParticipantEvent(int $participantId, int $eventId): ?array
     {
         foreach ($this->registrations as $registration) {
@@ -99,6 +106,19 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         }
 
         $this->registrations[$registrationId]['status'] = 'confirmed';
+
+        return true;
+    }
+
+    public function cancel(int $registrationId, string $reason): bool
+    {
+        if (!isset($this->registrations[$registrationId])
+            || !in_array($this->registrations[$registrationId]['status'], ['pending', 'confirmed'], true)) {
+            return false;
+        }
+
+        $this->registrations[$registrationId]['status'] = 'cancelled';
+        $this->registrations[$registrationId]['cancellation_reason'] = $reason;
 
         return true;
     }

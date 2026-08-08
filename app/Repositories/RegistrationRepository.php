@@ -16,6 +16,11 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
     {
     }
 
+    public function findEligibleEventForReservation(int $eventId): ?array
+    {
+        return $this->eligibleEvent($eventId);
+    }
+
     public function findForParticipantEvent(int $participantId, int $eventId): ?array
     {
         $statement = $this->connection->prepare(
@@ -88,8 +93,8 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                 'coupon_id' => $attributes['coupon_id'] ?? null,
                 'registration_number' => (string) $attributes['registration_number'],
                 'registration_status' => $status,
-                'amount' => (string) $attributes['amount'],
-                'currency' => (string) $attributes['currency'],
+                'amount' => (string) $event['ticket_price'],
+                'currency' => (string) $event['currency'],
                 'registered_at' => (string) $attributes['registered_at'],
             ]);
         } catch (PDOException $exception) {
@@ -142,8 +147,8 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             'coupon_id' => $attributes['coupon_id'] ?? null,
             'registration_number' => (string) $attributes['registration_number'],
             'registration_status' => $status,
-            'amount' => (string) $attributes['amount'],
-            'currency' => (string) $attributes['currency'],
+            'amount' => (string) $event['ticket_price'],
+            'currency' => (string) $event['currency'],
             'registered_at' => (string) $attributes['registered_at'],
             'registration_id' => $registrationId,
         ]);
@@ -163,6 +168,25 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         return $statement->rowCount() === 1;
     }
 
+    public function cancel(int $registrationId, string $reason): bool
+    {
+        $statement = $this->connection->prepare(
+            "UPDATE registrations
+             SET status = 'cancelled',
+                 cancelled_at = CURRENT_TIMESTAMP,
+                 cancellation_reason = :cancellation_reason,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :registration_id
+               AND status IN ('pending', 'confirmed')",
+        );
+        $statement->execute([
+            'cancellation_reason' => $reason,
+            'registration_id' => $registrationId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
     public function cancelForParticipant(int $participantId, int $registrationId, string $reason): ?array
     {
         $statement = $this->connection->prepare(
@@ -173,7 +197,16 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = :registration_id
                AND user_id = :user_id
-               AND status IN ('pending', 'confirmed')",
+               AND status IN ('pending', 'confirmed')
+               AND EXISTS (
+                   SELECT 1 FROM events
+                   WHERE events.id = registrations.event_id
+                     AND events.start_date > CURRENT_TIMESTAMP
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM attendance
+                   WHERE attendance.registration_id = registrations.id
+               )",
         );
         $statement->execute([
             'cancellation_reason' => $reason,
@@ -234,9 +267,11 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                        events.registration_deadline,
                        events.status AS event_status,
                        events.ticket_price,
-                       events.currency AS event_currency
+                       events.currency AS event_currency,
+                       venues.name AS venue_name
                 FROM registrations
-                INNER JOIN events ON events.id = registrations.event_id';
+                INNER JOIN events ON events.id = registrations.event_id
+                LEFT JOIN venues ON venues.id = events.venue_id';
     }
 
     private function eligibleEvent(int $eventId): ?array
@@ -245,10 +280,19 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             ? ' FOR UPDATE'
             : '';
         $statement = $this->connection->prepare(
-            'SELECT events.id, events.capacity
+            'SELECT events.id,
+                    events.title,
+                    events.slug,
+                    events.start_date,
+                    events.registration_deadline,
+                    events.capacity,
+                    events.ticket_price,
+                    events.currency,
+                    venues.name AS venue_name
              FROM events
              INNER JOIN categories ON categories.id = events.category_id
              INNER JOIN organizers ON organizers.id = events.organizer_id
+             LEFT JOIN venues ON venues.id = events.venue_id
              WHERE events.id = :event_id
                AND events.status = :published_status
                AND events.deleted_at IS NULL

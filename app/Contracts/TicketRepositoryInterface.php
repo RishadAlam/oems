@@ -8,6 +8,10 @@ interface TicketRepositoryInterface
 {
     public function createForRegistration(int $registrationId, array $attributes): int;
 
+    public function reactivateForRegistration(int $registrationId, array $attributes): bool;
+
+    public function findForRegistration(int $registrationId): ?array;
+
     public function forParticipant(int $participantId): array;
 
     public function findForParticipant(int $participantId, int $ticketId): ?array;

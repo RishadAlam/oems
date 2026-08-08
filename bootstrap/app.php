@@ -34,7 +34,10 @@ use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\RegistrationService;
 use OEMS\App\Services\TicketArtifactService;
+use OEMS\App\Services\TicketService;
+use OEMS\App\Services\TransactionMailer;
 use OEMS\App\Services\VenueService;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -161,6 +164,14 @@ $container->singleton(
     static fn (): TicketArtifactService => new TicketArtifactService($basePath . '/public/uploads/tickets'),
 );
 $container->singleton(
+    TicketService::class,
+    static fn (Container $container): TicketService => new TicketService(
+        $container->get(Database::class)->connection(),
+        $container->get(TicketRepositoryInterface::class),
+        $container->get(TicketArtifactService::class),
+    ),
+);
+$container->singleton(
     CategoryService::class,
     static fn (Container $container): CategoryService => new CategoryService(
         $container->get(CategoryRepositoryInterface::class),
@@ -197,6 +208,27 @@ $container->singleton(
         $container->get(MailTransportInterface::class),
         $container->get(EmailLogRepositoryInterface::class),
         $container->get(Config::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    TransactionMailer::class,
+    static fn (Container $container): TransactionMailer => new TransactionMailer(
+        $container->get(MailTransportInterface::class),
+        $container->get(EmailLogRepositoryInterface::class),
+        $container->get(Config::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    RegistrationService::class,
+    static fn (Container $container): RegistrationService => new RegistrationService(
+        $container->get(Database::class)->connection(),
+        $container->get(UserRepositoryInterface::class),
+        $container->get(RegistrationRepositoryInterface::class),
+        $container->get(PaymentRepositoryInterface::class),
+        $container->get(TicketService::class),
+        $container->get(TransactionMailer::class),
         $container->get(Logger::class),
     ),
 );

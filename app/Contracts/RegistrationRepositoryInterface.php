@@ -6,6 +6,8 @@ namespace OEMS\App\Contracts;
 
 interface RegistrationRepositoryInterface
 {
+    public function findEligibleEventForReservation(int $eventId): ?array;
+
     public function findForParticipantEvent(int $participantId, int $eventId): ?array;
 
     public function findForParticipant(int $participantId, int $registrationId): ?array;
@@ -17,6 +19,8 @@ interface RegistrationRepositoryInterface
     public function reactivate(int $registrationId, array $attributes): bool;
 
     public function confirm(int $registrationId): bool;
+
+    public function cancel(int $registrationId, string $reason): bool;
 
     public function cancelForParticipant(int $participantId, int $registrationId, string $reason): ?array;
 
