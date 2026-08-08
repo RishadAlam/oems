@@ -45,6 +45,8 @@ interface EventRepositoryInterface
 
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool;
 
+    public function publishOwned(int $userId, int $eventId, array $context): bool;
+
     public function forAdmin(?string $status): array;
 
     public function countPendingForAdmin(): int;

@@ -279,6 +279,31 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertNotNull($this->events->events[13]['deleted_at']);
     }
 
+    public function testApprovedEventCanBePublishedAndOnlyApprovedViewShowsPublishButton(): void
+    {
+        $approved = $this->controller->show($this->routed('GET', '/organizer/events/13', '13'));
+        $this->assertTrue(str_contains($approved->body(), '/organizer/events/13/publish'));
+        $this->assertTrue(str_contains($approved->body(), 'Publish event'));
+
+        $published = $this->controller->publish($this->routed('POST', '/organizer/events/13/publish', '13'));
+        $this->assertSame('/organizer/events/13', $published->header('Location'));
+        $this->assertSame('published', $this->events->events[13]['status']);
+        $this->assertSame('Event published.', $this->session->get('_flash.success'));
+
+        $after = $this->controller->show($this->routed('GET', '/organizer/events/13', '13'));
+        $this->assertFalse(str_contains($after->body(), '/organizer/events/13/publish'));
+    }
+
+    public function testWrongStatePublishIsConflictWhileForeignPublishIsNotFound(): void
+    {
+        $wrongState = $this->controller->publish($this->routed('POST', '/organizer/events/11/publish', '11'));
+        $foreign = $this->controller->publish($this->routed('POST', '/organizer/events/12/publish', '12'));
+
+        $this->assertSame(409, $wrongState->status());
+        $this->assertSame(404, $foreign->status());
+        $this->assertSame('draft', $this->events->events[11]['status']);
+    }
+
     public function testBusinessRuleFailureFlashesErrorAndReturnsToOwnedEvent(): void
     {
         $response = $this->controller->submit($this->routed('POST', '/organizer/events/13/submit', '13'));
@@ -296,6 +321,7 @@ final class OrganizerEventControllerTest extends TestCase
             '/organizer/events',
             '/organizer/events/11',
             '/organizer/events/11/submit',
+            '/organizer/events/11/publish',
             '/organizer/events/11/cancel',
             '/organizer/events/11/delete',
         ];

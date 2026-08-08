@@ -101,6 +101,20 @@ final class FakeTicketRepository implements TicketRepositoryInterface
         return $this->findForOrganizer($organizerId, 'ticket_number', $ticketNumber);
     }
 
+    public function findForOrganizerEventByTokenDigest(int $organizerId, int $eventId, string $tokenDigest): ?array
+    {
+        $ticket = $this->findForOrganizer($organizerId, 'qr_payload_hash', $tokenDigest);
+
+        return $ticket !== null && (int) ($ticket['event_id'] ?? 0) === $eventId ? $ticket : null;
+    }
+
+    public function findForOrganizerEventByNumber(int $organizerId, int $eventId, string $ticketNumber): ?array
+    {
+        $ticket = $this->findForOrganizer($organizerId, 'ticket_number', $ticketNumber);
+
+        return $ticket !== null && (int) ($ticket['event_id'] ?? 0) === $eventId ? $ticket : null;
+    }
+
     public function voidForRegistration(int $registrationId): bool
     {
         foreach ($this->tickets as $id => $ticket) {
@@ -127,7 +141,7 @@ final class FakeTicketRepository implements TicketRepositoryInterface
 
         if (isset($this->attendance[$ticketId])) {
             return in_array($ticket['status'], ['valid', 'used'], true)
-                ? $this->attendance[$ticketId]
+                ? array_merge($this->attendance[$ticketId], ['duplicate' => true])
                 : null;
         }
 
@@ -148,7 +162,23 @@ final class FakeTicketRepository implements TicketRepositoryInterface
         $this->attendance[$ticketId] = $attendance;
         $this->tickets[$ticketId]['status'] = 'used';
 
-        return $attendance;
+        return array_merge($attendance, ['duplicate' => false]);
+    }
+
+    public function recordAttendanceForEvent(
+        int $organizerId,
+        int $eventId,
+        int $ticketId,
+        int $scannerId,
+        ?string $scannerIp,
+    ): ?array {
+        $ticket = $this->tickets[$ticketId] ?? null;
+
+        if (!is_array($ticket) || (int) ($ticket['event_id'] ?? 0) !== $eventId) {
+            return null;
+        }
+
+        return $this->recordAttendance($organizerId, $ticketId, $scannerId, $scannerIp);
     }
 
     public function summaryForParticipant(int $participantId): array
@@ -209,6 +239,11 @@ final class FakeTicketRepository implements TicketRepositoryInterface
     {
         unset($ticket['qr_payload_hash']);
         $ticket['ticket_status'] = $ticket['status'];
+
+        if (isset($this->attendance[$ticket['id'] ?? 0])) {
+            $ticket['attendance_id'] = $this->attendance[$ticket['id']]['id'] ?? null;
+            $ticket['scanned_at'] = $this->attendance[$ticket['id']]['scanned_at'] ?? null;
+        }
 
         return $ticket;
     }

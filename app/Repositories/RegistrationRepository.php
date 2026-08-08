@@ -14,6 +14,13 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 {
     private const RESERVING_STATUSES = ['pending', 'confirmed'];
 
+    private const ORGANIZER_FILTERS = [
+        'registration_status' => ['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'],
+        'payment_status' => ['none', 'pending', 'paid', 'failed', 'refunded', 'partially_refunded'],
+        'ticket_status' => ['none', 'valid', 'used', 'cancelled'],
+        'attendance_status' => ['not_checked_in', 'present', 'absent'],
+    ];
+
     public function __construct(private readonly PDO $connection)
     {
     }
@@ -104,6 +111,91 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         $statement->execute(['user_id' => $participantId]);
 
         return $statement->fetchAll();
+    }
+
+    public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array
+    {
+        if ($organizerUserId <= 0 || $eventId <= 0) {
+            return null;
+        }
+
+        $statement = $this->connection->prepare(
+            'SELECT events.id AS event_id,
+                    events.title AS event_title,
+                    events.slug AS event_slug,
+                    events.status AS event_status,
+                    organizers.user_id AS organizer_user_id
+             FROM events
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE events.id = :event_id
+               AND organizers.user_id = :organizer_user_id
+               AND events.deleted_at IS NULL
+             LIMIT 1',
+        );
+        $statement->execute([
+            'event_id' => $eventId,
+            'organizer_user_id' => $organizerUserId,
+        ]);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
+    public function forOrganizerEvent(
+        int $organizerUserId,
+        int $eventId,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array {
+        if ($organizerUserId <= 0 || $eventId <= 0) {
+            return [];
+        }
+
+        [$clauses, $parameters] = $this->organizerParticipantCriteria($organizerUserId, $eventId, $filters);
+        $statement = $this->connection->prepare(
+            $this->organizerParticipantSelect()
+            . ' WHERE ' . implode(' AND ', $clauses)
+            . ' ORDER BY registrations.registered_at DESC, registrations.id DESC
+                LIMIT :participant_limit OFFSET :participant_offset',
+        );
+
+        foreach ($parameters as $name => $value) {
+            $statement->bindValue($name, $value);
+        }
+
+        $statement->bindValue('participant_limit', min(100, max(1, $limit)), PDO::PARAM_INT);
+        $statement->bindValue('participant_offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
+        $rows = $statement->fetchAll();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    public function countForOrganizerEvent(int $organizerUserId, int $eventId, array $filters): int
+    {
+        if ($organizerUserId <= 0 || $eventId <= 0) {
+            return 0;
+        }
+
+        [$clauses, $parameters] = $this->organizerParticipantCriteria($organizerUserId, $eventId, $filters);
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*)
+             FROM registrations
+             INNER JOIN users ON users.id = registrations.user_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             LEFT JOIN payments ON payments.id = (
+                 SELECT latest_payment.id FROM payments AS latest_payment
+                 WHERE latest_payment.registration_id = registrations.id
+                 ORDER BY latest_payment.created_at DESC, latest_payment.id DESC LIMIT 1
+             )
+             LEFT JOIN tickets ON tickets.registration_id = registrations.id
+             LEFT JOIN attendance ON attendance.ticket_id = tickets.id
+             WHERE ' . implode(' AND ', $clauses),
+        );
+        $statement->execute($parameters);
+
+        return (int) $statement->fetchColumn();
     }
 
     public function reserve(int $participantId, int $eventId, array $attributes): ?array
@@ -402,6 +494,83 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                 FROM registrations
                 INNER JOIN events ON events.id = registrations.event_id
                 LEFT JOIN venues ON venues.id = events.venue_id';
+    }
+
+    private function organizerParticipantSelect(): string
+    {
+        return 'SELECT registrations.id,
+                       registrations.registration_number,
+                       registrations.status AS registration_status,
+                       registrations.amount,
+                       registrations.currency,
+                       registrations.registered_at,
+                       users.name AS participant_name,
+                       users.email AS participant_email,
+                       events.id AS event_id,
+                       events.title AS event_title,
+                       events.slug AS event_slug,
+                       organizers.user_id AS organizer_user_id,
+                       COALESCE(payments.status, \'none\') AS payment_status,
+                       tickets.ticket_number,
+                       COALESCE(tickets.status, \'none\') AS ticket_status,
+                       COALESCE(attendance.status, \'not_checked_in\') AS attendance_status,
+                       attendance.scanned_at
+                FROM registrations
+                INNER JOIN users ON users.id = registrations.user_id
+                INNER JOIN events ON events.id = registrations.event_id
+                INNER JOIN organizers ON organizers.id = events.organizer_id
+                LEFT JOIN payments ON payments.id = (
+                    SELECT latest_payment.id FROM payments AS latest_payment
+                    WHERE latest_payment.registration_id = registrations.id
+                    ORDER BY latest_payment.created_at DESC, latest_payment.id DESC LIMIT 1
+                )
+                LEFT JOIN tickets ON tickets.registration_id = registrations.id
+                LEFT JOIN attendance ON attendance.ticket_id = tickets.id';
+    }
+
+    private function organizerParticipantCriteria(int $organizerUserId, int $eventId, array $filters): array
+    {
+        $clauses = [
+            'organizers.user_id = :organizer_user_id',
+            'registrations.event_id = :event_id',
+            'events.deleted_at IS NULL',
+        ];
+        $parameters = [
+            'organizer_user_id' => $organizerUserId,
+            'event_id' => $eventId,
+        ];
+        $columns = [
+            'registration_status' => 'registrations.status',
+            'payment_status' => "COALESCE(payments.status, 'none')",
+            'ticket_status' => "COALESCE(tickets.status, 'none')",
+            'attendance_status' => "COALESCE(attendance.status, 'not_checked_in')",
+        ];
+
+        foreach (self::ORGANIZER_FILTERS as $filter => $allowed) {
+            $value = $filters[$filter] ?? null;
+
+            if (is_string($value) && in_array($value, $allowed, true)) {
+                $clauses[] = $columns[$filter] . ' = :' . $filter;
+                $parameters[$filter] = $value;
+            }
+        }
+
+        $search = is_scalar($filters['search'] ?? null) ? trim((string) $filters['search']) : '';
+
+        if ($search !== '' && mb_strlen($search) <= 120) {
+            $parameters['participant_search'] = '%' . mb_strtolower($search) . '%';
+            $clauses[] = '(LOWER(users.name) LIKE :participant_search_name
+                OR LOWER(users.email) LIKE :participant_search_email
+                OR LOWER(registrations.registration_number) LIKE :participant_search_registration
+                OR LOWER(COALESCE(tickets.ticket_number, \'\')) LIKE :participant_search_ticket)';
+            $parameters['participant_search_name'] = $parameters['participant_search'];
+            $parameters['participant_search_email'] = $parameters['participant_search'];
+            $parameters['participant_search_registration'] = $parameters['participant_search'];
+            $parameters['participant_search_ticket'] = $parameters['participant_search'];
+            unset($parameters['participant_search']);
+        }
+
+        return [$clauses, $parameters];
     }
 
     private function eligibleEvent(int $eventId): ?array

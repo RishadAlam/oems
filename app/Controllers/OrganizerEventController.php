@@ -187,6 +187,11 @@ final class OrganizerEventController extends Controller
         return $this->statusAction($request, 'cancel');
     }
 
+    public function publish(Request $request): Response
+    {
+        return $this->statusAction($request, 'publish', 409);
+    }
+
     public function delete(Request $request): Response
     {
         return $this->statusAction($request, 'delete');
@@ -205,7 +210,7 @@ final class OrganizerEventController extends Controller
         ], 'dashboard');
     }
 
-    private function statusAction(Request $request, string $action): Response
+    private function statusAction(Request $request, string $action, ?int $failureStatus = null): Response
     {
         $eventId = $this->routeId($request);
         $userId = $this->auth->id();
@@ -217,6 +222,10 @@ final class OrganizerEventController extends Controller
         $result = $this->eventService->{$action}($userId, $eventId);
 
         if (!$result['success']) {
+            if ($failureStatus !== null) {
+                return Response::text('Conflict', $failureStatus);
+            }
+
             return $this->redirectWith(
                 '/organizer/events/' . $eventId,
                 'error',
@@ -226,6 +235,7 @@ final class OrganizerEventController extends Controller
 
         $messages = [
             'submit' => 'Event submitted for review.',
+            'publish' => 'Event published.',
             'cancel' => 'Event cancelled.',
             'delete' => 'Event deleted.',
         ];

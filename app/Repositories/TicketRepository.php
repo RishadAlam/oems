@@ -122,6 +122,16 @@ final class TicketRepository implements TicketRepositoryInterface
         return $this->findForOrganizer($organizerId, 'tickets.ticket_number', $ticketNumber);
     }
 
+    public function findForOrganizerEventByTokenDigest(int $organizerId, int $eventId, string $tokenDigest): ?array
+    {
+        return $this->findForOrganizer($organizerId, 'tickets.qr_payload_hash', $tokenDigest, $eventId);
+    }
+
+    public function findForOrganizerEventByNumber(int $organizerId, int $eventId, string $ticketNumber): ?array
+    {
+        return $this->findForOrganizer($organizerId, 'tickets.ticket_number', $ticketNumber, $eventId);
+    }
+
     public function voidForRegistration(int $registrationId): bool
     {
         $statement = $this->connection->prepare(
@@ -136,16 +146,41 @@ final class TicketRepository implements TicketRepositoryInterface
 
     public function recordAttendance(int $organizerId, int $ticketId, int $scannerId, ?string $scannerIp): ?array
     {
-        $existing = $this->findAttendance($organizerId, $ticketId);
+        return $this->recordAttendanceScoped($organizerId, null, $ticketId, $scannerId, $scannerIp);
+    }
+
+    public function recordAttendanceForEvent(
+        int $organizerId,
+        int $eventId,
+        int $ticketId,
+        int $scannerId,
+        ?string $scannerIp,
+    ): ?array {
+        return $this->recordAttendanceScoped($organizerId, $eventId, $ticketId, $scannerId, $scannerIp);
+    }
+
+    private function recordAttendanceScoped(
+        int $organizerId,
+        ?int $eventId,
+        int $ticketId,
+        int $scannerId,
+        ?string $scannerIp,
+    ): ?array
+    {
+        $existing = $this->findAttendance($organizerId, $ticketId, false, $eventId);
 
         if ($existing !== null) {
-            return $existing;
+            return array_merge($existing, ['duplicate' => true]);
         }
 
-        $eligibleTicket = $this->eligibleTicketForAttendance($organizerId, $ticketId);
+        $eligibleTicket = $this->eligibleTicketForAttendance($organizerId, $ticketId, $eventId);
 
         if ($eligibleTicket === null) {
-            return $this->findAttendance($organizerId, $ticketId, true);
+            $winnerAttendance = $this->findAttendance($organizerId, $ticketId, true, $eventId);
+
+            return $winnerAttendance === null
+                ? null
+                : array_merge($winnerAttendance, ['duplicate' => true]);
         }
 
         $markUsed = $this->connection->prepare(
@@ -161,18 +196,23 @@ final class TicketRepository implements TicketRepositoryInterface
                    WHERE registrations.id = tickets.registration_id
                      AND registrations.status = 'confirmed'
                      AND organizers.user_id = :organizer_user_id
+                     " . ($eventId === null ? '' : ' AND events.id = :attendance_event_id') . "
                )",
         );
-        $markUsed->execute([
+        $markUsedParameters = [
             'ticket_id' => $ticketId,
             'organizer_user_id' => $organizerId,
-        ]);
+        ];
+        if ($eventId !== null) {
+            $markUsedParameters['attendance_event_id'] = $eventId;
+        }
+        $markUsed->execute($markUsedParameters);
 
         if ($markUsed->rowCount() !== 1) {
-            $winnerAttendance = $this->findAttendance($organizerId, $ticketId, true);
+            $winnerAttendance = $this->findAttendance($organizerId, $ticketId, true, $eventId);
 
             if ($winnerAttendance !== null) {
-                return $winnerAttendance;
+                return array_merge($winnerAttendance, ['duplicate' => true]);
             }
 
             throw new RuntimeException('Ticket state changed before attendance could be recorded.');
@@ -191,7 +231,9 @@ final class TicketRepository implements TicketRepositoryInterface
             'scanner_ip' => $scannerIp,
         ]);
 
-        return $this->findAttendance($organizerId, $ticketId);
+        $attendance = $this->findAttendance($organizerId, $ticketId, false, $eventId);
+
+        return $attendance === null ? null : array_merge($attendance, ['duplicate' => false]);
     }
 
     public function summaryForParticipant(int $participantId): array
@@ -253,7 +295,12 @@ final class TicketRepository implements TicketRepositoryInterface
             . ' INNER JOIN organizers ON organizers.id = events.organizer_id';
     }
 
-    private function findForOrganizer(int $organizerUserId, string $lookupColumn, string $lookupValue): ?array
+    private function findForOrganizer(
+        int $organizerUserId,
+        string $lookupColumn,
+        string $lookupValue,
+        ?int $eventId = null,
+    ): ?array
     {
         $lookupColumns = [
             'tickets.qr_payload_hash' => true,
@@ -269,18 +316,29 @@ final class TicketRepository implements TicketRepositoryInterface
             . " WHERE organizers.user_id = :organizer_user_id
                   AND {$lookupColumn} = :lookup_value
                   AND registrations.status = 'confirmed'
-                  AND tickets.status IN ('valid', 'used')
+                  AND tickets.status IN ('valid', 'used')"
+            . ($eventId === null ? '' : ' AND events.id = :organizer_event_id')
+            . "
                 LIMIT 1",
         );
-        $statement->execute([
+        $parameters = [
             'organizer_user_id' => $organizerUserId,
             'lookup_value' => $lookupValue,
-        ]);
+        ];
+        if ($eventId !== null) {
+            $parameters['organizer_event_id'] = $eventId;
+        }
+        $statement->execute($parameters);
 
         return $this->rowOrNull($statement->fetch());
     }
 
-    private function findAttendance(int $organizerUserId, int $ticketId, bool $currentRead = false): ?array
+    private function findAttendance(
+        int $organizerUserId,
+        int $ticketId,
+        bool $currentRead = false,
+        ?int $eventId = null,
+    ): ?array
     {
         $lockingClause = $currentRead && $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? ' FOR UPDATE'
@@ -308,18 +366,24 @@ final class TicketRepository implements TicketRepositoryInterface
              WHERE attendance.ticket_id = :ticket_id
                AND organizers.user_id = :organizer_user_id
                AND registrations.status = 'confirmed'
-               AND tickets.status IN ('valid', 'used')
+               AND tickets.status IN ('valid', 'used')"
+            . ($eventId === null ? '' : ' AND events.id = :attendance_event_id')
+            . "
              LIMIT 1" . $lockingClause,
         );
-        $statement->execute([
+        $parameters = [
             'ticket_id' => $ticketId,
             'organizer_user_id' => $organizerUserId,
-        ]);
+        ];
+        if ($eventId !== null) {
+            $parameters['attendance_event_id'] = $eventId;
+        }
+        $statement->execute($parameters);
 
         return $this->rowOrNull($statement->fetch());
     }
 
-    private function eligibleTicketForAttendance(int $organizerUserId, int $ticketId): ?array
+    private function eligibleTicketForAttendance(int $organizerUserId, int $ticketId, ?int $eventId = null): ?array
     {
         $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? ' FOR UPDATE'
@@ -333,13 +397,19 @@ final class TicketRepository implements TicketRepositoryInterface
              WHERE tickets.id = :ticket_id
                AND organizers.user_id = :organizer_user_id
                AND tickets.status = 'valid'
-               AND registrations.status = 'confirmed'
+               AND registrations.status = 'confirmed'"
+            . ($eventId === null ? '' : ' AND events.id = :attendance_event_id')
+            . "
              LIMIT 1" . $lockingClause,
         );
-        $statement->execute([
+        $parameters = [
             'ticket_id' => $ticketId,
             'organizer_user_id' => $organizerUserId,
-        ]);
+        ];
+        if ($eventId !== null) {
+            $parameters['attendance_event_id'] = $eventId;
+        }
+        $statement->execute($parameters);
 
         return $this->rowOrNull($statement->fetch());
     }

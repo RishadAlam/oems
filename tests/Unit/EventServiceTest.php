@@ -310,6 +310,27 @@ final class EventServiceTest extends TestCase
         $this->assertSame('draft', $this->events->events[1]['status']);
     }
 
+    public function testOrganizerMayPublishOnlyAnOwnedApprovedEventAndRepeatIsTruthful(): void
+    {
+        $this->events->events[1] = $this->storedEvent(1, 10, 'approved');
+        $this->events->events[2] = $this->storedEvent(2, 20, 'approved');
+        $this->events->events[3] = $this->storedEvent(3, 10, 'pending');
+
+        $foreign = $this->service->publish(10, 2);
+        $wrongState = $this->service->publish(10, 3);
+        $published = $this->service->publish(10, 1);
+        $repeat = $this->service->publish(10, 1);
+
+        $this->assertFalse($foreign['success']);
+        $this->assertArrayHasKey('event', $foreign['errors']);
+        $this->assertFalse($wrongState['success']);
+        $this->assertArrayHasKey('status', $wrongState['errors']);
+        $this->assertTrue($published['success']);
+        $this->assertSame('published', $published['status']);
+        $this->assertTrue($repeat['success']);
+        $this->assertSame('published', $repeat['status']);
+    }
+
     public function testAdministratorLifecycleAllowsOnlyTheSpecifiedNextState(): void
     {
         $this->events->events[1] = $this->storedEvent(1, 10, 'pending');

@@ -294,6 +294,37 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame('pending', $this->eventValue(502, 'status'));
     }
 
+    public function testOrganizerPublicationAtomicallyRequiresOwnershipApprovalAndOpenFutureEvent(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'approved' WHERE id = 509");
+
+        $this->assertFalse($this->repository->publishOwned(20, 509, $this->auditContext()));
+        $this->assertSame('approved', $this->eventValue(509, 'status'));
+
+        $this->connection->exec("UPDATE organizers SET approval_status = 'pending' WHERE user_id = 10");
+        $this->assertFalse($this->repository->publishOwned(10, 509, $this->auditContext()));
+        $this->connection->exec("UPDATE organizers SET approval_status = 'approved' WHERE user_id = 10");
+
+        $this->connection->exec('UPDATE categories SET is_active = 0 WHERE id = 1');
+        $this->assertFalse($this->repository->publishOwned(10, 509, $this->auditContext()));
+        $this->connection->exec('UPDATE categories SET is_active = 1 WHERE id = 1');
+
+        $this->connection->exec("UPDATE events SET registration_deadline = datetime('now', '-1 minute') WHERE id = 509");
+        $this->assertFalse($this->repository->publishOwned(10, 509, $this->auditContext()));
+        $this->connection->exec("UPDATE events SET registration_deadline = datetime('now', '+6 days'), start_date = datetime('now', '+7 days') WHERE id = 509");
+
+        $this->assertTrue($this->repository->publishOwned(10, 509, $this->auditContext()));
+        $this->assertSame('published', $this->eventValue(509, 'status'));
+        $this->assertNotNull($this->eventValue(509, 'published_at'));
+        $this->assertSame(1, $this->activityCountFor(509));
+
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries) - 1];
+        $this->assertTrue(str_contains($query, 'organizers.user_id = :publish_user_id'));
+        $this->assertTrue(str_contains($query, 'categories.is_active = :publish_category_active'));
+        $this->assertTrue(str_contains($query, 'events.registration_deadline > :publish_now'));
+        $this->assertTrue(str_contains($query, 'events.registration_deadline < events.start_date'));
+    }
+
     public function testIdenticalOwnedEventUpdateSucceedsWhenDriverReportsZeroChangedRows(): void
     {
         $attributes = $this->eventAttributes('no-op-event', 'No-op Event');

@@ -171,6 +171,31 @@ final class EventService
         return $this->ownedTransition($userId, $eventId, 'cancelled');
     }
 
+    public function publish(int $userId, int $eventId): array
+    {
+        $event = $this->events->findOwned($userId, $eventId);
+
+        if ($event === null) {
+            return $this->failure(['event' => ['Event not found.']]);
+        }
+
+        $status = (string) ($event['status'] ?? '');
+
+        if ($status === 'published') {
+            return $this->success(['event_id' => $eventId, 'status' => 'published']);
+        }
+
+        if ($status !== 'approved') {
+            return $this->failure(['status' => ['Only approved events may be published.']]);
+        }
+
+        if (!$this->events->publishOwned($userId, $eventId, [])) {
+            return $this->failure(['event' => ['The event status could not be changed.']]);
+        }
+
+        return $this->success(['event_id' => $eventId, 'status' => 'published']);
+    }
+
     public function delete(int $userId, int $eventId): array
     {
         $event = $this->events->findOwned($userId, $eventId);

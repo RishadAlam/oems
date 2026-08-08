@@ -21,6 +21,7 @@ final class EventRepository implements EventRepositoryInterface
 
     private const ORGANIZER_TRANSITIONS = [
         'pending' => ['draft'],
+        'published' => ['approved'],
         'cancelled' => ['approved', 'published'],
     ];
 
@@ -479,10 +480,38 @@ final class EventRepository implements EventRepositoryInterface
                 ];
             }
 
+            if ($status === 'published') {
+                $publishNow = date('Y-m-d H:i:s');
+                $approvalSql = ' AND EXISTS (
+                    SELECT 1 FROM organizers
+                    WHERE organizers.id = events.organizer_id
+                      AND organizers.user_id = :publish_user_id
+                      AND organizers.approval_status = :publish_organizer_approval_status
+                )
+                AND EXISTS (
+                    SELECT 1 FROM categories
+                    WHERE categories.id = events.category_id
+                      AND categories.is_active = :publish_category_active
+                )
+                AND events.start_date > :publish_now
+                AND events.registration_deadline > :publish_now_deadline
+                AND events.registration_deadline < events.start_date';
+                $approvalParameters = [
+                    'publish_user_id' => $userId,
+                    'publish_organizer_approval_status' => 'approved',
+                    'publish_category_active' => 1,
+                    'publish_now' => $publishNow,
+                    'publish_now_deadline' => $publishNow,
+                ];
+            }
+
+            $publishedAt = $status === 'published' ? 'CURRENT_TIMESTAMP' : 'published_at';
+
             $statement = $this->connection->prepare(
                 'UPDATE events
                  SET status = :status,
                      rejection_reason = CASE WHEN :status_reason = \'rejected\' THEN rejection_reason ELSE NULL END,
+                     published_at = ' . $publishedAt . ',
                      updated_at = CURRENT_TIMESTAMP
                  WHERE events.id = :event_id
                    AND events.deleted_at IS NULL
@@ -505,6 +534,11 @@ final class EventRepository implements EventRepositoryInterface
 
             return true;
         });
+    }
+
+    public function publishOwned(int $userId, int $eventId, array $context): bool
+    {
+        return $this->transitionOwned($userId, $eventId, $context, 'published');
     }
 
     public function forAdmin(?string $status): array

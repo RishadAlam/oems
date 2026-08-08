@@ -198,6 +198,59 @@ final class RegistrationRepositoryTest extends TestCase
         $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
     }
 
+    public function testOrganizerParticipantWorkspaceIsOwnerScopedFilteredAndDeterministic(): void
+    {
+        $event = $this->repository->findOrganizerEvent(100, 10);
+        $foreign = $this->repository->findOrganizerEvent(200, 10);
+        $rows = $this->repository->forOrganizerEvent(100, 10, [
+            'registration_status' => 'confirmed',
+            'payment_status' => 'paid',
+            'ticket_status' => 'used',
+            'attendance_status' => 'present',
+            'search' => 'participant two',
+        ], 25, 0);
+
+        $this->assertNotNull($event);
+        $this->assertSame('Eligible Event', $event['event_title']);
+        $this->assertSame(100, $event['organizer_user_id']);
+        $this->assertNull($foreign);
+        $this->assertSame([102], array_column($rows, 'id'));
+        $this->assertSame('Participant Two', $rows[0]['participant_name']);
+        $this->assertSame('participant-two@example.test', $rows[0]['participant_email']);
+        $this->assertSame('paid', $rows[0]['payment_status']);
+        $this->assertSame('used', $rows[0]['ticket_status']);
+        $this->assertSame('present', $rows[0]['attendance_status']);
+        $this->assertFalse(array_key_exists('qr_payload_hash', $rows[0]));
+        $this->assertFalse(array_key_exists('gateway_response', $rows[0]));
+        $this->assertSame(1, $this->repository->countForOrganizerEvent(100, 10, [
+            'registration_status' => 'confirmed',
+            'payment_status' => 'paid',
+            'ticket_status' => 'used',
+            'attendance_status' => 'present',
+            'search' => 'participant two',
+        ]));
+        $this->assertSame([], $this->repository->forOrganizerEvent(200, 10, [], 25, 0));
+    }
+
+    public function testOrganizerParticipantFiltersAreAllowListedBoundedAndPrepared(): void
+    {
+        $rows = $this->repository->forOrganizerEvent(100, 10, [
+            'registration_status' => "confirmed' OR 1=1 --",
+            'payment_status' => 'gateway-secret',
+            'ticket_status' => 'valid) OR 1=1',
+            'attendance_status' => 'present; DROP TABLE users',
+            'search' => str_repeat('x', 400),
+        ], 500, -10);
+        $queries = implode("\n", $this->connection->preparedQueries);
+
+        $this->assertSame([102, 101], array_column($rows, 'id'));
+        $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
+        $this->assertTrue(str_contains($queries, 'registrations.event_id = :event_id'));
+        $this->assertFalse(str_contains($queries, "confirmed' OR 1=1"));
+        $this->assertSame([], $this->repository->forOrganizerEvent(100, 0, [], 25, 0));
+        $this->assertSame(0, $this->repository->countForOrganizerEvent(100, -4, []));
+    }
+
     private function createSchema(): void
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');
@@ -240,7 +293,10 @@ final class RegistrationRepositoryTest extends TestCase
                 UNIQUE (event_id, user_id)
             )',
         );
-        $this->connection->exec('CREATE TABLE attendance (registration_id INTEGER NOT NULL UNIQUE)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL, gateway_response TEXT NULL, created_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL UNIQUE, ticket_number TEXT NOT NULL, qr_payload_hash TEXT NOT NULL, status TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE attendance (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL UNIQUE, ticket_id INTEGER NULL UNIQUE, status TEXT NOT NULL DEFAULT "present", scanned_at TEXT NULL)');
     }
 
     private function seedRows(): void
@@ -260,6 +316,10 @@ final class RegistrationRepositoryTest extends TestCase
                 (18, 1, 1, NULL, 'Started Event', 'started-event', datetime('now', '-1 minute'), datetime('now', '-1 day'), 3, 3, 0, 'BDT', 'published', NULL),
                 (19, 1, 1, NULL, 'Confirmed Full', 'confirmed-full', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 0, 'BDT', 'published', NULL)",
         );
+        $this->connection->exec("INSERT INTO users (id, name, email) VALUES (1, '=Formula Person', 'participant-one@example.test'), (2, 'Participant Two', 'participant-two@example.test')");
+        $this->connection->exec("INSERT INTO payments (id, registration_id, status, gateway_response, created_at) VALUES (1, 101, 'failed', 'secret-one', '2026-08-01 09:00:00'), (2, 102, 'paid', 'secret-two', '2026-08-01 10:00:00')");
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status) VALUES (1, 101, 'OEMS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'cancelled'), (2, 102, 'OEMS-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'used')");
+        $this->connection->exec("INSERT INTO attendance (id, registration_id, ticket_id, status, scanned_at) VALUES (1, 102, 2, 'present', '2026-08-08 10:00:00')");
         $this->connection->exec(
             "INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, cancelled_at, cancellation_reason, created_at, updated_at) VALUES
                 (101, 10, 1, 'REG-CANCELLED', 'cancelled', 100, 'BDT', '2026-08-01 09:00:00', '2026-08-02 09:00:00', 'Changed plans', '2026-08-01 09:00:00', '2026-08-02 09:00:00'),

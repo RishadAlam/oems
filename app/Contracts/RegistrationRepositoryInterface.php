@@ -20,6 +20,18 @@ interface RegistrationRepositoryInterface
 
     public function forParticipant(int $participantId): array;
 
+    public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array;
+
+    public function forOrganizerEvent(
+        int $organizerUserId,
+        int $eventId,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array;
+
+    public function countForOrganizerEvent(int $organizerUserId, int $eventId, array $filters): int;
+
     public function reserve(int $participantId, int $eventId, array $attributes): ?array;
 
     public function reactivate(int $registrationId, array $attributes): bool;

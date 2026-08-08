@@ -61,6 +61,7 @@ final class TicketServiceTest extends TestCase
             $this->connection,
             new TicketRepository($this->connection),
             new TicketArtifactService($this->ticketRoot, 'uploads/tickets'),
+            'https://oems.test/organizer/check-in',
         );
     }
 
@@ -140,6 +141,54 @@ final class TicketServiceTest extends TestCase
         }
 
         $this->assertTrue($thrown);
+        $this->assertSame('valid', (string) $this->connection->query('SELECT status FROM tickets WHERE id = 20')->fetchColumn());
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
+    }
+
+    public function testCheckInAcceptsManualNumberAndInternalQrUrlWithDuplicateTruth(): void
+    {
+        $rawToken = str_repeat('c', 64);
+        $digest = hash('sha256', $rawToken);
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (20, 10, 'OEMS-DEMO-TKT-001', '{$digest}', 'valid', CURRENT_TIMESTAMP)");
+
+        $first = $this->service->checkIn(2, 5, 'https://oems.test/organizer/check-in?token=' . $rawToken, 2, '127.0.0.1');
+        $duplicate = $this->service->checkIn(2, 5, 'OEMS-DEMO-TKT-001', 2, '127.0.0.1');
+
+        $this->assertNotNull($first);
+        $this->assertFalse($first['duplicate']);
+        $this->assertNotNull($duplicate);
+        $this->assertTrue($duplicate['duplicate']);
+        $this->assertSame($first['scanned_at'], $duplicate['scanned_at']);
+        $this->assertSame(1, (int) $this->connection->query('SELECT COUNT(*) FROM attendance WHERE ticket_id = 20')->fetchColumn());
+        $this->assertSame('used', (string) $this->connection->query('SELECT status FROM tickets WHERE id = 20')->fetchColumn());
+    }
+
+    public function testCheckInRejectsMalformedExternalVoidAndForeignEventValues(): void
+    {
+        $rawToken = str_repeat('d', 64);
+        $digest = hash('sha256', $rawToken);
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (20, 10, 'OEMS-DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD', '{$digest}', 'cancelled', CURRENT_TIMESTAMP)");
+
+        $this->assertNull($this->service->checkIn(2, 5, 'https://evil.example/organizer/check-in?token=' . $rawToken, 2, '127.0.0.1'));
+        $this->assertNull($this->service->checkIn(2, 5, '/other/path?token=' . $rawToken, 2, '127.0.0.1'));
+        $this->assertNull($this->service->checkIn(2, 5, str_repeat('x', 513), 2, '127.0.0.1'));
+        $this->assertNull($this->service->checkIn(2, 5, $rawToken, 2, '127.0.0.1'));
+        $this->assertNull($this->service->checkIn(2, 99, 'OEMS-DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD', 2, '127.0.0.1'));
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
+    }
+
+    public function testCheckInInsideOuterTransactionLeavesCommitAndRollbackToCaller(): void
+    {
+        $rawToken = str_repeat('e', 64);
+        $digest = hash('sha256', $rawToken);
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (20, 10, 'OEMS-EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE', '{$digest}', 'valid', CURRENT_TIMESTAMP)");
+        $this->connection->beginTransaction();
+
+        $result = $this->service->checkIn(2, 5, $rawToken, 2, '127.0.0.1');
+
+        $this->assertNotNull($result);
+        $this->assertTrue($this->connection->inTransaction());
+        $this->connection->rollBack();
         $this->assertSame('valid', (string) $this->connection->query('SELECT status FROM tickets WHERE id = 20')->fetchColumn());
         $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
     }

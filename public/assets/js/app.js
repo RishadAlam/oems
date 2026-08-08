@@ -235,3 +235,184 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && 'Intersect
         observer.observe(item);
     });
 }
+
+const checkInCamera = document.querySelector('[data-check-in-camera]');
+
+if (checkInCamera) {
+    const startCamera = checkInCamera.querySelector('[data-check-in-camera-start]');
+    const stopCamera = checkInCamera.querySelector('[data-check-in-camera-stop]');
+    const video = checkInCamera.querySelector('[data-check-in-video]');
+    const cameraStatus = checkInCamera.querySelector('[data-check-in-camera-status]');
+    const codeInput = document.querySelector('#ticket-code');
+    const checkInForm = document.querySelector('[data-check-in-form]');
+    let cameraStream = null;
+    let scanFrame = null;
+    let scanning = false;
+    let cameraStarting = false;
+    let cameraGeneration = 0;
+
+    const setCameraStatus = (message) => {
+        if (cameraStatus) {
+            cameraStatus.textContent = message;
+        }
+    };
+
+    const stopCheckInCamera = () => {
+        cameraGeneration += 1;
+        cameraStarting = false;
+        scanning = false;
+
+        if (scanFrame !== null) {
+            cancelAnimationFrame(scanFrame);
+            scanFrame = null;
+        }
+
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+
+        if (video) {
+            video.srcObject = null;
+            video.hidden = true;
+        }
+
+        if (startCamera) {
+            startCamera.hidden = false;
+            startCamera.disabled = false;
+        }
+
+        if (stopCamera) {
+            stopCamera.hidden = true;
+        }
+    };
+
+    const cameraSupported = 'BarcodeDetector' in globalThis
+        && typeof navigator.mediaDevices?.getUserMedia === 'function';
+
+    if (!cameraSupported) {
+        setCameraStatus('Camera scanning is not supported here. Enter the printed ticket number instead.');
+        if (startCamera) {
+            startCamera.hidden = true;
+        }
+    } else {
+        startCamera?.addEventListener('click', async () => {
+            if (cameraStarting || scanning) {
+                return;
+            }
+
+            const generation = ++cameraGeneration;
+            const isCurrentGeneration = () => generation === cameraGeneration && !document.hidden;
+            let acquiredStream = null;
+            cameraStarting = true;
+            startCamera.disabled = true;
+
+            try {
+                const formats = typeof BarcodeDetector.getSupportedFormats === 'function'
+                    ? await BarcodeDetector.getSupportedFormats()
+                    : ['qr_code'];
+
+                if (!isCurrentGeneration()) {
+                    return;
+                }
+
+                if (!formats.includes('qr_code')) {
+                    setCameraStatus('QR scanning is not supported here. Enter the printed ticket number instead.');
+                    startCamera.hidden = true;
+                    return;
+                }
+
+                const detector = new BarcodeDetector({ formats: ['qr_code'] });
+                acquiredStream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: { facingMode: { ideal: 'environment' } },
+                });
+
+                if (!isCurrentGeneration()) {
+                    acquiredStream.getTracks().forEach((track) => track.stop());
+                    acquiredStream = null;
+                    return;
+                }
+
+                cameraStream = acquiredStream;
+                acquiredStream = null;
+                video.srcObject = cameraStream;
+                video.hidden = false;
+                startCamera.hidden = true;
+                stopCamera.hidden = false;
+                scanning = true;
+                setCameraStatus('Camera active. Hold the ticket QR code inside the frame.');
+                await video.play();
+
+                if (!isCurrentGeneration()) {
+                    return;
+                }
+
+                const detectCode = async () => {
+                    if (!scanning || !isCurrentGeneration()) {
+                        return;
+                    }
+
+                    try {
+                        const codes = await detector.detect(video);
+
+                        if (!scanning || !isCurrentGeneration()) {
+                            return;
+                        }
+
+                        const value = codes.find((code) => typeof code.rawValue === 'string')?.rawValue;
+
+                        if (value && codeInput && checkInForm) {
+                            codeInput.value = value;
+                            stopCheckInCamera();
+                            setCameraStatus('QR code detected. Submitting check-in.');
+                            checkInForm.requestSubmit();
+                            return;
+                        }
+                    } catch (error) {
+                        if (!isCurrentGeneration()) {
+                            return;
+                        }
+
+                        stopCheckInCamera();
+                        setCameraStatus('The camera could not read this code. Enter the printed ticket number instead.');
+                        return;
+                    }
+
+                    if (scanning && isCurrentGeneration()) {
+                        scanFrame = requestAnimationFrame(detectCode);
+                    }
+                };
+
+                scanFrame = requestAnimationFrame(detectCode);
+            } catch (error) {
+                acquiredStream?.getTracks().forEach((track) => track.stop());
+
+                if (!isCurrentGeneration()) {
+                    return;
+                }
+
+                stopCheckInCamera();
+                const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
+                setCameraStatus(denied
+                    ? 'Camera permission was not granted. Enter the printed ticket number instead.'
+                    : 'The camera is unavailable. Enter the printed ticket number instead.');
+            } finally {
+                if (generation === cameraGeneration) {
+                    cameraStarting = false;
+                    startCamera.disabled = false;
+                }
+            }
+        });
+
+        stopCamera?.addEventListener('click', () => {
+            stopCheckInCamera();
+            setCameraStatus('Camera stopped. You can enter the printed ticket number.');
+        });
+
+        window.addEventListener('pagehide', stopCheckInCamera);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopCheckInCamera();
+            }
+        });
+    }
+}

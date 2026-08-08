@@ -218,6 +218,7 @@ final class FakeEventRepository implements EventRepositoryInterface
 
         $allowed = [
             'pending' => ['draft'],
+            'published' => ['approved'],
             'cancelled' => ['approved', 'published'],
         ];
 
@@ -232,6 +233,11 @@ final class FakeEventRepository implements EventRepositoryInterface
         }
 
         return true;
+    }
+
+    public function publishOwned(int $userId, int $eventId, array $context): bool
+    {
+        return $this->transitionOwned($userId, $eventId, $context, 'published');
     }
 
     public function forAdmin(?string $status): array

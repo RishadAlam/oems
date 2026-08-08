@@ -12,6 +12,8 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
     public array $registrations = [];
 
+    public array $organizerEvents = [];
+
     public bool $failReserve = false;
 
     public bool $failReactivate = false;
@@ -80,6 +82,87 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         ]);
 
         return array_map($this->withAliases(...), $registrations);
+    }
+
+    public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array
+    {
+        $event = $this->organizerEvents[$eventId] ?? null;
+
+        return is_array($event) && (int) ($event['organizer_user_id'] ?? 0) === $organizerUserId
+            ? $event
+            : null;
+    }
+
+    public function forOrganizerEvent(
+        int $organizerUserId,
+        int $eventId,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array {
+        $rows = $this->filteredOrganizerEventRows($organizerUserId, $eventId, $filters);
+
+        return array_map(
+            $this->withAliases(...),
+            array_slice($rows, max(0, $offset), min(100, max(1, $limit))),
+        );
+    }
+
+    public function countForOrganizerEvent(int $organizerUserId, int $eventId, array $filters): int
+    {
+        return count($this->filteredOrganizerEventRows($organizerUserId, $eventId, $filters));
+    }
+
+    private function filteredOrganizerEventRows(int $organizerUserId, int $eventId, array $filters): array
+    {
+        if ($this->findOrganizerEvent($organizerUserId, $eventId) === null) {
+            return [];
+        }
+
+        $allowed = [
+            'registration_status' => ['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'],
+            'payment_status' => ['none', 'pending', 'paid', 'failed', 'refunded', 'partially_refunded'],
+            'ticket_status' => ['none', 'valid', 'used', 'cancelled'],
+            'attendance_status' => ['not_checked_in', 'present', 'absent'],
+        ];
+        $rows = array_values(array_filter($this->registrations, function (array $row) use ($organizerUserId, $eventId, $filters, $allowed): bool {
+            if ((int) ($row['organizer_user_id'] ?? 0) !== $organizerUserId || (int) $row['event_id'] !== $eventId) {
+                return false;
+            }
+
+            foreach ($allowed as $filter => $values) {
+                $value = $filters[$filter] ?? null;
+                $actual = $filter === 'registration_status'
+                    ? ($row['registration_status'] ?? $row['status'] ?? 'none')
+                    : ($row[$filter] ?? 'none');
+                if (is_string($value) && in_array($value, $values, true) && $actual !== $value) {
+                    return false;
+                }
+            }
+
+            $search = is_scalar($filters['search'] ?? null) ? trim((string) $filters['search']) : '';
+            if ($search === '' || mb_strlen($search) > 120) {
+                return true;
+            }
+
+            $haystack = implode(' ', [
+                $row['participant_name'] ?? '',
+                $row['participant_email'] ?? '',
+                $row['registration_number'] ?? '',
+                $row['ticket_number'] ?? '',
+            ]);
+
+            return str_contains(mb_strtolower($haystack), mb_strtolower($search));
+        }));
+        usort($rows, static fn (array $left, array $right): int => [
+            $right['registered_at'] ?? '',
+            $right['id'] ?? 0,
+        ] <=> [
+            $left['registered_at'] ?? '',
+            $left['id'] ?? 0,
+        ]);
+
+        return $rows;
     }
 
     public function reserve(int $participantId, int $eventId, array $attributes): ?array

@@ -15,6 +15,7 @@ final class TicketService
         private readonly PDO $connection,
         private readonly TicketRepositoryInterface $tickets,
         private readonly TicketArtifactService $artifacts,
+        private readonly string $expectedCheckInUrl = '/organizer/check-in',
     ) {
     }
 
@@ -141,7 +142,11 @@ final class TicketService
             return null;
         }
 
-        $this->connection->beginTransaction();
+        $ownsTransaction = !$this->connection->inTransaction();
+
+        if ($ownsTransaction) {
+            $this->connection->beginTransaction();
+        }
 
         try {
             $attendance = $this->tickets->recordAttendance(
@@ -150,11 +155,84 @@ final class TicketService
                 $scannerId,
                 $scannerIp,
             );
-            $this->connection->commit();
+            if ($ownsTransaction) {
+                $this->connection->commit();
+            }
 
             return $attendance;
         } catch (Throwable $exception) {
-            if ($this->connection->inTransaction()) {
+            if ($ownsTransaction && $this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+
+            throw $exception;
+        }
+    }
+
+    public function checkIn(
+        int $organizerId,
+        int $eventId,
+        string $submittedValue,
+        int $scannerId,
+        ?string $scannerIp,
+    ): ?array {
+        if ($organizerId <= 0 || $eventId <= 0 || $scannerId <= 0) {
+            return null;
+        }
+
+        $value = trim($submittedValue);
+        if ($value === '' || strlen($value) > 512) {
+            return null;
+        }
+
+        $ticket = null;
+        $rawToken = $this->rawTokenFromCheckInValue($value);
+
+        if ($rawToken !== null) {
+            $ticket = $this->tickets->findForOrganizerEventByTokenDigest(
+                $organizerId,
+                $eventId,
+                hash('sha256', strtolower($rawToken)),
+            );
+            $rawToken = null;
+            $value = '';
+        } elseif (preg_match('/\AOEMS-[A-Z0-9-]{4,35}\z/i', $value) === 1) {
+            $ticket = $this->tickets->findForOrganizerEventByNumber(
+                $organizerId,
+                $eventId,
+                strtoupper($value),
+            );
+        }
+
+        if ($ticket === null) {
+            return null;
+        }
+
+        $duplicate = !empty($ticket['attendance_id']) || (string) ($ticket['ticket_status'] ?? '') === 'used';
+        $ownsTransaction = !$this->connection->inTransaction();
+
+        if ($ownsTransaction) {
+            $this->connection->beginTransaction();
+        }
+
+        try {
+            $attendance = $this->tickets->recordAttendanceForEvent(
+                $organizerId,
+                $eventId,
+                (int) $ticket['id'],
+                $scannerId,
+                $scannerIp,
+            );
+
+            if ($ownsTransaction) {
+                $this->connection->commit();
+            }
+
+            return $attendance === null ? null : array_merge($attendance, [
+                'duplicate' => (bool) ($attendance['duplicate'] ?? $duplicate),
+            ]);
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->connection->inTransaction()) {
                 $this->connection->rollBack();
             }
 
@@ -196,5 +274,59 @@ final class TicketService
         foreach ($paths as $path) {
             $this->artifacts->delete(is_string($path) ? $path : null);
         }
+    }
+
+    private function rawTokenFromCheckInValue(string $value): ?string
+    {
+        if (preg_match('/\A[a-f0-9]{64}\z/i', $value) === 1) {
+            return strtolower($value);
+        }
+
+        if ($value === '' || str_contains($value, "\0") || str_starts_with($value, '//')) {
+            return null;
+        }
+
+        $parts = parse_url($value);
+        $expected = parse_url($this->expectedCheckInUrl);
+        if (!is_array($parts)
+            || !is_array($expected)
+            || ($parts['path'] ?? '') !== ($expected['path'] ?? '/organizer/check-in')
+            || !isset($parts['query'])) {
+            return null;
+        }
+
+        $isAbsolute = isset($parts['scheme']) || isset($parts['host']);
+        if ($isAbsolute && (
+            !isset($expected['scheme'], $expected['host'])
+            || strtolower((string) ($parts['scheme'] ?? '')) !== strtolower((string) $expected['scheme'])
+            || strtolower((string) ($parts['host'] ?? '')) !== strtolower((string) $expected['host'])
+            || $this->urlPort($parts) !== $this->urlPort($expected)
+            || isset($parts['user'])
+            || isset($parts['pass'])
+        )) {
+            return null;
+        }
+
+        parse_str((string) $parts['query'], $query);
+        if (array_keys($query) !== ['token'] || !is_string($query['token'])) {
+            return null;
+        }
+
+        return preg_match('/\A[a-f0-9]{64}\z/i', $query['token']) === 1
+            ? strtolower($query['token'])
+            : null;
+    }
+
+    private function urlPort(array $parts): ?int
+    {
+        if (isset($parts['port'])) {
+            return (int) $parts['port'];
+        }
+
+        return match (strtolower((string) ($parts['scheme'] ?? ''))) {
+            'https' => 443,
+            'http' => 80,
+            default => null,
+        };
     }
 }

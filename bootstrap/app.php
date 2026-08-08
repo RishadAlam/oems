@@ -183,7 +183,11 @@ $container->singleton(
 );
 $container->singleton(
     TicketArtifactService::class,
-    static fn (): TicketArtifactService => new TicketArtifactService($basePath . '/public/uploads/tickets'),
+    static fn (Container $container): TicketArtifactService => new TicketArtifactService(
+        $basePath . '/public/uploads/tickets',
+        'uploads/tickets',
+        (string) $container->get(Config::class)->get('url', 'http://localhost:8000') . '/organizer/check-in',
+    ),
 );
 $container->singleton(
     TicketService::class,
@@ -191,6 +195,7 @@ $container->singleton(
         $container->get(Database::class)->connection(),
         $container->get(TicketRepositoryInterface::class),
         $container->get(TicketArtifactService::class),
+        (string) $container->get(Config::class)->get('url', 'http://localhost:8000') . '/organizer/check-in',
     ),
 );
 $container->singleton(
