@@ -212,6 +212,8 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, '120 total places'));
         $this->assertTrue(str_contains($body, 'Register and pay'));
         $this->assertTrue(str_contains($body, 'href="/login"'));
+        $this->assertTrue(str_contains($body, 'class="favorite-guest-link" href="/login" aria-label="Sign in to save Future Craft"'));
+        $this->assertTrue(str_contains($body, '<i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span>'));
         $this->assertFalse(str_contains($body, 'Week 3'));
     }
 
@@ -251,7 +253,7 @@ final class PublicEventControllerTest extends TestCase
                 $this->assertTrue(str_contains($body, $description));
             }
             $this->assertFalse(str_contains($body, 'href="/participant/events/' . $slug . '/register"'));
-            $this->assertSame(3, substr_count($body, 'href="/login"'));
+            $this->assertSame(4, substr_count($body, 'href="/login"'));
         }
     }
 

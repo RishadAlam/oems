@@ -83,6 +83,15 @@
                         </form>
                     </div>
                 </section>
+            <?php elseif (!empty($event['favorite']['is_guest'])): ?>
+                <section class="public-event__registration" aria-labelledby="favorite-heading">
+                    <span><i class="ph ph-bookmark-simple" aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="favorite-heading">Save this event</h2>
+                        <p>Sign in to keep this event in your saved list.</p>
+                        <a class="favorite-guest-link" href="/login" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
+                    </div>
+                </section>
             <?php endif; ?>
         </aside>
     </div>
