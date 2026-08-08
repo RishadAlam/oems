@@ -123,6 +123,34 @@ final class RegistrationRepositoryTest extends TestCase
         $this->assertSame('Schedule conflict', $this->registrationReason(105));
     }
 
+    public function testDashboardSummariesUseStatusAggregatesWithParticipantOrganizerAndAdminScope(): void
+    {
+        $this->assertSame(
+            ['active' => 1, 'pending' => 0, 'confirmed' => 1],
+            $this->repository->summaryForParticipant(1),
+        );
+        $this->assertSame(
+            ['active' => 3, 'pending' => 1, 'confirmed' => 2],
+            $this->repository->summaryForOrganizer(100),
+        );
+        $this->assertSame(
+            ['active' => 1, 'pending' => 0, 'confirmed' => 1],
+            $this->repository->summaryForOrganizer(200),
+        );
+        $this->assertSame(
+            ['active' => 4, 'pending' => 1, 'confirmed' => 3],
+            $this->repository->summaryForAdmin(),
+        );
+        $this->assertSame(
+            ['active' => 0, 'pending' => 0, 'confirmed' => 0],
+            $this->repository->summaryForParticipant(999),
+        );
+
+        $queries = implode("\n", $this->connection->preparedQueries);
+        $this->assertTrue(str_contains($queries, 'SUM(CASE'));
+        $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
+    }
+
     private function createSchema(): void
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');

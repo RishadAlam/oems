@@ -188,6 +188,30 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         return $this->findForParticipant($participantId, $registrationId);
     }
 
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->statusSummary(
+            '',
+            'WHERE registrations.user_id = :participant_user_id',
+            ['participant_user_id' => $participantId],
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->statusSummary(
+            'INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id',
+            'WHERE organizers.user_id = :organizer_user_id',
+            ['organizer_user_id' => $organizerUserId],
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->statusSummary('', '', []);
+    }
+
     private function participantSelect(): string
     {
         return 'SELECT registrations.id,
@@ -255,6 +279,26 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         $statement->execute(['event_id' => $eventId]);
 
         return (int) $statement->fetchColumn();
+    }
+
+    private function statusSummary(string $joins, string $where, array $bindings): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COALESCE(SUM(CASE WHEN registrations.status IN ('pending', 'confirmed') THEN 1 ELSE 0 END), 0) AS active,
+                    COALESCE(SUM(CASE WHEN registrations.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
+                    COALESCE(SUM(CASE WHEN registrations.status = 'confirmed' THEN 1 ELSE 0 END), 0) AS confirmed
+             FROM registrations
+             {$joins}
+             {$where}",
+        );
+        $statement->execute($bindings);
+        $summary = $statement->fetch();
+
+        return [
+            'active' => (int) ($summary['active'] ?? 0),
+            'pending' => (int) ($summary['pending'] ?? 0),
+            'confirmed' => (int) ($summary['confirmed'] ?? 0),
+        ];
     }
 
     private function registrationIdFor(int $participantId, int $eventId): ?int

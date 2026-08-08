@@ -118,6 +118,46 @@ final class FakeTicketRepository implements TicketRepositoryInterface
         return $attendance;
     }
 
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->ticketSummary(
+            static fn (array $ticket): bool => (int) ($ticket['participant_id'] ?? 0) === $participantId,
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->ticketSummary(
+            static fn (array $ticket): bool => (int) ($ticket['organizer_user_id'] ?? 0) === $organizerUserId,
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->ticketSummary(static fn (array $ticket): bool => true);
+    }
+
+    private function ticketSummary(callable $scope): array
+    {
+        $summary = ['issued' => 0, 'checked_in' => 0];
+
+        foreach ($this->tickets as $ticketId => $ticket) {
+            if (!$scope($ticket)
+                || ($ticket['registration_status'] ?? null) !== 'confirmed'
+                || !in_array($ticket['status'], ['valid', 'used'], true)) {
+                continue;
+            }
+
+            $summary['issued']++;
+
+            if (($this->attendance[$ticketId]['status'] ?? null) === 'present' && $ticket['status'] === 'used') {
+                $summary['checked_in']++;
+            }
+        }
+
+        return $summary;
+    }
+
     private function findForOrganizer(int $organizerUserId, string $field, string $value): ?array
     {
         foreach ($this->tickets as $ticket) {

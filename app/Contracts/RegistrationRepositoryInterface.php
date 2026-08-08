@@ -19,4 +19,10 @@ interface RegistrationRepositoryInterface
     public function confirm(int $registrationId): bool;
 
     public function cancelForParticipant(int $participantId, int $registrationId, string $reason): ?array;
+
+    public function summaryForParticipant(int $participantId): array;
+
+    public function summaryForOrganizer(int $organizerUserId): array;
+
+    public function summaryForAdmin(): array;
 }

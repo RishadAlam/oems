@@ -19,4 +19,10 @@ interface TicketRepositoryInterface
     public function voidForRegistration(int $registrationId): bool;
 
     public function recordAttendance(int $organizerId, int $ticketId, int $scannerId, ?string $scannerIp): ?array;
+
+    public function summaryForParticipant(int $participantId): array;
+
+    public function summaryForOrganizer(int $organizerUserId): array;
+
+    public function summaryForAdmin(): array;
 }

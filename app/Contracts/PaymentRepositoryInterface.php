@@ -15,4 +15,10 @@ interface PaymentRepositoryInterface
     public function findForAdmin(int $paymentId): ?array;
 
     public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array;
+
+    public function summaryForParticipant(int $participantId): array;
+
+    public function summaryForOrganizer(int $organizerUserId): array;
+
+    public function summaryForAdmin(): array;
 }

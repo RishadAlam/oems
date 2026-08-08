@@ -6,6 +6,7 @@ namespace OEMS\App\Repositories;
 
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use PDO;
+use RuntimeException;
 
 final class TicketRepository implements TicketRepositoryInterface
 {
@@ -90,43 +91,74 @@ final class TicketRepository implements TicketRepositoryInterface
             return $existing;
         }
 
-        $statement = $this->connection->prepare(
-            "INSERT INTO attendance
-                (registration_id, ticket_id, scanned_by, status, scanned_at, scanner_ip)
-             SELECT registrations.id, tickets.id, :scanned_by, 'present', CURRENT_TIMESTAMP, :scanner_ip
-             FROM tickets
-             INNER JOIN registrations ON registrations.id = tickets.registration_id
-             INNER JOIN events ON events.id = registrations.event_id
-             INNER JOIN organizers ON organizers.id = events.organizer_id
-             WHERE tickets.id = :ticket_id
-               AND organizers.user_id = :organizer_user_id
-               AND tickets.status = 'valid'
-               AND registrations.status = 'confirmed'
-               AND NOT EXISTS (
-                   SELECT 1 FROM attendance existing_attendance
-                   WHERE existing_attendance.ticket_id = tickets.id
-                      OR existing_attendance.registration_id = registrations.id
-               )",
-        );
-        $statement->execute([
-            'scanned_by' => $scannerId,
-            'scanner_ip' => $scannerIp,
-            'ticket_id' => $ticketId,
-            'organizer_user_id' => $organizerId,
-        ]);
+        $eligibleTicket = $this->eligibleTicketForAttendance($organizerId, $ticketId);
 
-        if ($statement->rowCount() !== 1) {
-            return $this->findAttendance($organizerId, $ticketId);
+        if ($eligibleTicket === null) {
+            return null;
         }
 
         $markUsed = $this->connection->prepare(
             "UPDATE tickets
              SET status = 'used', updated_at = CURRENT_TIMESTAMP
-             WHERE id = :ticket_id AND status = 'valid'",
+             WHERE id = :ticket_id
+               AND status = 'valid'
+               AND EXISTS (
+                   SELECT 1
+                   FROM registrations
+                   INNER JOIN events ON events.id = registrations.event_id
+                   INNER JOIN organizers ON organizers.id = events.organizer_id
+                   WHERE registrations.id = tickets.registration_id
+                     AND registrations.status = 'confirmed'
+                     AND organizers.user_id = :organizer_user_id
+               )",
         );
-        $markUsed->execute(['ticket_id' => $ticketId]);
+        $markUsed->execute([
+            'ticket_id' => $ticketId,
+            'organizer_user_id' => $organizerId,
+        ]);
+
+        if ($markUsed->rowCount() !== 1) {
+            throw new RuntimeException('Ticket state changed before attendance could be recorded.');
+        }
+
+        $statement = $this->connection->prepare(
+            "INSERT INTO attendance
+                (registration_id, ticket_id, scanned_by, status, scanned_at, scanner_ip)
+             VALUES
+                (:registration_id, :ticket_id, :scanned_by, 'present', CURRENT_TIMESTAMP, :scanner_ip)",
+        );
+        $statement->execute([
+            'registration_id' => (int) $eligibleTicket['registration_id'],
+            'ticket_id' => $ticketId,
+            'scanned_by' => $scannerId,
+            'scanner_ip' => $scannerIp,
+        ]);
 
         return $this->findAttendance($organizerId, $ticketId);
+    }
+
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->ticketSummary(
+            '',
+            'WHERE registrations.user_id = :participant_user_id',
+            ['participant_user_id' => $participantId],
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->ticketSummary(
+            'INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id',
+            'WHERE organizers.user_id = :organizer_user_id',
+            ['organizer_user_id' => $organizerUserId],
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->ticketSummary('', '', []);
     }
 
     private function ticketSelect(): string
@@ -224,6 +256,54 @@ final class TicketRepository implements TicketRepositoryInterface
         ]);
 
         return $this->rowOrNull($statement->fetch());
+    }
+
+    private function eligibleTicketForAttendance(int $organizerUserId, int $ticketId): ?array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT tickets.id, tickets.registration_id
+             FROM tickets
+             INNER JOIN registrations ON registrations.id = tickets.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE tickets.id = :ticket_id
+               AND organizers.user_id = :organizer_user_id
+               AND tickets.status = 'valid'
+               AND registrations.status = 'confirmed'
+             LIMIT 1",
+        );
+        $statement->execute([
+            'ticket_id' => $ticketId,
+            'organizer_user_id' => $organizerUserId,
+        ]);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
+    private function ticketSummary(string $joins, string $where, array $bindings): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COALESCE(SUM(CASE
+                        WHEN tickets.status IN ('valid', 'used') AND registrations.status = 'confirmed' THEN 1
+                        ELSE 0
+                    END), 0) AS issued,
+                    COALESCE(SUM(CASE
+                        WHEN attendance.status = 'present' AND tickets.status = 'used' AND registrations.status = 'confirmed' THEN 1
+                        ELSE 0
+                    END), 0) AS checked_in
+             FROM tickets
+             INNER JOIN registrations ON registrations.id = tickets.registration_id
+             LEFT JOIN attendance ON attendance.ticket_id = tickets.id
+             {$joins}
+             {$where}",
+        );
+        $statement->execute($bindings);
+        $summary = $statement->fetch();
+
+        return [
+            'issued' => (int) ($summary['issued'] ?? 0),
+            'checked_in' => (int) ($summary['checked_in'] ?? 0),
+        ];
     }
 
     private function rowOrNull(mixed $row): ?array

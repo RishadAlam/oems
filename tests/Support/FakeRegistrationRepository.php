@@ -118,6 +118,46 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         return $this->withAliases($this->registrations[$registrationId]);
     }
 
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->statusSummary(
+            static fn (array $registration): bool => (int) $registration['user_id'] === $participantId,
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->statusSummary(
+            static fn (array $registration): bool => (int) ($registration['organizer_user_id'] ?? 0) === $organizerUserId,
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->statusSummary(static fn (array $registration): bool => true);
+    }
+
+    private function statusSummary(callable $scope): array
+    {
+        $summary = ['active' => 0, 'pending' => 0, 'confirmed' => 0];
+
+        foreach ($this->registrations as $registration) {
+            if (!$scope($registration)) {
+                continue;
+            }
+
+            if ($registration['status'] === 'pending') {
+                $summary['pending']++;
+                $summary['active']++;
+            } elseif ($registration['status'] === 'confirmed') {
+                $summary['confirmed']++;
+                $summary['active']++;
+            }
+        }
+
+        return $summary;
+    }
+
     private function withAliases(array $registration): array
     {
         $registration['registration_status'] = $registration['status'];

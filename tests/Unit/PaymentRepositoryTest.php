@@ -8,16 +8,29 @@ use OEMS\App\Repositories\PaymentRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
 use PDOException;
+use PDOStatement;
+
+final class PaymentRepositoryRecordingPdo extends PDO
+{
+    public array $preparedQueries = [];
+
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        $this->preparedQueries[] = $query;
+
+        return parent::prepare($query, $options);
+    }
+}
 
 final class PaymentRepositoryTest extends TestCase
 {
-    private PDO $connection;
+    private PaymentRepositoryRecordingPdo $connection;
 
     private PaymentRepository $repository;
 
     protected function setUp(): void
     {
-        $this->connection = new PDO('sqlite::memory:');
+        $this->connection = new PaymentRepositoryRecordingPdo('sqlite::memory:');
         $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $this->createSchema();
@@ -105,6 +118,34 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertNull($failed['paid_at']);
         $this->assertNull($this->repository->review(3, 900, 'paid', null));
         $this->assertNull($this->repository->review(2, 900, 'invalid', null));
+    }
+
+    public function testDashboardSummariesUsePaymentAggregatesWithParticipantOrganizerAndAdminScope(): void
+    {
+        $this->assertSame(
+            ['pending' => 2, 'paid' => 0, 'paid_total' => '0.00'],
+            $this->repository->summaryForParticipant(1),
+        );
+        $this->assertSame(
+            ['pending' => 0, 'paid' => 1, 'paid_total' => '450.00'],
+            $this->repository->summaryForParticipant(2),
+        );
+        $this->assertSame(
+            ['pending' => 2, 'paid' => 1, 'paid_total' => '450.00'],
+            $this->repository->summaryForOrganizer(50),
+        );
+        $this->assertSame(
+            ['pending' => 2, 'paid' => 1, 'paid_total' => '450.00'],
+            $this->repository->summaryForAdmin(),
+        );
+        $this->assertSame(
+            ['pending' => 0, 'paid' => 0, 'paid_total' => '0.00'],
+            $this->repository->summaryForOrganizer(999),
+        );
+
+        $queries = implode("\n", $this->connection->preparedQueries);
+        $this->assertTrue(str_contains($queries, 'SUM(CASE'));
+        $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
     }
 
     private function createSchema(): void

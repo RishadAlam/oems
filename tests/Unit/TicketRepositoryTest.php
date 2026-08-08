@@ -7,6 +7,7 @@ namespace OEMS\Tests\Unit;
 use OEMS\App\Repositories\TicketRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
+use RuntimeException;
 
 final class TicketRepositoryTest extends TestCase
 {
@@ -111,6 +112,67 @@ final class TicketRepositoryTest extends TestCase
         $this->assertSame(100, $second['scanned_by']);
         $this->assertSame('127.0.0.1', $second['scanner_ip']);
         $this->assertSame(1, $this->attendanceCount());
+    }
+
+    public function testLostTicketUseCompareAndSetDoesNotReportAttendanceSuccess(): void
+    {
+        $this->connection->exec(
+            "CREATE TRIGGER lose_ticket_use_compare_and_set
+             BEFORE UPDATE OF status ON tickets
+             WHEN OLD.id = 201 AND OLD.status = 'valid' AND NEW.status = 'used'
+             BEGIN SELECT RAISE(IGNORE); END",
+        );
+        $lostCompareAndSetWasSurfaced = false;
+        $this->connection->beginTransaction();
+
+        try {
+            $this->repository->recordAttendance(100, 201, 100, '127.0.0.1');
+        } catch (RuntimeException) {
+            $lostCompareAndSetWasSurfaced = true;
+        } finally {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+        }
+
+        $this->assertTrue($lostCompareAndSetWasSurfaced, 'A lost valid-to-used ticket CAS must be surfaced.');
+        $this->assertSame(0, $this->attendanceCount());
+        $this->assertSame('valid', $this->ticketStatus(201));
+    }
+
+    public function testDashboardSummariesUseTicketAggregatesWithParticipantOrganizerAndAdminScope(): void
+    {
+        $this->assertSame(
+            ['issued' => 1, 'checked_in' => 0],
+            $this->repository->summaryForParticipant(1),
+        );
+        $this->assertSame(
+            ['issued' => 1, 'checked_in' => 0],
+            $this->repository->summaryForOrganizer(100),
+        );
+        $this->assertSame(
+            ['issued' => 2, 'checked_in' => 0],
+            $this->repository->summaryForAdmin(),
+        );
+        $this->assertSame(
+            ['issued' => 0, 'checked_in' => 0],
+            $this->repository->summaryForParticipant(999),
+        );
+
+        $attendance = $this->repository->recordAttendance(100, 201, 100, '127.0.0.1');
+        $this->assertNotNull($attendance);
+        $this->assertSame(
+            ['issued' => 1, 'checked_in' => 1],
+            $this->repository->summaryForParticipant(1),
+        );
+        $this->assertSame(
+            ['issued' => 1, 'checked_in' => 1],
+            $this->repository->summaryForOrganizer(100),
+        );
+        $this->assertSame(
+            ['issued' => 2, 'checked_in' => 1],
+            $this->repository->summaryForAdmin(),
+        );
     }
 
     private function createSchema(): void

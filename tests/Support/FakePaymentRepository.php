@@ -91,6 +91,51 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
         return $this->withAliases($this->payments[$paymentId]);
     }
 
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->paymentSummary(
+            static fn (array $payment): bool => (int) ($payment['participant_id'] ?? 0) === $participantId,
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->paymentSummary(
+            static fn (array $payment): bool => (int) ($payment['organizer_user_id'] ?? 0) === $organizerUserId,
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->paymentSummary(static fn (array $payment): bool => true);
+    }
+
+    private function paymentSummary(callable $scope): array
+    {
+        $pending = 0;
+        $paid = 0;
+        $paidTotal = 0.0;
+
+        foreach ($this->payments as $payment) {
+            if (!$scope($payment)) {
+                continue;
+            }
+
+            if ($payment['status'] === 'pending') {
+                $pending++;
+            } elseif ($payment['status'] === 'paid') {
+                $paid++;
+                $paidTotal += (float) $payment['amount'];
+            }
+        }
+
+        return [
+            'pending' => $pending,
+            'paid' => $paid,
+            'paid_total' => number_format($paidTotal, 2, '.', ''),
+        ];
+    }
+
     private function withAliases(array $payment): array
     {
         $payment['payment_status'] = $payment['status'];

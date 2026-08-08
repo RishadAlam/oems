@@ -114,6 +114,31 @@ final class PaymentRepository implements PaymentRepositoryInterface
         return $this->findForAdmin($paymentId);
     }
 
+    public function summaryForParticipant(int $participantId): array
+    {
+        return $this->paymentSummary(
+            'INNER JOIN registrations ON registrations.id = payments.registration_id',
+            'WHERE registrations.user_id = :participant_user_id',
+            ['participant_user_id' => $participantId],
+        );
+    }
+
+    public function summaryForOrganizer(int $organizerUserId): array
+    {
+        return $this->paymentSummary(
+            'INNER JOIN registrations ON registrations.id = payments.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id',
+            'WHERE organizers.user_id = :organizer_user_id',
+            ['organizer_user_id' => $organizerUserId],
+        );
+    }
+
+    public function summaryForAdmin(): array
+    {
+        return $this->paymentSummary('', '', []);
+    }
+
     private function adminSelect(): string
     {
         return 'SELECT payments.id,
@@ -151,6 +176,26 @@ final class PaymentRepository implements PaymentRepositoryInterface
                 INNER JOIN events ON events.id = registrations.event_id
                 INNER JOIN organizers ON organizers.id = events.organizer_id
                 LEFT JOIN payment_methods ON payment_methods.id = payments.payment_method_id';
+    }
+
+    private function paymentSummary(string $joins, string $where, array $bindings): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT COALESCE(SUM(CASE WHEN payments.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending,
+                    COALESCE(SUM(CASE WHEN payments.status = 'paid' THEN 1 ELSE 0 END), 0) AS paid,
+                    COALESCE(SUM(CASE WHEN payments.status = 'paid' THEN payments.amount ELSE 0 END), 0) AS paid_total
+             FROM payments
+             {$joins}
+             {$where}",
+        );
+        $statement->execute($bindings);
+        $summary = $statement->fetch();
+
+        return [
+            'pending' => (int) ($summary['pending'] ?? 0),
+            'paid' => (int) ($summary['paid'] ?? 0),
+            'paid_total' => number_format((float) ($summary['paid_total'] ?? 0), 2, '.', ''),
+        ];
     }
 
     private function hydrate(mixed $row): ?array
