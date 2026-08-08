@@ -12,5 +12,8 @@ interface FavoriteRepositoryInterface
 
     public function existsForParticipant(int $participantId, int $eventId): bool;
 
+    /** @return array<int, bool> */
+    public function statesForParticipant(int $participantId, array $eventIds): array;
+
     public function forParticipant(int $participantId, int $page, int $perPage): array;
 }

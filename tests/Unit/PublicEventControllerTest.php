@@ -13,6 +13,7 @@ use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
 use OEMS\Tests\Support\FakeCategoryRepository;
+use OEMS\Tests\Support\FakeFavoriteRepository;
 use OEMS\Tests\Support\FakeRegistrationRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
@@ -342,6 +343,45 @@ final class PublicEventControllerTest extends TestCase
 
         $this->assertTrue(str_contains($body, '<meta property="og:image" content="https://events.example.test/assets/images/event-creative.webp">'));
         $this->assertTrue(str_contains($body, '"image":["https://events.example.test/assets/images/event-creative.webp"]'));
+    }
+
+    public function testParticipantDiscoveryUsesOneBulkFavoriteLookupAndRendersSavedState(): void
+    {
+        $first = $this->eventFixture();
+        $second = array_merge($this->eventFixture(), ['id' => 502, 'title' => 'Second event', 'slug' => 'second-event']);
+        $this->events->events = [$first, $second];
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $users->users[7] = [
+            'id' => 7,
+            'role_id' => 3,
+            'name' => 'Participant',
+            'email' => 'participant@example.test',
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 10:00:00',
+        ];
+        $session->put('auth.user_id', 7);
+        $favorites = new FakeFavoriteRepository();
+        $favorites->favorites[7][501] = true;
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, $users),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+            $favorites,
+        );
+
+        $body = $controller->index(Request::create('GET', '/events'))->body();
+
+        $this->assertSame(1, $favorites->bulkStateCalls);
+        $this->assertTrue(str_contains($body, 'action="/participant/favorites/501/remove"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Remove Future Craft from saved events"'));
+        $this->assertTrue(str_contains($body, 'action="/participant/favorites/502"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Save Second event"'));
     }
 
     private function eventFixture(): array

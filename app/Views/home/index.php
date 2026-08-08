@@ -85,7 +85,18 @@
                         </div>
                         <div class="event-card__footer">
                             <strong class="text-sm"><?= e($event['price']) ?></strong>
-                            <a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                            <div class="event-card__actions">
+                                <?php if (!empty($event['favorite']['is_participant'])): ?>
+                                    <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post">
+                                        <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                                        <input type="hidden" name="return_to" value="/">
+                                        <button class="favorite-control" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
+                                    </form>
+                                <?php elseif (!empty($event['favorite']['is_guest'])): ?>
+                                    <a class="favorite-guest-link" href="/login" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
+                                <?php endif; ?>
+                                <a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                            </div>
                         </div>
                     </div>
                 </article>

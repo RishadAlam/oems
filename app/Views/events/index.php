@@ -89,7 +89,21 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                                 <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['start_iso']) ?>"><?= e($event['start_date_display']) ?> at <?= e($event['start_time_display']) ?></time></span></div>
                                 <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['address']) ?></address></span></div>
                             </div>
-                            <div class="event-card__footer"><strong><?= e($event['price_display']) ?></strong><a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View details</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+                            <div class="event-card__footer">
+                                <strong><?= e($event['price_display']) ?></strong>
+                                <div class="event-card__actions">
+                                    <?php if (!empty($event['favorite']['is_participant'])): ?>
+                                        <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post">
+                                            <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                                            <input type="hidden" name="return_to" value="/events">
+                                            <button class="favorite-control" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
+                                        </form>
+                                    <?php elseif (!empty($event['favorite']['is_guest'])): ?>
+                                        <a class="favorite-guest-link" href="/login" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
+                                    <?php endif; ?>
+                                    <a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View details</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                                </div>
+                            </div>
                         </div>
                     </article>
                 <?php endforeach; ?>

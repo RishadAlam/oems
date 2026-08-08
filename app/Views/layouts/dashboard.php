@@ -27,6 +27,7 @@
     $participantRegistrationsActive = str_starts_with($currentPath, '/participant/registrations')
         || str_starts_with($currentPath, '/participant/events/');
     $participantTicketsActive = str_starts_with($currentPath, '/participant/tickets');
+    $participantFavoritesActive = str_starts_with($currentPath, '/participant/favorites');
     $adminEventsActive = str_starts_with($currentPath, '/admin/events');
     $adminCategoriesActive = str_starts_with($currentPath, '/admin/categories');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
@@ -50,6 +51,7 @@
                     <?php if (($currentUser['role_slug'] ?? '') === 'participant'): ?>
                         <a class="dashboard-nav-link<?= $participantRegistrationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/registrations"<?= $participantRegistrationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
                         <a class="dashboard-nav-link<?= $participantTicketsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/tickets"<?= $participantTicketsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Tickets</span></a>
+                        <a class="dashboard-nav-link<?= $participantFavoritesActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/favorites"<?= $participantFavoritesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Favorites</span></a>
                     <?php endif; ?>
                     <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>

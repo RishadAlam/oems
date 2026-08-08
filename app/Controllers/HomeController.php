@@ -7,6 +7,7 @@ namespace OEMS\App\Controllers;
 use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -25,15 +26,18 @@ final class HomeController extends Controller
         Auth $auth,
         Config $config,
         private readonly EventRepositoryInterface $events,
+        private readonly ?FavoriteRepositoryInterface $favorites = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
 
     public function index(Request $request): Response
     {
+        $featured = $this->events->featured(2);
+        $favoriteStates = $this->favoriteStates($featured);
         $featuredEvents = array_map(
-            fn (array $event): array => $this->presentEvent($event),
-            $this->events->featured(2),
+            fn (array $event): array => $this->presentEvent($event, isset($favoriteStates[(int) ($event['id'] ?? 0)])),
+            $featured,
         );
         $canonicalUrl = rtrim((string) $this->config->get('url', 'http://localhost:8000'), '/') . '/';
         $description = 'Discover published workshops, talks, and gatherings with OEMS.';
@@ -52,7 +56,7 @@ final class HomeController extends Controller
         ]);
     }
 
-    private function presentEvent(array $event): array
+    private function presentEvent(array $event, bool $isFavorited = false): array
     {
         $timezone = new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka'));
         $start = new DateTimeImmutable((string) $event['start_date'], $timezone);
@@ -73,7 +77,27 @@ final class HomeController extends Controller
                 : $this->currency($price, (string) ($event['currency'] ?? 'BDT')),
             'image' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'alt' => 'Banner for ' . (string) $event['title'],
+            'favorite' => [
+                'is_participant' => $this->auth->hasRole('participant'),
+                'is_guest' => $this->auth->guest(),
+                'is_saved' => $isFavorited,
+            ],
         ]);
+    }
+
+    /** @return array<int, bool> */
+    private function favoriteStates(array $events): array
+    {
+        if ($this->favorites === null || !$this->auth->hasRole('participant')) {
+            return [];
+        }
+
+        $eventIds = array_map(
+            static fn (array $event): int => (int) ($event['id'] ?? 0),
+            $events,
+        );
+
+        return $this->favorites->statesForParticipant((int) $this->auth->id(), $eventIds);
     }
 
     private function currency(float $amount, string $currency): string

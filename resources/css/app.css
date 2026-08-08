@@ -416,6 +416,57 @@
         @apply mt-6 flex items-center justify-between border-t border-[var(--line)] pt-4 text-sm;
     }
 
+    .event-card__actions {
+        @apply flex flex-wrap items-center justify-end gap-3;
+    }
+
+    .favorite-control,
+    .favorite-guest-link {
+        @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-bold text-[var(--accent)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--accent-strong)];
+    }
+
+    .favorite-control {
+        @apply border border-[var(--line)] bg-[var(--surface-raised)];
+    }
+
+    .favorite-history__heading,
+    .favorite-history__actions,
+    .favorite-pagination {
+        @apply flex flex-wrap items-center justify-between gap-4;
+    }
+
+    .favorite-history h2 {
+        @apply mt-2 text-xl font-semibold tracking-[-0.035em];
+    }
+
+    .favorite-history--unavailable {
+        @apply border-[color-mix(in_srgb,var(--warning)_38%,var(--line))];
+    }
+
+    .favorite-history__details {
+        @apply mt-5 grid gap-3 text-sm sm:grid-cols-3;
+    }
+
+    .favorite-history__details dt {
+        @apply text-[11px] font-bold text-[var(--ink-muted)];
+    }
+
+    .favorite-history__details dd {
+        @apply mt-1 font-semibold text-[var(--ink)];
+    }
+
+    .favorite-history__actions {
+        @apply mt-5 border-t border-[var(--line)] pt-4;
+    }
+
+    .favorite-pagination {
+        @apply mt-6 border-t border-[var(--line)] pt-5 text-sm font-semibold text-[var(--ink-muted)];
+    }
+
+    .favorite-pagination > div {
+        @apply flex gap-3;
+    }
+
     .text-link {
         @apply inline-flex items-center gap-1.5 font-bold text-[var(--accent)] underline decoration-transparent underline-offset-4 transition hover:text-[var(--accent-strong)] hover:decoration-current;
     }

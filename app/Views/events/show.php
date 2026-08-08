@@ -70,6 +70,20 @@
                     <?php endif; ?>
                 </div>
             </section>
+            <?php if (!empty($event['favorite']['is_participant'])): ?>
+                <section class="public-event__registration" aria-labelledby="favorite-heading">
+                    <span><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="favorite-heading"><?= !empty($event['favorite']['is_saved']) ? 'Saved event' : 'Save this event' ?></h2>
+                        <p><?= !empty($event['favorite']['is_saved']) ? 'This event is in your saved list.' : 'Keep this event in your workspace for later.' ?></p>
+                        <form class="mt-4" action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post">
+                            <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                            <input type="hidden" name="return_to" value="/events/<?= e($event['slug']) ?>">
+                            <button class="favorite-control w-full" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Remove from saved' : 'Save event' ?></span></button>
+                        </form>
+                    </div>
+                </section>
+            <?php endif; ?>
         </aside>
     </div>
 </article>

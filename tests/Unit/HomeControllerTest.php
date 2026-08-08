@@ -12,6 +12,7 @@ use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
 use OEMS\Tests\Support\FakeUserRepository;
+use OEMS\Tests\Support\FakeFavoriteRepository;
 use OEMS\Tests\Support\FakeEventRepository;
 use OEMS\Tests\Support\TestCase;
 
@@ -66,6 +67,42 @@ final class HomeControllerTest extends TestCase
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'No featured events yet'));
         $this->assertTrue(str_contains($response->body(), 'Browse all events'));
+    }
+
+    public function testParticipantFeaturedCardsUseOneBulkFavoriteLookupAndAccessibleControls(): void
+    {
+        $this->events->events[41] = $this->eventFixture(41, 'Saved featured event', 'saved-featured-event');
+        $this->events->events[42] = $this->eventFixture(42, 'Unsaved featured event', 'unsaved-featured-event');
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $users->users[7] = [
+            'id' => 7,
+            'role_id' => 3,
+            'name' => 'Participant',
+            'email' => 'participant@example.test',
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 10:00:00',
+        ];
+        $session->put('auth.user_id', 7);
+        $favorites = new FakeFavoriteRepository();
+        $favorites->favorites[7][41] = true;
+        $controller = new HomeController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, $users),
+            new Config(['name' => 'OEMS']),
+            $this->events,
+            $favorites,
+        );
+
+        $body = $controller->index(Request::create('GET', '/'))->body();
+
+        $this->assertSame(1, $favorites->bulkStateCalls);
+        $this->assertTrue(str_contains($body, 'action="/participant/favorites/41/remove"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Remove Saved featured event from saved events"'));
+        $this->assertTrue(str_contains($body, 'action="/participant/favorites/42"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Save Unsaved featured event"'));
     }
 
     private function eventFixture(int $id, string $title, string $slug): array

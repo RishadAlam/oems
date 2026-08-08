@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -35,6 +36,7 @@ final class PublicEventController extends Controller
         private readonly EventRepositoryInterface $events,
         private readonly CategoryRepositoryInterface $categories,
         private readonly RegistrationRepositoryInterface $registrations,
+        private readonly ?FavoriteRepositoryInterface $favorites = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -44,9 +46,11 @@ final class PublicEventController extends Controller
         $categories = $this->categories->active();
         $cities = $this->events->publicCities();
         $filters = $this->filters($request, $categories, $cities);
+        $matches = $this->events->publicSearch($filters);
+        $favoriteStates = $this->favoriteStates($matches);
         $events = array_map(
-            fn (array $event): array => $this->presentEvent($event),
-            $this->events->publicSearch($filters),
+            fn (array $event): array => $this->presentEvent($event, isset($favoriteStates[(int) ($event['id'] ?? 0)])),
+            $matches,
         );
         $description = 'Explore published workshops, talks, and gatherings by date, place, category, and price.';
         $canonicalUrl = $this->absoluteUrl('/events');
@@ -84,7 +88,8 @@ final class PublicEventController extends Controller
             return $this->notFound();
         }
 
-        $event = $this->presentEvent($event);
+        $favoriteStates = $this->favoriteStates([$event]);
+        $event = $this->presentEvent($event, isset($favoriteStates[(int) ($event['id'] ?? 0)]));
         $gallery = array_map(
             fn (array $image): array => [
                 'path' => (string) ($image['image_path'] ?? ''),
@@ -214,7 +219,7 @@ final class PublicEventController extends Controller
         ];
     }
 
-    private function presentEvent(array $event): array
+    private function presentEvent(array $event, bool $isFavorited = false): array
     {
         $start = $this->date((string) $event['start_date']);
         $end = $this->date((string) $event['end_date']);
@@ -240,7 +245,25 @@ final class PublicEventController extends Controller
                 : $this->currency($price, (string) ($event['currency'] ?? 'BDT')),
             'banner_display' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'banner_alt' => 'Banner for ' . (string) $event['title'],
+            'favorite' => [
+                'is_participant' => $this->auth->hasRole('participant'),
+                'is_guest' => $this->auth->guest(),
+                'is_saved' => $isFavorited,
+            ],
         ]);
+    }
+
+    /** @return array<int, bool> */
+    private function favoriteStates(array $events): array
+    {
+        if ($this->favorites === null || !$this->auth->hasRole('participant')) {
+            return [];
+        }
+
+        return $this->favorites->statesForParticipant(
+            (int) $this->auth->id(),
+            array_map(static fn (array $event): int => (int) ($event['id'] ?? 0), $events),
+        );
     }
 
     private function jsonLd(array $event, string $url, array $images): array

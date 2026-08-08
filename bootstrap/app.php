@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Contracts\EmailLogRepositoryInterface;
+use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\MailTransportInterface;
@@ -21,6 +22,7 @@ use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
+use OEMS\App\Repositories\FavoriteRepository;
 use OEMS\App\Repositories\OrganizerRepository;
 use OEMS\App\Repositories\PaymentRepository;
 use OEMS\App\Repositories\RegistrationRepository;
@@ -33,6 +35,7 @@ use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\EventService;
+use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\RegistrationService;
 use OEMS\App\Services\TicketArtifactService;
@@ -132,6 +135,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    FavoriteRepositoryInterface::class,
+    static fn (Container $container): FavoriteRepository => new FavoriteRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     OrganizerRepositoryInterface::class,
     static fn (Container $container): OrganizerRepository => new OrganizerRepository(
         $container->get(Database::class)->connection(),
@@ -194,6 +203,13 @@ $container->singleton(
     static fn (Container $container): VenueService => new VenueService(
         $container->get(VenueRepositoryInterface::class),
         $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    FavoriteService::class,
+    static fn (Container $container): FavoriteService => new FavoriteService(
+        $container->get(FavoriteRepositoryInterface::class),
+        $container->get(UserRepositoryInterface::class),
     ),
 );
 $container->singleton(
