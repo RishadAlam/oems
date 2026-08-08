@@ -22,6 +22,38 @@ final class PaymentRepositoryRecordingPdo extends PDO
     }
 }
 
+final class ExactDecimalPaymentSummaryStatement extends PDOStatement
+{
+    public function __construct(private readonly array $summary)
+    {
+    }
+
+    public function execute(?array $params = null): bool
+    {
+        return true;
+    }
+
+    public function fetch(
+        int $mode = PDO::FETCH_DEFAULT,
+        int $cursorOrientation = PDO::FETCH_ORI_NEXT,
+        int $cursorOffset = 0,
+    ): mixed {
+        return $this->summary;
+    }
+}
+
+final class ExactDecimalPaymentSummaryPdo extends PDO
+{
+    public function __construct(private readonly array $summary)
+    {
+    }
+
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        return new ExactDecimalPaymentSummaryStatement($this->summary);
+    }
+}
+
 final class PaymentRepositoryTest extends TestCase
 {
     private PaymentRepositoryRecordingPdo $connection;
@@ -164,6 +196,14 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertNull($this->repository->findForAdminCurrent(999));
     }
 
+    public function testAdminDetailAndCurrentLookupExcludeSoftDeletedParticipantsAndEvents(): void
+    {
+        foreach ([5, 6] as $hiddenPaymentId) {
+            $this->assertNull($this->repository->findForAdmin($hiddenPaymentId));
+            $this->assertNull($this->repository->findForAdminCurrent($hiddenPaymentId));
+        }
+    }
+
     public function testReviewUsesPendingOnlyCompareAndSetAndStoresAdministratorAudit(): void
     {
         $paid = $this->repository->review(1, 900, 'paid', 'Reference verified');
@@ -211,6 +251,20 @@ final class PaymentRepositoryTest extends TestCase
         $queries = implode("\n", $this->connection->preparedQueries);
         $this->assertTrue(str_contains($queries, 'SUM(CASE'));
         $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
+    }
+
+    public function testDashboardSummaryPreservesExactDecimalStringsBeyondFloatPrecision(): void
+    {
+        $repository = new PaymentRepository(new ExactDecimalPaymentSummaryPdo([
+            'pending' => '0',
+            'paid' => '1',
+            'paid_total' => '9007199254740993.24',
+        ]));
+
+        $this->assertSame(
+            ['pending' => 0, 'paid' => 1, 'paid_total' => '9007199254740993.24'],
+            $repository->summaryForAdmin(),
+        );
     }
 
     private function createSchema(): void

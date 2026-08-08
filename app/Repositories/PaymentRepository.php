@@ -132,7 +132,11 @@ final class PaymentRepository implements PaymentRepositoryInterface
     public function findForAdmin(int $paymentId): ?array
     {
         $statement = $this->connection->prepare(
-            $this->adminSelect() . ' WHERE payments.id = :payment_id LIMIT 1',
+            $this->adminSelect()
+            . ' WHERE payments.id = :payment_id'
+            . ' AND users.deleted_at IS NULL'
+            . ' AND events.deleted_at IS NULL'
+            . ' LIMIT 1',
         );
         $statement->execute(['payment_id' => $paymentId]);
 
@@ -143,7 +147,10 @@ final class PaymentRepository implements PaymentRepositoryInterface
     {
         $statement = $this->connection->prepare(
             $this->adminSelect()
-            . ' WHERE payments.id = :payment_id LIMIT 1'
+            . ' WHERE payments.id = :payment_id'
+            . ' AND users.deleted_at IS NULL'
+            . ' AND events.deleted_at IS NULL'
+            . ' LIMIT 1'
             . $this->lockingClause(),
         );
         $statement->execute(['payment_id' => $paymentId]);
@@ -342,7 +349,7 @@ final class PaymentRepository implements PaymentRepositoryInterface
         return [
             'pending' => (int) ($summary['pending'] ?? 0),
             'paid' => (int) ($summary['paid'] ?? 0),
-            'paid_total' => number_format((float) ($summary['paid_total'] ?? 0), 2, '.', ''),
+            'paid_total' => $this->normalizeDecimal($summary['paid_total'] ?? 0),
         ];
     }
 
@@ -365,9 +372,28 @@ final class PaymentRepository implements PaymentRepositoryInterface
 
         unset($row['gateway_response']);
         $row['payment_channel'] = $channel;
-        $row['amount'] = number_format((float) ($row['amount'] ?? 0), 2, '.', '');
+        $row['amount'] = $this->normalizeDecimal($row['amount'] ?? 0);
 
         return $row;
+    }
+
+    private function normalizeDecimal(mixed $value): string
+    {
+        if (!is_string($value) && !is_int($value) && !is_float($value)) {
+            return '0.00';
+        }
+
+        $decimal = trim((string) $value);
+        if (preg_match('/^([+-]?)([0-9]+)(?:\.([0-9]+))?$/D', $decimal, $parts) !== 1) {
+            return '0.00';
+        }
+
+        $whole = ltrim($parts[2], '0');
+        $whole = $whole === '' ? '0' : $whole;
+        $fraction = substr(str_pad($parts[3] ?? '', 2, '0'), 0, 2);
+        $sign = $parts[1] === '-' && ($whole !== '0' || $fraction !== '00') ? '-' : '';
+
+        return $sign . $whole . '.' . $fraction;
     }
 
     private function lockingClause(): string

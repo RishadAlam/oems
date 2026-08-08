@@ -83,3 +83,47 @@ Complete on foundation `8ead15b`.
 - `.superpowers/sdd/2026-08-08-oems-participant-transactions/task-9-report.md`
 
 Commit message: `feat: add payment administration and metrics`.
+
+## Fix Round 1
+
+Base: `47e0bc0`.
+
+### RED evidence
+
+- `PaymentRepositoryTest`: 8 tests, 71 assertions, 2 expected failures. Direct administrator lookup returned soft-deleted participant/event payments, and `9007199254740993.24` was rounded through a float cast to `9007199254740994.00`.
+- `AdminPaymentControllerTest`: 8 tests, 65 assertions, 2 expected failures. A hidden payment detail returned 200 instead of 404, and GET detail lost the allow-listed queue filters.
+- `RegistrationServiceTest`: 20 tests, 159 assertions, 1 expected failure. Verification succeeded for a payment whose participant was soft-deleted.
+
+### Fix and regression evidence
+
+- `PaymentRepository::findForAdmin()` and `findForAdminCurrent()` now apply the same `users.deleted_at IS NULL` and `events.deleted_at IS NULL` visibility predicates as the administrator queue and count.
+- Real SQLite repository coverage proves direct and locking lookups return `null` for both deleted-participant and deleted-event payments.
+- Real controller/service coverage proves detail, verify, and reject return not found or a not-found domain result without changing payment/registration state, issuing tickets, or releasing seats.
+- Payment summary and detail amounts now use a narrow exact string normalizer. It pads the DECIMAL scale to two places without a float cast and preserves `9007199254740993.24` exactly.
+- Administrator dashboard render coverage proves the exact large paid-total string reaches accessible output unchanged.
+- The related minor finding was fixed narrowly: GET detail now reads and preserves allow-listed `status`, `search`, `page`, and `per_page` values from the query; POST actions continue to preserve them from submitted hidden fields.
+
+### GREEN evidence
+
+- `PaymentRepositoryTest`: 8 tests, 74 assertions, 0 failures.
+- `AdminPaymentControllerTest`: 8 tests, 76 assertions, 0 failures.
+- `RegistrationServiceTest`: 20 tests, 168 assertions, 0 failures.
+- `DashboardLayoutTest`: 18 tests, 83 assertions, 0 failures, including a rerun after the CSS build.
+- Full suite: 367 tests, 2,224 assertions, 0 failures.
+- `composer check:syntax`: clean.
+- `npm run build:css`: successful with Tailwind CSS 4.3.3; no generated CSS change remained.
+- `git diff --check`: clean.
+
+### Fix Round 1 staged-file audit
+
+The scoped commit contains only these seven paths:
+
+- `.superpowers/sdd/2026-08-08-oems-participant-transactions/task-9-report.md`
+- `app/Controllers/AdminPaymentController.php`
+- `app/Repositories/PaymentRepository.php`
+- `tests/Unit/AdminPaymentControllerTest.php`
+- `tests/Unit/DashboardLayoutTest.php`
+- `tests/Unit/PaymentRepositoryTest.php`
+- `tests/Unit/RegistrationServiceTest.php`
+
+Unrelated untracked presentation, temporary, document, and package-manager files remain unstaged. Fix commit message: `fix: secure payment administration data`.

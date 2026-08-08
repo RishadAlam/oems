@@ -49,7 +49,7 @@ final class DashboardLayoutTest extends TestCase
                 'events' => 6,
                 'pending_reviews' => 4,
                 'registration' => ['active' => 9, 'pending' => 4, 'confirmed' => 5],
-                'payment' => ['pending' => 3, 'paid' => 5, 'paid_total' => '825.50'],
+                'payment' => ['pending' => 3, 'paid' => 5, 'paid_total' => '9007199254740993.24'],
                 'ticket' => ['issued' => 5, 'checked_in' => 2],
                 'reviews' => ['total' => 7, 'pending' => 2, 'published' => 5],
             ],
@@ -66,7 +66,7 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'href="/admin/events?status=pending"'));
         $this->assertTrue(str_contains($html, 'Review events'));
         $this->assertTrue(str_contains($html, 'aria-label="Pending payments: 3"'));
-        $this->assertTrue(str_contains($html, 'aria-label="Paid total: BDT 825.50"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Paid total: BDT 9007199254740993.24"'));
         $this->assertTrue(str_contains($html, 'aria-label="Issued tickets: 5"'));
         $this->assertTrue(str_contains($html, 'aria-label="Checked in: 2"'));
         $this->assertTrue(str_contains($html, 'href="/admin/payments?status=pending"'));

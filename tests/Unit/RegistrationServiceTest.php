@@ -285,6 +285,28 @@ final class RegistrationServiceTest extends TestCase
         ])['success']);
     }
 
+    public function testSettlementCannotActOnSoftDeletedParticipantOrEventPayments(): void
+    {
+        $this->connection->exec("UPDATE users SET deleted_at = '2026-08-08 00:00:00' WHERE id = 3");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, deleted_at) VALUES (19, 1, 1, 1, 'Deleted Settlement Event', 'deleted-settlement-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 90, 'BDT', 'published', '2026-08-08 00:00:00')");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (80, 11, 3, 'REG-DELETED-PARTICIPANT', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (81, 19, 1, 'REG-DELETED-EVENT', 'pending', 90, 'BDT', CURRENT_TIMESTAMP)");
+        $this->connection->exec("INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status) VALUES (80, 80, 2, 'BANK-DELETED-PARTICIPANT', 125.50, 'BDT', 'pending'), (81, 81, 2, 'BANK-DELETED-EVENT', 90, 'BDT', 'pending')");
+
+        $verified = $this->service->verifyPayment(9, 80, 'Must not verify');
+        $rejected = $this->service->rejectPayment(9, 81, 'Must not reject');
+
+        $this->assertFalse($verified['success']);
+        $this->assertFalse($rejected['success']);
+        $this->assertSame(['Payment not found.'], $verified['errors']['payment']);
+        $this->assertSame(['Payment not found.'], $rejected['errors']['payment']);
+        $this->assertSame('pending', $this->connection->query('SELECT status FROM payments WHERE id = 80')->fetchColumn());
+        $this->assertSame('pending', $this->connection->query('SELECT status FROM payments WHERE id = 81')->fetchColumn());
+        $this->assertSame('pending', $this->connection->query('SELECT status FROM registrations WHERE id = 80')->fetchColumn());
+        $this->assertSame('pending', $this->connection->query('SELECT status FROM registrations WHERE id = 81')->fetchColumn());
+        $this->assertSame(0, $this->connection->query('SELECT COUNT(*) FROM tickets WHERE registration_id IN (80, 81)')->fetchColumn());
+        $this->assertSame(0, $this->availableSeats(19));
+    }
+
     public function testVerificationAcquiresLocksInEventRegistrationPaymentTicketOrder(): void
     {
         $trace = new \ArrayObject();
@@ -590,7 +612,7 @@ final class RegistrationServiceTest extends TestCase
 
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL, is_active INTEGER NOT NULL)');
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');

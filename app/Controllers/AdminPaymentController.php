@@ -61,7 +61,9 @@ final class AdminPaymentController extends Controller
         $paymentId = $this->positiveInt($request->route('id'));
         $payment = $paymentId === null ? null : $this->payments->findForAdmin($paymentId);
 
-        return $payment === null ? $this->notFound() : $this->renderDetail($payment, $request);
+        return $payment === null
+            ? $this->notFound()
+            : $this->renderDetail($payment, $request, returnFilters: $this->filters($request, false));
     }
 
     public function verify(Request $request): Response
@@ -143,13 +145,18 @@ final class AdminPaymentController extends Controller
         return Response::redirect($this->destination($request, $paymentId));
     }
 
-    private function renderDetail(array $payment, Request $request, ?string $actionError = null): Response
+    private function renderDetail(
+        array $payment,
+        Request $request,
+        ?string $actionError = null,
+        ?array $returnFilters = null,
+    ): Response
     {
         return $this->render('admin/payments/show', [
             'pageTitle' => 'Payment ' . (string) ($payment['transaction_reference'] ?? ('#' . $payment['id'])),
             'payment' => $payment,
             'paymentAge' => $this->age((string) ($payment['created_at'] ?? '')),
-            'returnFilters' => $this->filters($request, true),
+            'returnFilters' => $returnFilters ?? $this->filters($request, true),
             'actionError' => $actionError,
         ], 'dashboard');
     }
@@ -167,15 +174,13 @@ final class AdminPaymentController extends Controller
         }
 
         $filters = ['status' => $status, 'search' => $search];
-        if ($input) {
-            $page = $this->positiveInt($read('page'));
-            $perPage = $this->positiveInt($read('per_page'));
-            if ($page !== null) {
-                $filters['page'] = $page;
-            }
-            if ($perPage !== null && $perPage <= 50) {
-                $filters['per_page'] = $perPage;
-            }
+        $page = $this->positiveInt($read('page'));
+        $perPage = $this->positiveInt($read('per_page'));
+        if ($page !== null) {
+            $filters['page'] = $page;
+        }
+        if ($perPage !== null && $perPage <= 50) {
+            $filters['per_page'] = $perPage;
         }
 
         return $filters;

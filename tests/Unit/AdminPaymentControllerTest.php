@@ -151,6 +151,43 @@ final class AdminPaymentControllerTest extends TestCase
         $this->assertFalse(str_contains($body, 'formaction='));
     }
 
+    public function testDetailPreservesAllowListedQueueFiltersFromTheGetQuery(): void
+    {
+        $request = Request::create(
+            'GET',
+            '/admin/payments/201?status=all&search=participant&page=2&per_page=1',
+            query: ['status' => 'all', 'search' => 'participant', 'page' => '2', 'per_page' => '1'],
+        )->withRouteParameters(['id' => '201']);
+
+        $response = $this->controller->show($request);
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains(
+            $response->body(),
+            'href="/admin/payments?status=all&amp;search=participant&amp;page=2&amp;per_page=1"',
+        ));
+        $this->assertTrue(str_contains($response->body(), 'name="status" value="all"'));
+    }
+
+    public function testHiddenParticipantAndEventPaymentsCannotBeShownVerifiedOrRejected(): void
+    {
+        $this->assertSame(404, $this->controller->show($this->routed('GET', '/admin/payments/205', '205'))->status());
+        $this->assertSame(404, $this->controller->show($this->routed('GET', '/admin/payments/206', '206'))->status());
+
+        $verified = $this->controller->verify($this->routed('POST', '/admin/payments/205/verify', '205'));
+        $rejected = $this->controller->reject($this->routed('POST', '/admin/payments/206/reject', '206'));
+
+        $this->assertSame(404, $verified->status());
+        $this->assertSame(404, $rejected->status());
+        $this->assertSame('pending', $this->paymentStatus(205));
+        $this->assertSame('pending', $this->paymentStatus(206));
+        $this->assertSame('pending', $this->registrationStatus(105));
+        $this->assertSame('pending', $this->registrationStatus(106));
+        $this->assertSame(0, $this->ticketCount(105));
+        $this->assertSame(0, $this->ticketCount(106));
+        $this->assertSame(0, $this->availableSeats(18));
+    }
+
     public function testVerifyAndRejectUseAtomicServiceFlowsAndRepeatTruthfully(): void
     {
         $verified = $this->controller->verify($this->routed('POST', '/admin/payments/201/verify', '201', [
@@ -287,14 +324,14 @@ final class AdminPaymentControllerTest extends TestCase
 
     private function seedRows(): void
     {
-        $this->connection->exec("INSERT INTO users (id, name, email, deleted_at) VALUES (1, '<script>alert(1)</script>', 'participant@example.test', NULL), (2, 'Organizer', 'organizer@example.test', NULL), (3, 'Other Participant', 'other@example.test', NULL), (4, 'Settled Participant', 'settled@example.test', NULL), (9, 'Administrator', 'admin@example.test', NULL)");
+        $this->connection->exec("INSERT INTO users (id, name, email, deleted_at) VALUES (1, '<script>alert(1)</script>', 'participant@example.test', NULL), (2, 'Organizer', 'organizer@example.test', NULL), (3, 'Other Participant', 'other@example.test', NULL), (4, 'Settled Participant', 'settled@example.test', NULL), (5, 'Deleted Participant', 'deleted@example.test', '2026-08-08 00:00:00'), (9, 'Administrator', 'admin@example.test', NULL)");
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status) VALUES (1, 2, 'Organizer Company', 'approved')");
         $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (1, 'Active', 'active', 1)");
         $this->connection->exec("INSERT INTO venues (id, name) VALUES (1, 'Main Hall')");
-        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, deleted_at) VALUES (11, 1, 1, 1, 'Paid Event', 'paid-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 4, 1, 125.50, 'BDT', 'published', NULL), (17, 1, 1, 1, 'Reject Event', 'reject-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 80, 'BDT', 'published', NULL)");
-        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (101, 11, 1, 'REG-101', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (102, 11, 3, 'REG-102', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (103, 17, 1, 'REG-103', 'pending', 80, 'BDT', CURRENT_TIMESTAMP), (104, 11, 4, 'REG-104', 'confirmed', 125.50, 'BDT', CURRENT_TIMESTAMP)");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, deleted_at) VALUES (11, 1, 1, 1, 'Paid Event', 'paid-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 4, 1, 125.50, 'BDT', 'published', NULL), (17, 1, 1, 1, 'Reject Event', 'reject-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 80, 'BDT', 'published', NULL), (18, 1, 1, 1, 'Deleted Event', 'deleted-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 90, 'BDT', 'published', '2026-08-08 00:00:00')");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (101, 11, 1, 'REG-101', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (102, 11, 3, 'REG-102', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (103, 17, 1, 'REG-103', 'pending', 80, 'BDT', CURRENT_TIMESTAMP), (104, 11, 4, 'REG-104', 'confirmed', 125.50, 'BDT', CURRENT_TIMESTAMP), (105, 11, 5, 'REG-105', 'pending', 125.50, 'BDT', CURRENT_TIMESTAMP), (106, 18, 3, 'REG-106', 'pending', 90, 'BDT', CURRENT_TIMESTAMP)");
         $this->connection->exec("INSERT INTO payment_methods (id, name, slug, configuration, is_active) VALUES (2, 'Manual payment', 'manual', '{}', 1)");
-        $this->connection->exec("INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status, gateway_response, paid_at, reviewed_by, reviewed_at, review_note, created_at, updated_at) VALUES (201, 101, 2, 'REF-PENDING-OLD', 125.50, 'BDT', 'pending', '{\"channel\":\"bank\",\"credential\":\"private-account-token\"}', NULL, NULL, NULL, NULL, '2026-08-01 09:00:00', '2026-08-01 09:00:00'), (202, 102, 2, 'REF-PENDING-NEW', 125.50, 'BDT', 'pending', '{\"channel\":\"mobile\"}', NULL, NULL, NULL, NULL, '2026-08-02 09:00:00', '2026-08-02 09:00:00'), (203, 103, 2, 'REF-REJECT', 80, 'BDT', 'pending', '{\"channel\":\"cash\"}', NULL, NULL, NULL, NULL, '2026-08-03 09:00:00', '2026-08-03 09:00:00'), (204, 104, 2, 'REF-SETTLED', 125.50, 'BDT', 'paid', NULL, '2026-08-04 09:00:00', 9, '2026-08-04 09:00:00', 'Verified', '2026-08-04 09:00:00', '2026-08-04 09:00:00')");
+        $this->connection->exec("INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status, gateway_response, paid_at, reviewed_by, reviewed_at, review_note, created_at, updated_at) VALUES (201, 101, 2, 'REF-PENDING-OLD', 125.50, 'BDT', 'pending', '{\"channel\":\"bank\",\"credential\":\"private-account-token\"}', NULL, NULL, NULL, NULL, '2026-08-01 09:00:00', '2026-08-01 09:00:00'), (202, 102, 2, 'REF-PENDING-NEW', 125.50, 'BDT', 'pending', '{\"channel\":\"mobile\"}', NULL, NULL, NULL, NULL, '2026-08-02 09:00:00', '2026-08-02 09:00:00'), (203, 103, 2, 'REF-REJECT', 80, 'BDT', 'pending', '{\"channel\":\"cash\"}', NULL, NULL, NULL, NULL, '2026-08-03 09:00:00', '2026-08-03 09:00:00'), (204, 104, 2, 'REF-SETTLED', 125.50, 'BDT', 'paid', NULL, '2026-08-04 09:00:00', 9, '2026-08-04 09:00:00', 'Verified', '2026-08-04 09:00:00', '2026-08-04 09:00:00'), (205, 105, 2, 'REF-DELETED-PARTICIPANT', 125.50, 'BDT', 'pending', NULL, NULL, NULL, NULL, NULL, '2026-08-05 09:00:00', '2026-08-05 09:00:00'), (206, 106, 2, 'REF-DELETED-EVENT', 90, 'BDT', 'pending', NULL, NULL, NULL, NULL, NULL, '2026-08-06 09:00:00', '2026-08-06 09:00:00')");
         $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (301, 104, 'OEMS-SETTLED', '" . str_repeat('a', 64) . "', 'valid', '2026-08-04 09:00:00')");
     }
 
