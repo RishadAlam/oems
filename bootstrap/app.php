@@ -11,6 +11,7 @@ use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\ProfileRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Contracts\ReviewRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
@@ -26,6 +27,7 @@ use OEMS\App\Repositories\FavoriteRepository;
 use OEMS\App\Repositories\OrganizerRepository;
 use OEMS\App\Repositories\PaymentRepository;
 use OEMS\App\Repositories\RegistrationRepository;
+use OEMS\App\Repositories\ReviewRepository;
 use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
@@ -38,6 +40,7 @@ use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\ReviewService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
 use OEMS\App\Services\TransactionMailer;
@@ -165,6 +168,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    ReviewRepositoryInterface::class,
+    static fn (Container $container): ReviewRepository => new ReviewRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ImageUploadService::class,
     static fn (): ImageUploadService => new ImageUploadService($basePath . '/public/uploads/events'),
 );
@@ -245,6 +254,15 @@ $container->singleton(
         $container->get(PaymentRepositoryInterface::class),
         $container->get(TicketService::class),
         $container->get(TransactionMailer::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    ReviewService::class,
+    static fn (Container $container): ReviewService => new ReviewService(
+        $container->get(Database::class)->connection(),
+        $container->get(UserRepositoryInterface::class),
+        $container->get(ReviewRepositoryInterface::class),
         $container->get(Logger::class),
     ),
 );

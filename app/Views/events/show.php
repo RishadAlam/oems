@@ -42,6 +42,37 @@
                     <div><?php foreach ($event['tags'] as $tag): ?><span><?= e($tag) ?></span><?php endforeach; ?></div>
                 </section>
             <?php endif; ?>
+
+            <section aria-labelledby="event-reviews-heading">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p class="eyebrow"><i class="ph ph-star" aria-hidden="true"></i><span>Participant feedback</span></p>
+                        <h2 id="event-reviews-heading">Event reviews</h2>
+                    </div>
+                    <?php if ((int) ($reviewSummary['count'] ?? 0) > 0): ?>
+                        <p class="text-sm font-semibold text-[var(--ink-muted)]"><?= e(number_format((float) $reviewSummary['average'], 1)) ?> average rating, <?= e($reviewSummary['count']) ?> published <?= (int) $reviewSummary['count'] === 1 ? 'review' : 'reviews' ?></p>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($reviews === []): ?>
+                    <div class="event-empty-state mt-6"><span><i class="ph ph-chat-centered-text" aria-hidden="true"></i></span><h3>No published reviews yet</h3><p>Participant reviews will appear here after moderation.</p></div>
+                <?php else: ?>
+                    <div class="mt-6 grid gap-4">
+                        <?php foreach ($reviews as $review): ?>
+                            <article class="rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6">
+                                <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div class="flex flex-wrap items-center gap-2"><strong><?= e($review['participant_name'] ?? 'Participant') ?></strong><?php if (!empty($review['verified_attendee'])): ?><span class="status-badge">Verified attendee</span><?php endif; ?></div>
+                                    <p class="text-sm font-bold text-[var(--accent)]" aria-label="<?= e($review['rating'] ?? 0) ?> out of 5 stars"><i class="ph ph-star-fill" aria-hidden="true"></i> <?= e($review['rating'] ?? 0) ?>/5</p>
+                                </header>
+                                <p class="mt-4 text-sm leading-7 text-[var(--ink-muted)]"><?= e($review['review'] ?? '') ?></p>
+                                <?php if (!empty($review['organizer_reply'])): ?>
+                                    <div class="mt-5 rounded-[12px] bg-[var(--surface)] p-4"><strong class="text-sm">Organizer reply</strong><p class="mt-2 text-sm leading-6 text-[var(--ink-muted)]"><?= e($review['organizer_reply']) ?></p></div>
+                                <?php endif; ?>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </section>
         </div>
 
         <aside class="public-event__sidebar" aria-label="Event essentials">

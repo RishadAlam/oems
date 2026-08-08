@@ -15,6 +15,7 @@ use OEMS\Core\View;
 use OEMS\Tests\Support\FakeCategoryRepository;
 use OEMS\Tests\Support\FakeFavoriteRepository;
 use OEMS\Tests\Support\FakeRegistrationRepository;
+use OEMS\Tests\Support\FakeReviewRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
 
@@ -332,6 +333,80 @@ final class PublicEventControllerTest extends TestCase
         $this->assertFalse(str_contains($body, '"availabilityEnds"'));
         $this->assertFalse(str_contains($body, '"validFrom"'));
         $this->assertFalse(str_contains($body, '</script><script>alert'));
+    }
+
+    public function testShowRendersOnlyPublishedReviewsVerifiedAttendanceAndEscapedReplies(): void
+    {
+        $event = $this->eventFixture();
+        $this->events->events[$event['slug']] = $event;
+        $reviews = new FakeReviewRepository();
+        $reviews->reviews = [
+            11 => [
+                'id' => 11,
+                'event_id' => 501,
+                'user_id' => 7,
+                'participant_name' => '<script>Reviewer</script>',
+                'rating' => 5,
+                'review' => '<b>Published review</b>',
+                'organizer_reply' => '<img src=x onerror=alert(1)>',
+                'verified_attendee' => true,
+                'status' => 'published',
+                'updated_at' => '2026-08-08 10:00:00',
+            ],
+            12 => [
+                'id' => 12,
+                'event_id' => 501,
+                'user_id' => 8,
+                'participant_name' => 'Pending Reviewer',
+                'rating' => 1,
+                'review' => 'Pending secret text',
+                'organizer_reply' => null,
+                'verified_attendee' => false,
+                'status' => 'pending',
+                'updated_at' => '2026-08-09 10:00:00',
+            ],
+            13 => [
+                'id' => 13,
+                'event_id' => 501,
+                'user_id' => 9,
+                'participant_name' => 'Hidden Reviewer',
+                'rating' => 1,
+                'review' => 'Hidden secret text',
+                'organizer_reply' => null,
+                'verified_attendee' => false,
+                'status' => 'hidden',
+                'updated_at' => '2026-08-10 10:00:00',
+            ],
+        ];
+        $session = new Session(false);
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, new FakeUserRepository()),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+            null,
+            $reviews,
+        );
+
+        $body = $controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        )->body();
+
+        $this->assertTrue(str_contains($body, '1 published review'));
+        $this->assertTrue(str_contains($body, '5.0 average rating'));
+        $this->assertTrue(str_contains($body, 'Verified attendee'));
+        $this->assertTrue(str_contains($body, '&lt;script&gt;Reviewer&lt;/script&gt;'));
+        $this->assertTrue(str_contains($body, '&lt;b&gt;Published review&lt;/b&gt;'));
+        $this->assertTrue(str_contains($body, '&lt;img src=x onerror=alert(1)&gt;'));
+        $this->assertFalse(str_contains($body, '<b>Published review</b>'));
+        $this->assertFalse(str_contains($body, 'Pending secret text'));
+        $this->assertFalse(str_contains($body, 'Hidden secret text'));
+        $this->assertTrue(str_contains($body, '"aggregateRating"'));
+        $this->assertTrue(str_contains($body, '"ratingCount":1'));
     }
 
     public function testShowUsesTheRenderedFallbackBannerInShareMetadata(): void

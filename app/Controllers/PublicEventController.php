@@ -10,6 +10,7 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Contracts\ReviewRepositoryInterface;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -37,6 +38,7 @@ final class PublicEventController extends Controller
         private readonly CategoryRepositoryInterface $categories,
         private readonly RegistrationRepositoryInterface $registrations,
         private readonly ?FavoriteRepositoryInterface $favorites = null,
+        private readonly ?ReviewRepositoryInterface $reviews = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -114,15 +116,20 @@ final class PublicEventController extends Controller
             $openGraph['image'] = $images[0];
         }
 
+        $publishedReviews = $this->reviews?->publicForEvent((int) $event['id']) ?? [];
+        $reviewSummary = $this->reviews?->summaryForEvent((int) $event['id']) ?? ['count' => 0, 'average' => null];
+
         return $this->render('events/show', [
             'pageTitle' => (string) $event['title'],
             'metaDescription' => $description,
             'canonicalUrl' => $canonicalUrl,
             'openGraph' => $openGraph,
-            'jsonLd' => $this->jsonLd($event, $canonicalUrl, $images),
+            'jsonLd' => $this->jsonLd($event, $canonicalUrl, $images, $reviewSummary),
             'event' => $event,
             'gallery' => $gallery,
             'registrationAction' => $this->registrationAction($event),
+            'reviews' => $publishedReviews,
+            'reviewSummary' => $reviewSummary,
         ]);
     }
 
@@ -266,7 +273,7 @@ final class PublicEventController extends Controller
         );
     }
 
-    private function jsonLd(array $event, string $url, array $images): array
+    private function jsonLd(array $event, string $url, array $images, array $reviewSummary = []): array
     {
         $json = [
             '@context' => 'https://schema.org',
@@ -301,6 +308,16 @@ final class PublicEventController extends Controller
             $json['performer'] = [
                 '@type' => 'Person',
                 'name' => trim((string) $event['speaker']),
+            ];
+        }
+
+        if ((int) ($reviewSummary['count'] ?? 0) > 0 && ($reviewSummary['average'] ?? null) !== null) {
+            $json['aggregateRating'] = [
+                '@type' => 'AggregateRating',
+                'ratingValue' => round((float) $reviewSummary['average'], 2),
+                'ratingCount' => (int) $reviewSummary['count'],
+                'bestRating' => 5,
+                'worstRating' => 1,
             ];
         }
 

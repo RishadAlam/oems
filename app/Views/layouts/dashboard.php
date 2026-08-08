@@ -24,12 +24,17 @@
     $overviewActive = in_array($currentPath, $overviewPaths, true);
     $organizerEventsActive = str_starts_with($currentPath, '/organizer/events');
     $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
+    $participantReviewFormActive = str_starts_with($currentPath, '/participant/events/')
+        && str_ends_with($currentPath, '/review');
     $participantRegistrationsActive = str_starts_with($currentPath, '/participant/registrations')
-        || str_starts_with($currentPath, '/participant/events/');
+        || (str_starts_with($currentPath, '/participant/events/') && !$participantReviewFormActive);
     $participantTicketsActive = str_starts_with($currentPath, '/participant/tickets');
     $participantFavoritesActive = str_starts_with($currentPath, '/participant/favorites');
+    $participantReviewsActive = str_starts_with($currentPath, '/participant/reviews') || $participantReviewFormActive;
     $adminEventsActive = str_starts_with($currentPath, '/admin/events');
     $adminCategoriesActive = str_starts_with($currentPath, '/admin/categories');
+    $organizerReviewsActive = str_starts_with($currentPath, '/organizer/reviews');
+    $adminReviewsActive = str_starts_with($currentPath, '/admin/reviews');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -52,14 +57,17 @@
                         <a class="dashboard-nav-link<?= $participantRegistrationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/registrations"<?= $participantRegistrationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
                         <a class="dashboard-nav-link<?= $participantTicketsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/tickets"<?= $participantTicketsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Tickets</span></a>
                         <a class="dashboard-nav-link<?= $participantFavoritesActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/favorites"<?= $participantFavoritesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Favorites</span></a>
+                        <a class="dashboard-nav-link<?= $participantReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/reviews"<?= $participantReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-star" aria-hidden="true"></i><span>Reviews</span></a>
                     <?php endif; ?>
                     <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
                         <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
+                        <a class="dashboard-nav-link<?= $organizerReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/reviews"<?= $organizerReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Reviews</span></a>
                     <?php endif; ?>
                     <?php if (($currentUser['role_slug'] ?? '') === 'super-admin'): ?>
                         <a class="dashboard-nav-link<?= $adminEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/events"<?= $adminEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-chevron" aria-hidden="true"></i><span>Event moderation</span></a>
                         <a class="dashboard-nav-link<?= $adminCategoriesActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/categories"<?= $adminCategoriesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-tag" aria-hidden="true"></i><span>Categories</span></a>
+                        <a class="dashboard-nav-link<?= $adminReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/reviews"<?= $adminReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Review moderation</span></a>
                     <?php endif; ?>
                     <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>
