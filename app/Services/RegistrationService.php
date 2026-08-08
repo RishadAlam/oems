@@ -203,6 +203,10 @@ final class RegistrationService
                 return $this->rollbackFailure(['payment' => ['Payment not found.']]);
             }
 
+            if (!$this->registrations->lockEventCurrent((int) $current['event_id'])) {
+                throw new \RuntimeException('The payment registration event could not be locked.');
+            }
+
             $registration = $this->registrations->findForParticipantCurrent(
                 (int) $current['participant_id'],
                 (int) $current['registration_id'],

@@ -8,6 +8,8 @@ use OEMS\App\Contracts\PaymentRepositoryInterface;
 
 final class FakePaymentRepository implements PaymentRepositoryInterface
 {
+    public ?\ArrayObject $lockTrace = null;
+
     public array $payments = [];
 
     public bool $failCreate = false;
@@ -90,6 +92,8 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
 
     public function findForAdminCurrent(int $paymentId): ?array
     {
+        $this->lockTrace?->append('payment');
+
         return $this->findForAdmin($paymentId);
     }
 

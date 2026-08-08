@@ -8,6 +8,8 @@ use OEMS\App\Contracts\TicketRepositoryInterface;
 
 final class FakeTicketRepository implements TicketRepositoryInterface
 {
+    public ?\ArrayObject $lockTrace = null;
+
     public array $tickets = [];
 
     public array $attendance = [];
@@ -58,6 +60,8 @@ final class FakeTicketRepository implements TicketRepositoryInterface
 
     public function findForRegistrationCurrent(int $registrationId): ?array
     {
+        $this->lockTrace?->append('ticket');
+
         return $this->findForRegistration($registrationId);
     }
 

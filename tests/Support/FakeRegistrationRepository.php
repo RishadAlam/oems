@@ -8,6 +8,8 @@ use OEMS\App\Contracts\RegistrationRepositoryInterface;
 
 final class FakeRegistrationRepository implements RegistrationRepositoryInterface
 {
+    public ?\ArrayObject $lockTrace = null;
+
     public array $registrations = [];
 
     public bool $failReserve = false;
@@ -25,6 +27,8 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
     public function lockEventCurrent(int $eventId): bool
     {
+        $this->lockTrace?->append('event');
+
         return isset($this->eligibleEvents[$eventId]);
     }
 
@@ -56,6 +60,8 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
     public function findForParticipantCurrent(int $participantId, int $registrationId): ?array
     {
+        $this->lockTrace?->append('registration');
+
         return $this->findForParticipant($participantId, $registrationId);
     }
 

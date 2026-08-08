@@ -15,6 +15,9 @@ use OEMS\Core\Config;
 use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeEmailLogRepository;
 use OEMS\Tests\Support\FakeMailTransport;
+use OEMS\Tests\Support\FakePaymentRepository;
+use OEMS\Tests\Support\FakeRegistrationRepository;
+use OEMS\Tests\Support\FakeTicketRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
@@ -234,6 +237,66 @@ final class RegistrationServiceTest extends TestCase
             'transaction_reference' => 'BANK-AFTER-RELEASE',
             'channel' => 'bank',
         ])['success']);
+    }
+
+    public function testVerificationAcquiresLocksInEventRegistrationPaymentTicketOrder(): void
+    {
+        $trace = new \ArrayObject();
+        $registrations = new FakeRegistrationRepository();
+        $registrations->lockTrace = $trace;
+        $registrations->eligibleEvents[11] = ['id' => 11];
+        $registrations->registrations[101] = [
+            'id' => 101,
+            'event_id' => 11,
+            'user_id' => 1,
+            'status' => 'confirmed',
+            'registration_number' => 'REG-LOCK-ORDER',
+        ];
+        $payments = new FakePaymentRepository();
+        $payments->lockTrace = $trace;
+        $payments->payments[201] = [
+            'id' => 201,
+            'registration_id' => 101,
+            'participant_id' => 1,
+            'participant_name' => 'Participant One',
+            'participant_email' => 'participant@example.test',
+            'event_id' => 11,
+            'status' => 'paid',
+        ];
+        $tickets = new FakeTicketRepository();
+        $tickets->lockTrace = $trace;
+        $tickets->tickets[301] = [
+            'id' => 301,
+            'registration_id' => 101,
+            'participant_id' => 1,
+            'status' => 'valid',
+        ];
+        $service = new RegistrationService(
+            $this->connection,
+            $this->users,
+            $registrations,
+            $payments,
+            new TicketService(
+                $this->connection,
+                $tickets,
+                new TicketArtifactService($this->ticketRoot, 'uploads/tickets'),
+            ),
+            new TransactionMailer(
+                $this->transport,
+                $this->mailLogs,
+                new Config(['url' => 'http://localhost:8000']),
+                new Logger($this->logPath),
+            ),
+            new Logger($this->logPath),
+        );
+
+        $result = $service->verifyPayment(9, 201, 'Repeat verification');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(
+            ['event', 'registration', 'payment', 'ticket'],
+            $trace->getArrayCopy(),
+        );
     }
 
     public function testParticipantCancellationIsOwnedBeforeStartAndNotCheckedInAndSettlesRelatedState(): void
