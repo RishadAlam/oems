@@ -12,9 +12,13 @@ interface PaymentRepositoryInterface
 
     public function findForRegistration(int $registrationId): ?array;
 
+    public function findForRegistrationCurrent(int $registrationId): ?array;
+
     public function pendingForAdmin(): array;
 
     public function findForAdmin(int $paymentId): ?array;
+
+    public function findForAdminCurrent(int $paymentId): ?array;
 
     public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array;
 

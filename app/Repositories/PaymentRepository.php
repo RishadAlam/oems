@@ -73,6 +73,21 @@ final class PaymentRepository implements PaymentRepositoryInterface
         return $this->hydrate($statement->fetch());
     }
 
+    public function findForRegistrationCurrent(int $registrationId): ?array
+    {
+        $lockingClause = $this->lockingClause();
+        $statement = $this->connection->prepare(
+            'SELECT id FROM payments
+             WHERE registration_id = :registration_id
+             ORDER BY created_at DESC, id DESC
+             LIMIT 1' . $lockingClause,
+        );
+        $statement->execute(['registration_id' => $registrationId]);
+        $paymentId = $statement->fetchColumn();
+
+        return $paymentId === false ? null : $this->findForAdmin((int) $paymentId);
+    }
+
     public function pendingForAdmin(): array
     {
         $statement = $this->connection->prepare(
@@ -93,6 +108,16 @@ final class PaymentRepository implements PaymentRepositoryInterface
         $statement->execute(['payment_id' => $paymentId]);
 
         return $this->hydrate($statement->fetch());
+    }
+
+    public function findForAdminCurrent(int $paymentId): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT id FROM payments WHERE id = :payment_id LIMIT 1' . $this->lockingClause(),
+        );
+        $statement->execute(['payment_id' => $paymentId]);
+
+        return $statement->fetchColumn() === false ? null : $this->findForAdmin($paymentId);
     }
 
     public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array
@@ -258,5 +283,12 @@ final class PaymentRepository implements PaymentRepositoryInterface
         }
 
         return $row;
+    }
+
+    private function lockingClause(): string
+    {
+        return $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
     }
 }

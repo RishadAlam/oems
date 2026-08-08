@@ -20,6 +20,36 @@ final class TicketService
 
     public function issue(array $registration, array $participant, array $event): array
     {
+        $ownsTransaction = !$this->connection->inTransaction();
+        $issuance = null;
+
+        if ($ownsTransaction) {
+            $this->connection->beginTransaction();
+        }
+
+        try {
+            $issuance = $this->issueWithinTransaction($registration, $participant, $event);
+
+            if ($ownsTransaction) {
+                $this->connection->commit();
+            }
+
+            return $issuance;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+
+            if (is_array($issuance)) {
+                $this->cleanupCreated($issuance);
+            }
+
+            throw $exception;
+        }
+    }
+
+    private function issueWithinTransaction(array $registration, array $participant, array $event): array
+    {
         $registrationId = (int) ($registration['id'] ?? 0);
         $existing = $this->tickets->findForRegistration($registrationId);
 
@@ -149,6 +179,11 @@ final class TicketService
     public function forRegistration(int $registrationId): ?array
     {
         return $this->tickets->findForRegistration($registrationId);
+    }
+
+    public function forRegistrationCurrent(int $registrationId): ?array
+    {
+        return $this->tickets->findForRegistrationCurrent($registrationId);
     }
 
     public function voidForRegistration(int $registrationId): bool

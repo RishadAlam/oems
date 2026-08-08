@@ -23,6 +23,11 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         return $this->eligibleEvents[$eventId] ?? null;
     }
 
+    public function lockEventCurrent(int $eventId): bool
+    {
+        return isset($this->eligibleEvents[$eventId]);
+    }
+
     public function findForParticipantEvent(int $participantId, int $eventId): ?array
     {
         foreach ($this->registrations as $registration) {
@@ -35,6 +40,11 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         return null;
     }
 
+    public function findForParticipantEventCurrent(int $participantId, int $eventId): ?array
+    {
+        return $this->findForParticipantEvent($participantId, $eventId);
+    }
+
     public function findForParticipant(int $participantId, int $registrationId): ?array
     {
         $registration = $this->registrations[$registrationId] ?? null;
@@ -42,6 +52,11 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         return is_array($registration) && (int) $registration['user_id'] === $participantId
             ? $this->withAliases($registration)
             : null;
+    }
+
+    public function findForParticipantCurrent(int $participantId, int $registrationId): ?array
+    {
+        return $this->findForParticipant($participantId, $registrationId);
     }
 
     public function forParticipant(int $participantId): array

@@ -11,9 +11,39 @@ use OEMS\Tests\Support\TestCase;
 use PDO;
 use Throwable;
 
+final class TicketIssueFailingPdo extends PDO
+{
+    public bool $failPostInsertRead = false;
+
+    private bool $postInsertReadArmed = false;
+
+    public function lastInsertId(?string $name = null): string|false
+    {
+        $id = parent::lastInsertId($name);
+
+        if ($this->failPostInsertRead) {
+            $this->postInsertReadArmed = true;
+        }
+
+        return $id;
+    }
+
+    public function prepare(string $query, array $options = []): \PDOStatement|false
+    {
+        if ($this->postInsertReadArmed
+            && str_contains($query, 'WHERE tickets.registration_id = :registration_id')) {
+            $this->postInsertReadArmed = false;
+
+            throw new \RuntimeException('post-insert ticket read failed');
+        }
+
+        return parent::prepare($query, $options);
+    }
+}
+
 final class TicketServiceTest extends TestCase
 {
-    private PDO $connection;
+    private TicketIssueFailingPdo $connection;
 
     private string $ticketRoot;
 
@@ -21,7 +51,7 @@ final class TicketServiceTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->connection = new PDO('sqlite::memory:');
+        $this->connection = new TicketIssueFailingPdo('sqlite::memory:');
         $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $this->createSchema();
@@ -112,6 +142,45 @@ final class TicketServiceTest extends TestCase
         $this->assertTrue($thrown);
         $this->assertSame('valid', (string) $this->connection->query('SELECT status FROM tickets WHERE id = 20')->fetchColumn());
         $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
+    }
+
+    public function testStandaloneIssueRollsBackRowAndArtifactsWhenPostInsertReadFails(): void
+    {
+        $this->connection->failPostInsertRead = true;
+        $thrown = false;
+
+        try {
+            $this->service->issue(
+                ['id' => 10, 'registration_number' => 'REG-10'],
+                ['id' => 1, 'name' => 'Participant One'],
+                ['title' => 'Event One'],
+            );
+        } catch (Throwable) {
+            $thrown = true;
+        }
+
+        $this->assertTrue($thrown);
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM tickets')->fetchColumn());
+        $this->assertSame([], glob($this->ticketRoot . '/*') ?: []);
+        $this->assertFalse($this->connection->inTransaction());
+    }
+
+    public function testIssueInsideOuterTransactionLeavesCommitAndRollbackToCaller(): void
+    {
+        $this->connection->beginTransaction();
+
+        $issuance = $this->service->issue(
+            ['id' => 10, 'registration_number' => 'REG-10'],
+            ['id' => 1, 'name' => 'Participant One'],
+            ['title' => 'Event One'],
+        );
+
+        $this->assertTrue($this->connection->inTransaction());
+        $this->assertSame(1, (int) $this->connection->query('SELECT COUNT(*) FROM tickets')->fetchColumn());
+        $this->connection->rollBack();
+        $this->service->cleanupCreated($issuance);
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM tickets')->fetchColumn());
+        $this->assertSame([], glob($this->ticketRoot . '/*') ?: []);
     }
 
     private function createSchema(): void

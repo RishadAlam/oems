@@ -59,6 +59,11 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
         return isset($payments[0]) ? $this->withAliases($payments[0]) : null;
     }
 
+    public function findForRegistrationCurrent(int $registrationId): ?array
+    {
+        return $this->findForRegistration($registrationId);
+    }
+
     public function pendingForAdmin(): array
     {
         $payments = array_values(array_filter(
@@ -81,6 +86,11 @@ final class FakePaymentRepository implements PaymentRepositoryInterface
         return isset($this->payments[$paymentId])
             ? $this->withAliases($this->payments[$paymentId])
             : null;
+    }
+
+    public function findForAdminCurrent(int $paymentId): ?array
+    {
+        return $this->findForAdmin($paymentId);
     }
 
     public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array

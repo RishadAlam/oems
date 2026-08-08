@@ -41,12 +41,6 @@ final class RegistrationService
             return $this->failure(['account' => ['An active, verified participant account is required.']]);
         }
 
-        $existing = $this->registrations->findForParticipantEvent($actorId, $eventId);
-
-        if ($existing !== null && in_array((string) $existing['registration_status'], ['pending', 'confirmed'], true)) {
-            return $this->truthfulRegistrationResult($existing);
-        }
-
         $issuance = null;
 
         try {
@@ -54,7 +48,25 @@ final class RegistrationService
             $event = $this->registrations->findEligibleEventForReservation($eventId);
 
             if ($event === null) {
+                $existing = $this->registrations->findForParticipantEventCurrent($actorId, $eventId);
+
+                if ($this->isSeatConsuming($existing)) {
+                    $result = $this->truthfulRegistrationResult($existing);
+                    $this->connection->commit();
+
+                    return $result;
+                }
+
                 return $this->rollbackFailure(['event' => ['This event is not available for registration.']]);
+            }
+
+            $existing = $this->registrations->findForParticipantEventCurrent($actorId, $eventId);
+
+            if ($this->isSeatConsuming($existing)) {
+                $result = $this->truthfulRegistrationResult($existing);
+                $this->connection->commit();
+
+                return $result;
             }
 
             $isFree = (float) $event['ticket_price'] <= 0.0;
@@ -91,6 +103,15 @@ final class RegistrationService
             }
 
             if ($registration === null) {
+                $winner = $this->registrations->findForParticipantEventCurrent($actorId, $eventId);
+
+                if ($this->isSeatConsuming($winner)) {
+                    $result = $this->truthfulRegistrationResult($winner);
+                    $this->connection->commit();
+
+                    return $result;
+                }
+
                 return $this->rollbackFailure(['event' => ['A seat could not be reserved.']]);
             }
 
@@ -182,18 +203,22 @@ final class RegistrationService
                 return $this->rollbackFailure(['payment' => ['Payment not found.']]);
             }
 
-            $registration = $this->registrations->findForParticipant(
+            $registration = $this->registrations->findForParticipantCurrent(
                 (int) $current['participant_id'],
                 (int) $current['registration_id'],
             );
 
-            if ($registration === null) {
+            $current = $this->payments->findForAdminCurrent($paymentId);
+
+            if ($registration === null
+                || $current === null
+                || (int) $current['registration_id'] !== (int) $registration['id']) {
                 throw new \RuntimeException('The payment registration could not be read.');
             }
 
             if ((string) $current['payment_status'] === 'paid'
                 && (string) $registration['registration_status'] === 'confirmed') {
-                $ticket = $this->tickets->forRegistration((int) $registration['id']);
+                $ticket = $this->tickets->forRegistrationCurrent((int) $registration['id']);
 
                 if ($ticket === null) {
                     throw new \RuntimeException('The confirmed ticket could not be read.');
@@ -220,11 +245,39 @@ final class RegistrationService
                 $this->boundedNote($note),
             );
 
-            if ($payment === null || !$this->registrations->confirm((int) $registration['id'])) {
+            if ($payment === null) {
+                $winner = $this->verifiedTerminalState(
+                    (int) $current['participant_id'],
+                    (int) $registration['id'],
+                    $paymentId,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
                 throw new \RuntimeException('The payment could not be verified.');
             }
 
-            $registration = $this->registrations->findForParticipant(
+            if (!$this->registrations->confirm((int) $registration['id'])) {
+                $winner = $this->verifiedTerminalState(
+                    (int) $current['participant_id'],
+                    (int) $registration['id'],
+                    $paymentId,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
+                throw new \RuntimeException('The registration could not be confirmed.');
+            }
+
+            $registration = $this->registrations->findForParticipantCurrent(
                 (int) $current['participant_id'],
                 (int) $registration['id'],
             );
@@ -235,7 +288,7 @@ final class RegistrationService
 
             $participant = $this->paymentParticipant($payment);
             $issuance = $this->tickets->issue($registration, $participant, $registration);
-            $payment = $this->payments->findForAdmin($paymentId);
+            $payment = $this->payments->findForAdminCurrent($paymentId);
 
             if ($payment === null) {
                 throw new \RuntimeException('The verified payment could not be read.');
@@ -285,10 +338,27 @@ final class RegistrationService
                 return $this->rollbackFailure(['payment' => ['Payment not found.']]);
             }
 
-            $registration = $this->registrations->findForParticipant(
+            $identity = $this->registrations->findForParticipant(
                 (int) $current['participant_id'],
                 (int) $current['registration_id'],
             );
+
+            if ($identity === null
+                || !$this->registrations->lockEventCurrent((int) $identity['event_id'])) {
+                throw new \RuntimeException('The payment registration event could not be locked.');
+            }
+
+            $registration = $this->registrations->findForParticipantCurrent(
+                (int) $current['participant_id'],
+                (int) $current['registration_id'],
+            );
+            $current = $this->payments->findForAdminCurrent($paymentId);
+
+            if ($registration === null
+                || $current === null
+                || (int) $current['registration_id'] !== (int) $registration['id']) {
+                throw new \RuntimeException('The payment registration could not be read.');
+            }
 
             if ((string) $current['payment_status'] === 'failed'
                 && ($registration['registration_status'] ?? null) === 'cancelled') {
@@ -297,7 +367,7 @@ final class RegistrationService
                 return $this->success([
                     'registration' => $registration,
                     'payment' => $current,
-                    'ticket' => $this->tickets->forRegistration((int) $current['registration_id']),
+                    'ticket' => $this->tickets->forRegistrationCurrent((int) $current['registration_id']),
                     'delivery_status' => 'not_attempted',
                 ]);
             }
@@ -313,16 +383,43 @@ final class RegistrationService
                 $this->boundedNote($note),
             );
 
-            if ($payment === null
-                || !$this->registrations->cancel((int) $registration['id'], 'Payment rejected')) {
+            if ($payment === null) {
+                $winner = $this->rejectedTerminalState(
+                    (int) $current['participant_id'],
+                    (int) $registration['id'],
+                    $paymentId,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
                 throw new \RuntimeException('The payment could not be rejected.');
             }
 
-            $registration = $this->registrations->findForParticipant(
+            if (!$this->registrations->cancel((int) $registration['id'], 'Payment rejected')) {
+                $winner = $this->rejectedTerminalState(
+                    (int) $current['participant_id'],
+                    (int) $registration['id'],
+                    $paymentId,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
+                throw new \RuntimeException('The registration could not be rejected.');
+            }
+
+            $registration = $this->registrations->findForParticipantCurrent(
                 (int) $current['participant_id'],
                 (int) $registration['id'],
             );
-            $payment = $this->payments->findForAdmin($paymentId);
+            $payment = $this->payments->findForAdminCurrent($paymentId);
 
             if ($registration === null || $payment === null) {
                 throw new \RuntimeException('The rejected payment state could not be read.');
@@ -367,24 +464,44 @@ final class RegistrationService
 
         try {
             $this->connection->beginTransaction();
-            $registration = $this->registrations->findForParticipant($actorId, $registrationId);
+            $identity = $this->registrations->findForParticipant($actorId, $registrationId);
+
+            if ($identity === null) {
+                return $this->rollbackFailure(['registration' => ['Registration not found.']]);
+            }
+
+            if (!$this->registrations->lockEventCurrent((int) $identity['event_id'])) {
+                throw new \RuntimeException('The registration event could not be locked.');
+            }
+
+            $registration = $this->registrations->findForParticipantCurrent($actorId, $registrationId);
 
             if ($registration === null) {
                 return $this->rollbackFailure(['registration' => ['Registration not found.']]);
             }
 
+            $priorPayment = $this->payments->findForRegistrationCurrent($registrationId);
+            $priorTicket = $this->tickets->forRegistrationCurrent($registrationId);
+
             if ((string) $registration['registration_status'] === 'cancelled') {
+                $result = $this->truthfulRegistrationResult($registration);
                 $this->connection->commit();
 
-                return $this->truthfulRegistrationResult($registration);
+                return $result;
             }
-
-            $priorPayment = $this->payments->findForRegistration($registrationId);
-            $priorTicket = $this->tickets->forRegistration($registrationId);
 
             $registration = $this->registrations->cancelForParticipant($actorId, $registrationId, $reason);
 
             if ($registration === null) {
+                $winner = $this->registrations->findForParticipantCurrent($actorId, $registrationId);
+
+                if (($winner['registration_status'] ?? null) === 'cancelled') {
+                    $result = $this->truthfulRegistrationResult($winner);
+                    $this->connection->commit();
+
+                    return $result;
+                }
+
                 return $this->rollbackFailure([
                     'registration' => ['This registration can no longer be cancelled.'],
                 ]);
@@ -392,11 +509,37 @@ final class RegistrationService
 
             if (in_array((string) ($priorPayment['payment_status'] ?? ''), ['pending', 'paid'], true)
                 && !$this->payments->cancelForRegistration($registrationId)) {
+                $winner = $this->cancelledTerminalState(
+                    $actorId,
+                    $registrationId,
+                    $priorPayment,
+                    $priorTicket,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
                 throw new \RuntimeException('The related payment could not be cancelled.');
             }
 
             if ((string) ($priorTicket['ticket_status'] ?? '') === 'valid'
                 && !$this->tickets->voidForRegistration($registrationId)) {
+                $winner = $this->cancelledTerminalState(
+                    $actorId,
+                    $registrationId,
+                    $priorPayment,
+                    $priorTicket,
+                );
+
+                if ($winner !== null) {
+                    $this->connection->commit();
+
+                    return $this->success($winner);
+                }
+
                 throw new \RuntimeException('The related ticket could not be voided.');
             }
 
@@ -404,8 +547,8 @@ final class RegistrationService
                 throw new \RuntimeException('An attended ticket cannot be cancelled.');
             }
 
-            $payment = $this->payments->findForRegistration($registrationId);
-            $ticket = $this->tickets->forRegistration($registrationId);
+            $payment = $this->payments->findForRegistrationCurrent($registrationId);
+            $ticket = $this->tickets->forRegistrationCurrent($registrationId);
             $this->connection->commit();
         } catch (Throwable $exception) {
             if ($this->connection->inTransaction()) {
@@ -433,10 +576,90 @@ final class RegistrationService
 
         return $this->success([
             'registration' => $registration,
-            'payment' => $this->payments->findForRegistration($registrationId),
-            'ticket' => $this->tickets->forRegistration($registrationId),
+            'payment' => $this->payments->findForRegistrationCurrent($registrationId),
+            'ticket' => $this->tickets->forRegistrationCurrent($registrationId),
             'delivery_status' => 'not_attempted',
         ]);
+    }
+
+    private function isSeatConsuming(?array $registration): bool
+    {
+        return $registration !== null
+            && in_array((string) ($registration['registration_status'] ?? ''), ['pending', 'confirmed'], true);
+    }
+
+    private function verifiedTerminalState(
+        int $participantId,
+        int $registrationId,
+        int $paymentId,
+    ): ?array {
+        $registration = $this->registrations->findForParticipantCurrent($participantId, $registrationId);
+        $payment = $this->payments->findForAdminCurrent($paymentId);
+        $ticket = $this->tickets->forRegistrationCurrent($registrationId);
+
+        if (($registration['registration_status'] ?? null) !== 'confirmed'
+            || ($payment['payment_status'] ?? null) !== 'paid'
+            || !in_array((string) ($ticket['ticket_status'] ?? ''), ['valid', 'used'], true)) {
+            return null;
+        }
+
+        return [
+            'registration' => $registration,
+            'payment' => $payment,
+            'ticket' => $ticket,
+            'delivery_status' => 'not_attempted',
+        ];
+    }
+
+    private function rejectedTerminalState(
+        int $participantId,
+        int $registrationId,
+        int $paymentId,
+    ): ?array {
+        $registration = $this->registrations->findForParticipantCurrent($participantId, $registrationId);
+        $payment = $this->payments->findForAdminCurrent($paymentId);
+
+        if (($registration['registration_status'] ?? null) !== 'cancelled'
+            || ($payment['payment_status'] ?? null) !== 'failed') {
+            return null;
+        }
+
+        return [
+            'registration' => $registration,
+            'payment' => $payment,
+            'ticket' => $this->tickets->forRegistrationCurrent($registrationId),
+            'delivery_status' => 'not_attempted',
+        ];
+    }
+
+    private function cancelledTerminalState(
+        int $participantId,
+        int $registrationId,
+        ?array $priorPayment,
+        ?array $priorTicket,
+    ): ?array {
+        $registration = $this->registrations->findForParticipantCurrent($participantId, $registrationId);
+        $payment = $this->payments->findForRegistrationCurrent($registrationId);
+        $ticket = $this->tickets->forRegistrationCurrent($registrationId);
+        $expectedPayment = (string) ($priorPayment['payment_status'] ?? '') === 'paid' ? 'refunded' : 'failed';
+        $ticketMatches = $priorTicket === null
+            ? $ticket === null
+            : ((string) ($priorTicket['ticket_status'] ?? '') === 'cancelled'
+                || ((string) ($priorTicket['ticket_status'] ?? '') === 'valid'
+                    && (string) ($ticket['ticket_status'] ?? '') === 'cancelled'));
+
+        if (($registration['registration_status'] ?? null) !== 'cancelled'
+            || ($payment['payment_status'] ?? null) !== $expectedPayment
+            || !$ticketMatches) {
+            return null;
+        }
+
+        return [
+            'registration' => $registration,
+            'payment' => $payment,
+            'ticket' => $ticket,
+            'delivery_status' => 'not_attempted',
+        ];
     }
 
     private function authorizedUser(int $userId, string $role): ?array

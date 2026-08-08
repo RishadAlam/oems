@@ -12,6 +12,8 @@ interface TicketRepositoryInterface
 
     public function findForRegistration(int $registrationId): ?array;
 
+    public function findForRegistrationCurrent(int $registrationId): ?array;
+
     public function forParticipant(int $participantId): array;
 
     public function findForParticipant(int $participantId, int $ticketId): ?array;

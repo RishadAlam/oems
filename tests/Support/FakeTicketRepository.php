@@ -56,6 +56,11 @@ final class FakeTicketRepository implements TicketRepositoryInterface
         return null;
     }
 
+    public function findForRegistrationCurrent(int $registrationId): ?array
+    {
+        return $this->findForRegistration($registrationId);
+    }
+
     public function forParticipant(int $participantId): array
     {
         $tickets = array_values(array_filter(

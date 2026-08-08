@@ -7,6 +7,8 @@ namespace OEMS\App\Repositories;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use PDO;
 use PDOException;
+use RuntimeException;
+use Throwable;
 
 final class RegistrationRepository implements RegistrationRepositoryInterface
 {
@@ -19,6 +21,19 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
     public function findEligibleEventForReservation(int $eventId): ?array
     {
         return $this->eligibleEvent($eventId);
+    }
+
+    public function lockEventCurrent(int $eventId): bool
+    {
+        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
+        $statement = $this->connection->prepare(
+            'SELECT id FROM events WHERE id = :event_id LIMIT 1' . $lockingClause,
+        );
+        $statement->execute(['event_id' => $eventId]);
+
+        return $statement->fetchColumn() !== false;
     }
 
     public function findForParticipantEvent(int $participantId, int $eventId): ?array
@@ -35,6 +50,18 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         return $this->rowOrNull($statement->fetch());
     }
 
+    public function findForParticipantEventCurrent(int $participantId, int $eventId): ?array
+    {
+        if (!$this->lockRegistration('user_id = :user_id AND event_id = :event_id', [
+            'user_id' => $participantId,
+            'event_id' => $eventId,
+        ])) {
+            return null;
+        }
+
+        return $this->findForParticipantEvent($participantId, $eventId);
+    }
+
     public function findForParticipant(int $participantId, int $registrationId): ?array
     {
         $statement = $this->connection->prepare(
@@ -47,6 +74,18 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         ]);
 
         return $this->rowOrNull($statement->fetch());
+    }
+
+    public function findForParticipantCurrent(int $participantId, int $registrationId): ?array
+    {
+        if (!$this->lockRegistration('id = :registration_id AND user_id = :user_id', [
+            'registration_id' => $registrationId,
+            'user_id' => $participantId,
+        ])) {
+            return null;
+        }
+
+        return $this->findForParticipant($participantId, $registrationId);
     }
 
     public function forParticipant(int $participantId): array
@@ -63,19 +102,24 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
     public function reserve(int $participantId, int $eventId, array $attributes): ?array
     {
+        return $this->transactional(
+            fn (): ?array => $this->reserveWithinTransaction($participantId, $eventId, $attributes),
+        );
+    }
+
+    private function reserveWithinTransaction(int $participantId, int $eventId, array $attributes): ?array
+    {
         $status = (string) ($attributes['status'] ?? 'pending');
 
         if (!in_array($status, self::RESERVING_STATUSES, true)) {
             return null;
         }
 
-        if ($this->registrationIdFor($participantId, $eventId) !== null) {
-            return null;
-        }
-
         $event = $this->eligibleEvent($eventId);
 
-        if ($event === null || $this->reservedCount($eventId) >= (int) $event['capacity']) {
+        if ($event === null
+            || $this->registrationIdFor($participantId, $eventId) !== null
+            || $this->reservedCount($eventId) >= (int) $event['capacity']) {
             return null;
         }
 
@@ -105,10 +149,25 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             throw $exception;
         }
 
+        if ($statement->rowCount() !== 1) {
+            return null;
+        }
+
+        if (!$this->consumeSeat($eventId)) {
+            throw new RuntimeException('The reserved event seat could not be consumed.');
+        }
+
         return $this->findForParticipant($participantId, (int) $this->connection->lastInsertId());
     }
 
     public function reactivate(int $registrationId, array $attributes): bool
+    {
+        return $this->transactional(
+            fn (): bool => $this->reactivateWithinTransaction($registrationId, $attributes),
+        );
+    }
+
+    private function reactivateWithinTransaction(int $registrationId, array $attributes): bool
     {
         $status = (string) ($attributes['status'] ?? 'pending');
 
@@ -124,8 +183,11 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
         $eventId = (int) $registration['event_id'];
         $event = $this->eligibleEvent($eventId);
+        $registration = $this->reactivatableRegistration($registrationId, true);
 
-        if ($event === null || $this->reservedCount($eventId) >= (int) $event['capacity']) {
+        if ($event === null
+            || $registration === null
+            || $this->reservedCount($eventId) >= (int) $event['capacity']) {
             return false;
         }
 
@@ -153,7 +215,15 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             'registration_id' => $registrationId,
         ]);
 
-        return $statement->rowCount() === 1;
+        if ($statement->rowCount() !== 1) {
+            return false;
+        }
+
+        if (!$this->consumeSeat($eventId)) {
+            throw new RuntimeException('The reactivated event seat could not be consumed.');
+        }
+
+        return true;
     }
 
     public function confirm(int $registrationId): bool
@@ -170,6 +240,25 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
     public function cancel(int $registrationId, string $reason): bool
     {
+        return $this->transactional(
+            fn (): bool => $this->cancelWithinTransaction($registrationId, $reason),
+        );
+    }
+
+    private function cancelWithinTransaction(int $registrationId, string $reason): bool
+    {
+        $identity = $this->registrationIdentity($registrationId);
+
+        if ($identity === null || !$this->lockEventCurrent((int) $identity['event_id'])) {
+            return false;
+        }
+
+        $registration = $this->cancellableRegistration($registrationId);
+
+        if ($registration === null) {
+            return false;
+        }
+
         $statement = $this->connection->prepare(
             "UPDATE registrations
              SET status = 'cancelled',
@@ -184,11 +273,44 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             'registration_id' => $registrationId,
         ]);
 
-        return $statement->rowCount() === 1;
+        if ($statement->rowCount() !== 1) {
+            return false;
+        }
+
+        $this->restoreSeat((int) $registration['event_id']);
+
+        return true;
     }
 
     public function cancelForParticipant(int $participantId, int $registrationId, string $reason): ?array
     {
+        return $this->transactional(
+            fn (): ?array => $this->cancelForParticipantWithinTransaction(
+                $participantId,
+                $registrationId,
+                $reason,
+            ),
+        );
+    }
+
+    private function cancelForParticipantWithinTransaction(
+        int $participantId,
+        int $registrationId,
+        string $reason,
+    ): ?array
+    {
+        $identity = $this->registrationIdentity($registrationId, $participantId);
+
+        if ($identity === null || !$this->lockEventCurrent((int) $identity['event_id'])) {
+            return null;
+        }
+
+        $registration = $this->cancellableRegistration($registrationId, $participantId);
+
+        if ($registration === null) {
+            return null;
+        }
+
         $statement = $this->connection->prepare(
             "UPDATE registrations
              SET status = 'cancelled',
@@ -217,6 +339,8 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         if ($statement->rowCount() !== 1) {
             return null;
         }
+
+        $this->restoreSeat((int) $registration['event_id']);
 
         return $this->findForParticipant($participantId, $registrationId);
     }
@@ -286,6 +410,7 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                     events.start_date,
                     events.registration_deadline,
                     events.capacity,
+                    events.available_seats,
                     events.ticket_price,
                     events.currency,
                     venues.name AS venue_name
@@ -299,6 +424,7 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                AND categories.is_active = :active_category
                AND events.registration_deadline > CURRENT_TIMESTAMP
                AND events.start_date > CURRENT_TIMESTAMP
+               AND events.available_seats > 0
                AND organizers.approval_status = :approved_status
              LIMIT 1' . $lockingClause,
         );
@@ -359,18 +485,124 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         return $id === false ? null : (int) $id;
     }
 
-    private function reactivatableRegistration(int $registrationId): ?array
+    private function reactivatableRegistration(int $registrationId, bool $current = false): ?array
     {
+        $lockingClause = $current && $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
         $statement = $this->connection->prepare(
             "SELECT id, event_id
              FROM registrations
              WHERE id = :registration_id
                AND status IN ('cancelled', 'refunded')
-             LIMIT 1",
+             LIMIT 1" . $lockingClause,
         );
         $statement->execute(['registration_id' => $registrationId]);
 
         return $this->rowOrNull($statement->fetch());
+    }
+
+    private function registrationIdentity(int $registrationId, ?int $participantId = null): ?array
+    {
+        $query = 'SELECT id, event_id FROM registrations WHERE id = :registration_id';
+        $parameters = ['registration_id' => $registrationId];
+
+        if ($participantId !== null) {
+            $query .= ' AND user_id = :user_id';
+            $parameters['user_id'] = $participantId;
+        }
+
+        $statement = $this->connection->prepare($query . ' LIMIT 1');
+        $statement->execute($parameters);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
+    private function cancellableRegistration(int $registrationId, ?int $participantId = null): ?array
+    {
+        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
+        $query = "SELECT id, event_id
+                  FROM registrations
+                  WHERE id = :registration_id
+                    AND status IN ('pending', 'confirmed')";
+        $parameters = ['registration_id' => $registrationId];
+
+        if ($participantId !== null) {
+            $query .= ' AND user_id = :user_id';
+            $parameters['user_id'] = $participantId;
+        }
+
+        $statement = $this->connection->prepare($query . ' LIMIT 1' . $lockingClause);
+        $statement->execute($parameters);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
+    private function lockRegistration(string $where, array $parameters): bool
+    {
+        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
+        $statement = $this->connection->prepare(
+            "SELECT id FROM registrations WHERE {$where} LIMIT 1" . $lockingClause,
+        );
+        $statement->execute($parameters);
+
+        return $statement->fetchColumn() !== false;
+    }
+
+    private function consumeSeat(int $eventId): bool
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE events
+             SET available_seats = available_seats - 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :event_id AND available_seats > 0',
+        );
+        $statement->execute(['event_id' => $eventId]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    private function restoreSeat(int $eventId): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE events
+             SET available_seats = CASE
+                    WHEN available_seats < capacity THEN available_seats + 1
+                    ELSE capacity
+                 END,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :event_id',
+        );
+        $statement->execute(['event_id' => $eventId]);
+    }
+
+    private function transactional(callable $operation): mixed
+    {
+        $ownsTransaction = !$this->connection->inTransaction();
+
+        if ($ownsTransaction) {
+            $this->connection->beginTransaction();
+        }
+
+        try {
+            $result = $operation();
+
+            if ($ownsTransaction) {
+                $this->connection->commit();
+            }
+
+            return $result;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+
+            throw $exception;
+        }
     }
 
     private function rowOrNull(mixed $row): ?array

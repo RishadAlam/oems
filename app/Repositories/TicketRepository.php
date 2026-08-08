@@ -71,6 +71,19 @@ final class TicketRepository implements TicketRepositoryInterface
         return $this->rowOrNull($statement->fetch());
     }
 
+    public function findForRegistrationCurrent(int $registrationId): ?array
+    {
+        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+            ? ' FOR UPDATE'
+            : '';
+        $statement = $this->connection->prepare(
+            'SELECT id FROM tickets WHERE registration_id = :registration_id LIMIT 1' . $lockingClause,
+        );
+        $statement->execute(['registration_id' => $registrationId]);
+
+        return $statement->fetchColumn() === false ? null : $this->findForRegistration($registrationId);
+    }
+
     public function forParticipant(int $participantId): array
     {
         $statement = $this->connection->prepare(

@@ -8,9 +8,15 @@ interface RegistrationRepositoryInterface
 {
     public function findEligibleEventForReservation(int $eventId): ?array;
 
+    public function lockEventCurrent(int $eventId): bool;
+
     public function findForParticipantEvent(int $participantId, int $eventId): ?array;
 
+    public function findForParticipantEventCurrent(int $participantId, int $eventId): ?array;
+
     public function findForParticipant(int $participantId, int $registrationId): ?array;
+
+    public function findForParticipantCurrent(int $participantId, int $registrationId): ?array;
 
     public function forParticipant(int $participantId): array;
 
