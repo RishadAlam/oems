@@ -75,17 +75,15 @@ final class PaymentRepository implements PaymentRepositoryInterface
 
     public function findForRegistrationCurrent(int $registrationId): ?array
     {
-        $lockingClause = $this->lockingClause();
         $statement = $this->connection->prepare(
-            'SELECT id FROM payments
-             WHERE registration_id = :registration_id
-             ORDER BY created_at DESC, id DESC
-             LIMIT 1' . $lockingClause,
+            $this->adminSelect()
+            . ' WHERE payments.registration_id = :registration_id'
+            . ' ORDER BY payments.created_at DESC, payments.id DESC LIMIT 1'
+            . $this->lockingClause(),
         );
         $statement->execute(['registration_id' => $registrationId]);
-        $paymentId = $statement->fetchColumn();
 
-        return $paymentId === false ? null : $this->findForAdmin((int) $paymentId);
+        return $this->hydrate($statement->fetch());
     }
 
     public function pendingForAdmin(): array
@@ -113,11 +111,13 @@ final class PaymentRepository implements PaymentRepositoryInterface
     public function findForAdminCurrent(int $paymentId): ?array
     {
         $statement = $this->connection->prepare(
-            'SELECT id FROM payments WHERE id = :payment_id LIMIT 1' . $this->lockingClause(),
+            $this->adminSelect()
+            . ' WHERE payments.id = :payment_id LIMIT 1'
+            . $this->lockingClause(),
         );
         $statement->execute(['payment_id' => $paymentId]);
 
-        return $statement->fetchColumn() === false ? null : $this->findForAdmin($paymentId);
+        return $this->hydrate($statement->fetch());
     }
 
     public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array

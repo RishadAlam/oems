@@ -77,11 +77,13 @@ final class TicketRepository implements TicketRepositoryInterface
             ? ' FOR UPDATE'
             : '';
         $statement = $this->connection->prepare(
-            'SELECT id FROM tickets WHERE registration_id = :registration_id LIMIT 1' . $lockingClause,
+            $this->ticketSelect()
+            . ' WHERE tickets.registration_id = :registration_id LIMIT 1'
+            . $lockingClause,
         );
         $statement->execute(['registration_id' => $registrationId]);
 
-        return $statement->fetchColumn() === false ? null : $this->findForRegistration($registrationId);
+        return $this->rowOrNull($statement->fetch());
     }
 
     public function forParticipant(int $participantId): array

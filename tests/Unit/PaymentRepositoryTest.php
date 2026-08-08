@@ -74,10 +74,16 @@ final class PaymentRepositoryTest extends TestCase
     public function testRegistrationLookupReturnsTheLatestAttemptDeterministically(): void
     {
         $payment = $this->repository->findForRegistration(101);
+        $current = $this->repository->findForRegistrationCurrent(101);
 
         $this->assertNotNull($payment);
         $this->assertSame(3, $payment['id']);
         $this->assertSame('Manual Bank', $payment['payment_method_name']);
+        $this->assertNotNull($current);
+        $this->assertSame($payment, $current);
+        $this->assertSame('Participant One', $current['participant_name']);
+        $this->assertSame('Transaction Event', $current['event_title']);
+        $this->assertSame('failed', $current['payment_status']);
     }
 
     public function testPendingQueueAndAdminDetailConnectTheFullAuditContext(): void
@@ -86,6 +92,7 @@ final class PaymentRepositoryTest extends TestCase
 
         $this->assertSame([1, 4], array_column($queue, 'id'));
         $detail = $this->repository->findForAdmin(1);
+        $currentDetail = $this->repository->findForAdminCurrent(1);
         $this->assertNotNull($detail);
         $this->assertSame('Participant One', $detail['participant_name']);
         $this->assertSame('participant@example.test', $detail['participant_email']);
@@ -97,6 +104,9 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertArrayHasKey('reviewed_by', $detail);
         $this->assertArrayHasKey('reviewed_at', $detail);
         $this->assertArrayHasKey('review_note', $detail);
+        $this->assertNotNull($currentDetail);
+        $this->assertSame($detail, $currentDetail);
+        $this->assertNull($this->repository->findForAdminCurrent(999));
     }
 
     public function testReviewUsesPendingOnlyCompareAndSetAndStoresAdministratorAudit(): void

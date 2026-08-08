@@ -28,6 +28,7 @@ final class TicketRepositoryTest extends TestCase
     public function testParticipantReadsUseUserOwnershipIncludeLifecycleStateAndHideDigest(): void
     {
         $tickets = $this->repository->forParticipant(1);
+        $current = $this->repository->findForRegistrationCurrent(101);
 
         $this->assertSame([202, 201], array_column($tickets, 'id'));
         $this->assertSame('pending', $tickets[0]['registration_status']);
@@ -35,6 +36,13 @@ final class TicketRepositoryTest extends TestCase
         $this->assertFalse(array_key_exists('qr_payload_hash', $tickets[0]));
         $this->assertNotNull($this->repository->findForParticipant(1, 201));
         $this->assertNull($this->repository->findForParticipant(2, 201));
+        $this->assertNotNull($current);
+        $this->assertSame(201, $current['id']);
+        $this->assertSame('confirmed', $current['registration_status']);
+        $this->assertSame('Owned Event', $current['event_title']);
+        $this->assertSame('valid', $current['ticket_status']);
+        $this->assertFalse(array_key_exists('qr_payload_hash', $current));
+        $this->assertNull($this->repository->findForRegistrationCurrent(999));
     }
 
     public function testCreationStoresDigestButParticipantResultNeverReturnsIt(): void

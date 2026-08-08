@@ -216,6 +216,7 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame($verified['ticket']['id'], $repeat['ticket']['id']);
         $this->assertSame(1, $this->countRows('tickets'));
 
+        $this->connection->exec("UPDATE events SET available_seats = 0 WHERE id = 17");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (70, 17, 1, 'REG-REJECT', 'pending', 80, 'BDT', CURRENT_TIMESTAMP)");
         $this->connection->exec("INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status) VALUES (70, 70, 2, 'BANK-REJECT-001', 80, 'BDT', 'pending')");
 
@@ -309,6 +310,42 @@ final class RegistrationServiceTest extends TestCase
         $this->assertFalse($cancelled['success']);
         $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM registrations WHERE id = {$registrationId}")->fetchColumn());
         $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM payments WHERE registration_id = {$registrationId}")->fetchColumn());
+    }
+
+    public function testParticipantCancellationRollsBackWhenSeatCannotBeRestored(): void
+    {
+        $pending = $this->service->register(1, 11, [
+            'transaction_reference' => 'BANK-CANCEL-SEAT-RESTORE',
+            'channel' => 'bank',
+        ]);
+        $registrationId = (int) $pending['registration']['id'];
+        $this->connection->exec("CREATE TRIGGER suppress_cancel_seat_restore BEFORE UPDATE OF available_seats ON events WHEN OLD.id = 11 BEGIN SELECT RAISE(IGNORE); END");
+
+        $cancelled = $this->service->cancel(1, $registrationId, 'Schedule conflict');
+
+        $this->assertFalse($cancelled['success']);
+        $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM registrations WHERE id = {$registrationId}")->fetchColumn());
+        $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM payments WHERE registration_id = {$registrationId}")->fetchColumn());
+        $this->assertSame(1, $this->availableSeats(11));
+    }
+
+    public function testPaymentRejectionRollsBackWhenSeatCannotBeRestored(): void
+    {
+        $pending = $this->service->register(1, 11, [
+            'transaction_reference' => 'BANK-REJECT-SEAT-RESTORE',
+            'channel' => 'bank',
+        ]);
+        $paymentId = (int) $pending['payment']['id'];
+        $registrationId = (int) $pending['registration']['id'];
+        $this->connection->exec("CREATE TRIGGER suppress_reject_seat_restore BEFORE UPDATE OF available_seats ON events WHEN OLD.id = 11 BEGIN SELECT RAISE(IGNORE); END");
+
+        $rejected = $this->service->rejectPayment(9, $paymentId, 'Reference not found');
+
+        $this->assertFalse($rejected['success']);
+        $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM registrations WHERE id = {$registrationId}")->fetchColumn());
+        $this->assertSame('pending', (string) $this->connection->query("SELECT status FROM payments WHERE id = {$paymentId}")->fetchColumn());
+        $this->assertSame(1, $this->availableSeats(11));
+        $this->assertSame(0, $this->countRows('tickets'));
     }
 
     public function testVerificationCasLoserReturnsTheWinnersTruthfulTerminalState(): void

@@ -52,14 +52,17 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
     public function findForParticipantEventCurrent(int $participantId, int $eventId): ?array
     {
-        if (!$this->lockRegistration('user_id = :user_id AND event_id = :event_id', [
+        $statement = $this->connection->prepare(
+            $this->participantSelect()
+            . ' WHERE registrations.user_id = :user_id AND registrations.event_id = :event_id LIMIT 1'
+            . $this->lockingClause(),
+        );
+        $statement->execute([
             'user_id' => $participantId,
             'event_id' => $eventId,
-        ])) {
-            return null;
-        }
+        ]);
 
-        return $this->findForParticipantEvent($participantId, $eventId);
+        return $this->rowOrNull($statement->fetch());
     }
 
     public function findForParticipant(int $participantId, int $registrationId): ?array
@@ -78,14 +81,17 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
     public function findForParticipantCurrent(int $participantId, int $registrationId): ?array
     {
-        if (!$this->lockRegistration('id = :registration_id AND user_id = :user_id', [
+        $statement = $this->connection->prepare(
+            $this->participantSelect()
+            . ' WHERE registrations.user_id = :user_id AND registrations.id = :registration_id LIMIT 1'
+            . $this->lockingClause(),
+        );
+        $statement->execute([
             'registration_id' => $registrationId,
             'user_id' => $participantId,
-        ])) {
-            return null;
-        }
+        ]);
 
-        return $this->findForParticipant($participantId, $registrationId);
+        return $this->rowOrNull($statement->fetch());
     }
 
     public function forParticipant(int $participantId): array
@@ -540,17 +546,11 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         return $this->rowOrNull($statement->fetch());
     }
 
-    private function lockRegistration(string $where, array $parameters): bool
+    private function lockingClause(): string
     {
-        $lockingClause = $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
+        return $this->connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql'
             ? ' FOR UPDATE'
             : '';
-        $statement = $this->connection->prepare(
-            "SELECT id FROM registrations WHERE {$where} LIMIT 1" . $lockingClause,
-        );
-        $statement->execute($parameters);
-
-        return $statement->fetchColumn() !== false;
     }
 
     private function consumeSeat(int $eventId): bool
@@ -570,14 +570,16 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
     {
         $statement = $this->connection->prepare(
             'UPDATE events
-             SET available_seats = CASE
-                    WHEN available_seats < capacity THEN available_seats + 1
-                    ELSE capacity
-                 END,
+             SET available_seats = available_seats + 1,
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = :event_id',
+             WHERE id = :event_id
+               AND available_seats < capacity',
         );
         $statement->execute(['event_id' => $eventId]);
+
+        if ($statement->rowCount() !== 1) {
+            throw new RuntimeException('The cancelled event seat could not be restored.');
+        }
     }
 
     private function transactional(callable $operation): mixed

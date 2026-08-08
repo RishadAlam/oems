@@ -61,12 +61,22 @@ final class RegistrationRepositoryTest extends TestCase
     public function testParticipantReadsUseTheAuthenticatedUserIdAndDeterministicOrder(): void
     {
         $registration = $this->repository->findForParticipant(1, 101);
+        $currentById = $this->repository->findForParticipantCurrent(1, 101);
+        $currentByEvent = $this->repository->findForParticipantEventCurrent(1, 10);
 
         $this->assertNotNull($registration);
         $this->assertSame('Eligible Event', $registration['event_title']);
         $this->assertSame('cancelled', $registration['registration_status']);
+        $this->assertNotNull($currentById);
+        $this->assertSame('Eligible Event', $currentById['event_title']);
+        $this->assertSame('cancelled', $currentById['registration_status']);
+        $this->assertSame('REG-CANCELLED', $currentById['registration_number']);
+        $this->assertNotNull($currentByEvent);
+        $this->assertSame($currentById, $currentByEvent);
         $this->assertNull($this->repository->findForParticipant(2, 101));
+        $this->assertNull($this->repository->findForParticipantCurrent(2, 101));
         $this->assertNull($this->repository->findForParticipantEvent(1, 16));
+        $this->assertNull($this->repository->findForParticipantEventCurrent(1, 16));
         $this->assertSame([105, 101], array_column($this->repository->forParticipant(1), 'id'));
     }
 
