@@ -574,6 +574,24 @@ final class RegistrationService
         ]);
     }
 
+    public function canCancel(array $registration, ?array $ticket): bool
+    {
+        $status = (string) ($registration['registration_status'] ?? $registration['status'] ?? '');
+        $startValue = trim((string) ($registration['event_start_date'] ?? ''));
+
+        if (!in_array($status, ['pending', 'confirmed'], true)
+            || $startValue === ''
+            || !empty($ticket['attendance_id'])) {
+            return false;
+        }
+
+        try {
+            return new \DateTimeImmutable($startValue) > new \DateTimeImmutable('now');
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private function truthfulRegistrationResult(array $registration): array
     {
         $registrationId = (int) $registration['id'];

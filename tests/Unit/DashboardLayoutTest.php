@@ -160,6 +160,22 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, 'Find an event'));
     }
 
+    public function testParticipantNavigationIncludesRegistrationsAndTicketsOnlyForParticipants(): void
+    {
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [
+            'summary' => [],
+            'events' => [],
+        ]);
+
+        $this->assertTrue(str_contains($participant, 'href="/participant/registrations"'));
+        $this->assertTrue(str_contains($participant, '>Registrations</span>'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/tickets"'));
+        $this->assertTrue(str_contains($participant, '>Tickets</span>'));
+        $this->assertFalse(str_contains($organizer, 'href="/participant/registrations"'));
+        $this->assertFalse(str_contains($organizer, 'href="/participant/tickets"'));
+    }
+
     public function testOrganizerControllerLoadsAuthenticatedRepositorySummaryAndRecentEvents(): void
     {
         [$controller, $events] = $this->dashboardController('organizer', 10);

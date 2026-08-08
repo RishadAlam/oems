@@ -13,6 +13,7 @@ use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
 use OEMS\Tests\Support\FakeCategoryRepository;
+use OEMS\Tests\Support\FakeRegistrationRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
 
@@ -83,12 +84,15 @@ final class PublicEventControllerTest extends TestCase
 
     private PublicEventController $controller;
 
+    private FakeRegistrationRepository $registrations;
+
     protected function setUp(): void
     {
         $_SESSION = [];
         $session = new Session(false);
         $this->events = new PublicEventRepositorySpy();
         $this->categories = new FakeCategoryRepository();
+        $this->registrations = new FakeRegistrationRepository();
         $this->controller = new PublicEventController(
             new View(base_path('app/Views')),
             $session,
@@ -101,6 +105,7 @@ final class PublicEventControllerTest extends TestCase
             ]),
             $this->events,
             $this->categories,
+            $this->registrations,
         );
     }
 
@@ -182,7 +187,7 @@ final class PublicEventControllerTest extends TestCase
         }
     }
 
-    public function testShowRendersSemanticEventDetailsGalleryAndHonestRegistrationState(): void
+    public function testShowRendersSemanticEventDetailsGalleryAndGuestRegistrationAction(): void
     {
         $event = $this->eventFixture();
         $this->events->events[$event['slug']] = $event;
@@ -204,9 +209,84 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'OEMS Studio'));
         $this->assertTrue(str_contains($body, 'craft'));
         $this->assertTrue(str_contains($body, '120 total places'));
-        $this->assertTrue(str_contains($body, 'Registration opens in Week 3'));
-        $this->assertFalse(str_contains($body, '>Register now<'));
-        $this->assertFalse(str_contains($body, '>Get tickets<'));
+        $this->assertTrue(str_contains($body, 'Register and pay'));
+        $this->assertTrue(str_contains($body, 'href="/login"'));
+        $this->assertFalse(str_contains($body, 'Week 3'));
+    }
+
+    public function testShowUsesTruthfulUnavailableActionsForSoldOutClosedAndEndedEvents(): void
+    {
+        $states = [
+            'sold-out' => ['available_seats' => 0, 'expected' => 'Sold out'],
+            'registration-closed' => ['registration_deadline' => '2026-08-08 18:00:00', 'expected' => 'Registration closed'],
+            'event-ended' => [
+                'start_date' => '2026-08-07 10:00:00',
+                'end_date' => '2026-08-07 12:30:00',
+                'registration_deadline' => '2026-08-06 18:00:00',
+                'expected' => 'Event ended',
+            ],
+        ];
+
+        foreach ($states as $slug => $state) {
+            $expected = $state['expected'];
+            unset($state['expected']);
+            $this->events->events[$slug] = array_merge($this->eventFixture(), $state, ['slug' => $slug]);
+
+            $body = $this->controller->show(
+                Request::create('GET', '/events/' . $slug)->withRouteParameters(['slug' => $slug]),
+            )->body();
+
+            $this->assertTrue(str_contains($body, $expected));
+            $this->assertFalse(str_contains($body, 'href="/participant/events/' . $slug . '/register"'));
+        }
+    }
+
+    public function testShowLinksAuthenticatedParticipantsToCheckoutOrTheirExistingRegistration(): void
+    {
+        $event = $this->eventFixture();
+        $this->events->events[$event['slug']] = $event;
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $users->users[7] = [
+            'id' => 7,
+            'role_id' => 3,
+            'name' => 'Participant',
+            'email' => 'participant@example.test',
+            'password' => 'hash',
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 09:00:00',
+        ];
+        $session->put('auth.user_id', 7);
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, $users),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+        );
+
+        $checkoutBody = $controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        )->body();
+        $this->assertTrue(str_contains($checkoutBody, 'href="/participant/events/future-craft/register"'));
+
+        $this->registrations->registrations[19] = [
+            'id' => 19,
+            'event_id' => 501,
+            'user_id' => 7,
+            'status' => 'pending',
+            'registration_status' => 'pending',
+        ];
+        $existingBody = $controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        )->body();
+
+        $this->assertTrue(str_contains($existingBody, 'View registration'));
+        $this->assertTrue(str_contains($existingBody, 'href="/participant/registrations/19"'));
+        $this->assertFalse(str_contains($existingBody, 'href="/participant/events/future-craft/register"'));
     }
 
     public function testShowRendersCanonicalOpenGraphAndHexEscapedJsonLd(): void

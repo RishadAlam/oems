@@ -40,6 +40,7 @@ final class TicketRepositoryTest extends TestCase
         $this->assertSame(201, $current['id']);
         $this->assertSame('confirmed', $current['registration_status']);
         $this->assertSame('Owned Event', $current['event_title']);
+        $this->assertSame('2026-08-20 10:00:00', $current['event_start_date']);
         $this->assertSame('valid', $current['ticket_status']);
         $this->assertFalse(array_key_exists('qr_payload_hash', $current));
         $this->assertNull($this->repository->findForRegistrationCurrent(999));
@@ -215,7 +216,7 @@ final class TicketRepositoryTest extends TestCase
     private function createSchema(): void
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL)');
-        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, status TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec(
             'CREATE TABLE tickets (
@@ -248,7 +249,7 @@ final class TicketRepositoryTest extends TestCase
     private function seedRows(): void
     {
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (10, 100, 'Organizer One'), (20, 200, 'Organizer Two')");
-        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, status) VALUES (10, 10, 'Owned Event', 'owned-event', 'published'), (20, 20, 'Foreign Event', 'foreign-event', 'published')");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, start_date, status) VALUES (10, 10, 'Owned Event', 'owned-event', '2026-08-20 10:00:00', 'published'), (20, 20, 'Foreign Event', 'foreign-event', '2026-08-21 11:00:00', 'published')");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 10, 1, 'REG-101', 'confirmed'), (102, 10, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed'), (104, 10, 3, 'REG-104', 'confirmed'), (105, 10, 1, 'REG-105', 'confirmed')");
         $this->connection->exec(
             "INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, qr_path, pdf_path, status, issued_at, created_at, updated_at) VALUES

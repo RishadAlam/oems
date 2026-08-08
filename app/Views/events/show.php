@@ -62,7 +62,13 @@
             </section>
             <section class="public-event__registration" aria-labelledby="registration-heading">
                 <span><i class="ph ph-ticket" aria-hidden="true"></i></span>
-                <div><h2 id="registration-heading">Registration opens in Week 3</h2><p>This page is ready for discovery. Booking is not active yet.</p></div>
+                <div>
+                    <h2 id="registration-heading"><?= e($registrationAction['label']) ?></h2>
+                    <p><?= e($registrationAction['description']) ?></p>
+                    <?php if (is_string($registrationAction['href'])): ?>
+                        <a class="button button--primary mt-4 w-full" href="<?= e($registrationAction['href']) ?>"><?= e($registrationAction['label']) ?></a>
+                    <?php endif; ?>
+                </div>
             </section>
         </aside>
     </div>

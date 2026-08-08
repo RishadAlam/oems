@@ -103,6 +103,19 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame(1, $this->countRows('registrations'));
     }
 
+    public function testParticipantCancellationEligibilityUsesLifecycleScheduleAndAttendanceState(): void
+    {
+        $eligible = [
+            'registration_status' => 'confirmed',
+            'event_start_date' => '2099-08-22 10:00:00',
+        ];
+
+        $this->assertTrue($this->service->canCancel($eligible, null));
+        $this->assertFalse($this->service->canCancel(array_merge($eligible, ['registration_status' => 'cancelled']), null));
+        $this->assertFalse($this->service->canCancel(array_merge($eligible, ['event_start_date' => '2000-08-22 10:00:00']), null));
+        $this->assertFalse($this->service->canCancel($eligible, ['attendance_id' => 91]));
+    }
+
     public function testRepositoryEligibilityRejectsUnpublishedInactiveClosedStartedAndFullEvents(): void
     {
         foreach ([12, 13, 14, 15, 16] as $eventId) {

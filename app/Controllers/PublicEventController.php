@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -33,6 +34,7 @@ final class PublicEventController extends Controller
         Config $config,
         private readonly EventRepositoryInterface $events,
         private readonly CategoryRepositoryInterface $categories,
+        private readonly RegistrationRepositoryInterface $registrations,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -115,7 +117,57 @@ final class PublicEventController extends Controller
             'jsonLd' => $this->jsonLd($event, $canonicalUrl, $images),
             'event' => $event,
             'gallery' => $gallery,
+            'registrationAction' => $this->registrationAction($event),
         ]);
+    }
+
+    private function registrationAction(array $event): array
+    {
+        $now = new DateTimeImmutable('now', new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka')));
+        $userId = $this->auth->id();
+
+        if ($userId !== null && $this->auth->hasRole('participant')) {
+            $registration = $this->registrations->findForParticipantEvent($userId, (int) $event['id']);
+            $status = (string) ($registration['registration_status'] ?? $registration['status'] ?? '');
+
+            if ($registration !== null && in_array($status, ['pending', 'confirmed'], true)) {
+                return [
+                    'label' => 'View registration',
+                    'description' => $status === 'confirmed'
+                        ? 'Your place is confirmed.'
+                        : 'Your registration is awaiting payment review.',
+                    'href' => '/participant/registrations/' . (int) $registration['id'],
+                ];
+            }
+        }
+
+        if ($this->date((string) $event['end_date']) <= $now) {
+            return ['label' => 'Event ended', 'description' => 'This event has already ended.', 'href' => null];
+        }
+
+        if ($this->date((string) $event['registration_deadline']) <= $now) {
+            return ['label' => 'Registration closed', 'description' => 'The registration deadline has passed.', 'href' => null];
+        }
+
+        if ((int) ($event['available_seats'] ?? 0) <= 0) {
+            return ['label' => 'Sold out', 'description' => 'No places are currently available.', 'href' => null];
+        }
+
+        $label = (float) ($event['ticket_price'] ?? 0) <= 0 ? 'Register free' : 'Register and pay';
+
+        if ($userId !== null && !$this->auth->hasRole('participant')) {
+            return [
+                'label' => 'Participant account required',
+                'description' => 'Registration is available to participant accounts.',
+                'href' => null,
+            ];
+        }
+
+        return [
+            'label' => $label,
+            'description' => 'Sign in with a participant account to reserve one place.',
+            'href' => $this->auth->guest() ? '/login' : '/participant/events/' . rawurlencode((string) $event['slug']) . '/register',
+        ];
     }
 
     private function filters(Request $request, array $categories, array $cities): array

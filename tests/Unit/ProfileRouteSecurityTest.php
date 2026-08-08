@@ -7,6 +7,7 @@ namespace OEMS\Tests\Unit;
 use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
+use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
@@ -64,7 +65,44 @@ final class ProfileRouteSecurityTest extends TestCase
         $this->assertFalse(array_key_exists(99, $profiles->updates));
     }
 
-    private function profileRouter(?int $authenticatedUserId = null): array
+    public function testParticipantTransactionRoutesRequireAuthenticationAndParticipantRole(): void
+    {
+        $routes = [
+            ['GET', '/participant/events/future-craft/register'],
+            ['POST', '/participant/events/future-craft/register'],
+            ['GET', '/participant/registrations'],
+            ['GET', '/participant/registrations/12'],
+            ['POST', '/participant/registrations/12/cancel'],
+            ['GET', '/participant/tickets'],
+            ['GET', '/participant/tickets/41'],
+            ['GET', '/participant/tickets/41/qr'],
+            ['GET', '/participant/tickets/41/pdf'],
+        ];
+
+        foreach ($routes as [$method, $uri]) {
+            [$guestRouter] = $this->profileRouter();
+            $this->assertSame('/login', $guestRouter->dispatch(Request::create($method, $uri))->header('Location'));
+            [$organizerRouter] = $this->profileRouter(8, 'organizer');
+            $this->assertSame(403, $organizerRouter->dispatch(Request::create($method, $uri))->status());
+        }
+    }
+
+    public function testParticipantMutationsRequireCsrfAndUnsupportedMethodsReturn405(): void
+    {
+        [$router, , $security] = $this->profileRouter(7, 'participant');
+
+        foreach (['/participant/events/future-craft/register', '/participant/registrations/12/cancel'] as $uri) {
+            $blocked = $router->dispatch(Request::create('POST', $uri, input: ['_token' => 'invalid']));
+            $this->assertSame(419, $blocked->status());
+        }
+
+        foreach (['/participant/registrations', '/participant/tickets/41/pdf', '/participant/registrations/12/cancel'] as $uri) {
+            $this->assertSame(405, $router->dispatch(Request::create('PUT', $uri))->status());
+        }
+        $this->assertNotSame('invalid', $security->csrfToken());
+    }
+
+    private function profileRouter(?int $authenticatedUserId = null, string $role = 'participant'): array
     {
         $_SESSION = [];
         $session = new Session(false);
@@ -73,7 +111,7 @@ final class ProfileRouteSecurityTest extends TestCase
         if ($authenticatedUserId !== null) {
             $users->users[$authenticatedUserId] = [
                 'id' => $authenticatedUserId,
-                'role_id' => 3,
+                'role_id' => $role === 'organizer' ? 2 : 3,
                 'name' => 'Profile Owner',
                 'email' => 'owner@example.test',
                 'password' => password_hash('secure-password', PASSWORD_DEFAULT),
@@ -98,6 +136,7 @@ final class ProfileRouteSecurityTest extends TestCase
         $container->instance(ProfileController::class, $controller);
         $router = new Router($container);
         $router->aliasMiddleware('auth', new AuthMiddleware($auth));
+        $router->aliasMiddleware('role', new RoleMiddleware($auth));
         $router->aliasMiddleware('csrf', new CsrfMiddleware($security));
         $registerRoutes = require base_path('routes/web.php');
         $registerRoutes($router);

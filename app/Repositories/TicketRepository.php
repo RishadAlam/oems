@@ -236,6 +236,7 @@ final class TicketRepository implements TicketRepositoryInterface
                        events.id AS event_id,
                        events.title AS event_title,
                        events.slug AS event_slug,
+                       events.start_date AS event_start_date,
                        events.status AS event_status,
                        attendance.id AS attendance_id,
                        attendance.status AS attendance_status,

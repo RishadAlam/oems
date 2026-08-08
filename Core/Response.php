@@ -40,6 +40,11 @@ final class Response
         return new self('', $status, array_merge(['Location' => $location], $headers));
     }
 
+    public static function binary(string $body, int $status = 200, array $headers = []): self
+    {
+        return new self($body, $status, $headers);
+    }
+
     public function body(): string
     {
         return $this->body;

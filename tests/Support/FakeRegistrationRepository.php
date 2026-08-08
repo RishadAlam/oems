@@ -89,11 +89,18 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         }
 
         $id = $this->registrations === [] ? 1 : max(array_keys($this->registrations)) + 1;
+        $event = $this->eligibleEvents[$eventId] ?? [];
         $this->registrations[$id] = array_merge($attributes, [
             'id' => $id,
             'event_id' => $eventId,
             'user_id' => $participantId,
             'status' => $attributes['status'] ?? 'pending',
+            'amount' => (string) ($event['ticket_price'] ?? '0'),
+            'currency' => (string) ($event['currency'] ?? 'BDT'),
+            'event_title' => (string) ($event['title'] ?? 'Event'),
+            'event_slug' => (string) ($event['slug'] ?? ''),
+            'event_start_date' => (string) ($event['start_date'] ?? ''),
+            'registration_deadline' => (string) ($event['registration_deadline'] ?? ''),
             'cancelled_at' => null,
             'cancellation_reason' => null,
         ]);

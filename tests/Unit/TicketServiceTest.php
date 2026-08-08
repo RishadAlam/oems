@@ -186,7 +186,7 @@ final class TicketServiceTest extends TestCase
     private function createSchema(): void
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL)');
-        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, status TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, registration_id INTEGER NOT NULL UNIQUE, ticket_number TEXT NOT NULL UNIQUE, qr_payload_hash TEXT NOT NULL UNIQUE, qr_path TEXT NULL, pdf_path TEXT NULL, status TEXT NOT NULL, issued_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
         $this->connection->exec('CREATE TABLE attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, registration_id INTEGER NOT NULL UNIQUE, ticket_id INTEGER NOT NULL UNIQUE, scanned_by INTEGER NOT NULL, status TEXT NOT NULL, scanned_at TEXT NOT NULL, scanner_ip TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
@@ -195,7 +195,7 @@ final class TicketServiceTest extends TestCase
     private function seedRows(): void
     {
         $this->connection->exec("INSERT INTO organizers (id, user_id) VALUES (1, 2)");
-        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, status) VALUES (5, 1, 'Event One', 'event-one', 'published')");
+        $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, start_date, status) VALUES (5, 1, 'Event One', 'event-one', '2026-08-20 10:00:00', 'published')");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (10, 5, 1, 'REG-10', 'confirmed')");
     }
 }
