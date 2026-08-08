@@ -1,0 +1,18 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OEMS\App\Contracts;
+
+interface PaymentRepositoryInterface
+{
+    public function createForRegistration(int $registrationId, array $attributes): int;
+
+    public function findForRegistration(int $registrationId): ?array;
+
+    public function pendingForAdmin(): array;
+
+    public function findForAdmin(int $paymentId): ?array;
+
+    public function review(int $paymentId, int $administratorId, string $status, ?string $note): ?array;
+}

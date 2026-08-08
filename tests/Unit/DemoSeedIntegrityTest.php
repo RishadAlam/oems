@@ -143,6 +143,21 @@ final class DemoSeedIntegrityTest extends TestCase
         $this->assertFalse(str_contains($this->seed, "'demo/tickets/"));
     }
 
+    public function testDemoTransactionIdentifiersRemainUnique(): void
+    {
+        $paymentReferences = array_map(
+            fn (array $row): string => $this->literal($row[2] ?? ''),
+            $this->insertRows('payments'),
+        );
+        $ticketNumbers = array_map(
+            fn (array $row): string => $this->literal($row[1] ?? ''),
+            $this->insertRows('tickets'),
+        );
+
+        $this->assertSame(count($paymentReferences), count(array_unique($paymentReferences)));
+        $this->assertSame(count($ticketNumbers), count(array_unique($ticketNumbers)));
+    }
+
     private function insertRows(string $table): array
     {
         $pattern = '/INSERT INTO ' . preg_quote($table, '/')

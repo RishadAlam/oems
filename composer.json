@@ -9,7 +9,9 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "ext-pdo": "*",
-        "phpmailer/phpmailer": "^7.0"
+        "endroid/qr-code": "^5.1",
+        "phpmailer/phpmailer": "^7.0",
+        "setasign/fpdf": "^1.9"
     },
     "autoload": {
         "psr-4": {
