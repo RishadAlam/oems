@@ -7,7 +7,10 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\App\Contracts\OrganizerRepositoryInterface;
+use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\ProfileRepositoryInterface;
+use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
@@ -19,6 +22,9 @@ use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\OrganizerRepository;
+use OEMS\App\Repositories\PaymentRepository;
+use OEMS\App\Repositories\RegistrationRepository;
+use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
@@ -125,6 +131,24 @@ $container->singleton(
 $container->singleton(
     OrganizerRepositoryInterface::class,
     static fn (Container $container): OrganizerRepository => new OrganizerRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    RegistrationRepositoryInterface::class,
+    static fn (Container $container): RegistrationRepository => new RegistrationRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    PaymentRepositoryInterface::class,
+    static fn (Container $container): PaymentRepository => new PaymentRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    TicketRepositoryInterface::class,
+    static fn (Container $container): TicketRepository => new TicketRepository(
         $container->get(Database::class)->connection(),
     ),
 );
