@@ -65,3 +65,34 @@
 - `tests/Unit/TransactionUiTest.php`
 
 Unrelated untracked presentation, temporary, documentation, and pnpm artifacts were preserved. No `.env` file was read, changed, or staged.
+
+## Fix Round 1: truthful demo transaction journey
+
+### RED evidence
+
+- `rtk php tests/run.php ParticipantTicketControllerTest`: 5 tests, 1 failure. Ticket detail exposed QR and PDF controls when nullable or unsafe artifacts could not be served.
+- `rtk php tests/run.php ParticipantRegistrationControllerTest`: 11 tests, 2 failures. Paid checkout omitted fictional manual-payment guidance and did not bound stored instructions; the free-flow exclusion already passed.
+- `rtk php tests/run.php PaymentRepositoryTest`: 9 tests, 1 failure. Active method configuration remained an opaque JSON string.
+- `rtk php tests/run.php DemoSeedIntegrityTest`: 13 tests, 3 failures. Paid confirmed registration 009 lacked a payment and ticket, used ticket 008 lacked attendance, and the expected coherent ticket set was incomplete.
+
+### GREEN evidence
+
+- `rtk php tests/run.php ParticipantTicketControllerTest`: 5 tests, 66 assertions, 0 failures. Null, QR-only, PDF-only, fully available, and unsafe artifact states are independent and truthful.
+- `rtk php tests/run.php ParticipantRegistrationControllerTest`: 11 tests, 81 assertions, 0 failures. Paid guidance is escaped and bounded to its safe allowlist; free checkout excludes it and repository-only secrets never render.
+- `rtk php tests/run.php PaymentRepositoryTest`: 9 tests, 78 assertions, 0 failures. Active manual configuration is decoded while inactive methods remain unavailable.
+- `rtk php tests/run.php DemoSeedIntegrityTest`: 13 tests, 121 assertions, 0 failures. Parsed cross-table assertions verify every paid confirmed demo registration has a matching paid payment and ticket, and every used ticket has matching present attendance with a scanner relationship.
+- `rtk php tests/run.php TransactionUiTest`: 10 tests, 62 assertions, 0 failures after the artifact-availability view contract was applied to the direct render fixture.
+- `rtk npm run build:css`: completed successfully with Tailwind CSS v4.3.3.
+- `rtk composer test`: 403 tests, 2,504 assertions, 0 failures on the final tree.
+- `rtk composer check:syntax`: all scanned PHP files reported no syntax errors.
+- `rtk composer validate --strict`: valid.
+- `rtk composer check-platform-reqs`: PHP 8.3 and all required extensions satisfied.
+- `rtk composer audit`: no security vulnerability advisories found.
+- `rtk node --check public/assets/js/app.js` and `rtk git diff --check`: passed with no output.
+- Fix-round string and secret audits found no visible dash glyph regression and no production occurrence of the hostile secret test values; only the assertions that prohibit dash glyphs contain those characters.
+
+### Fix Round 1 independent review
+
+- The independent read-only review found no Critical or Important issues.
+- It verified confined independent QR/PDF availability, bounded and escaped manual-payment guidance with free-flow and secret exclusion, same-amount paid lifecycle relationships, and present attendance scanned by the event's owning organizer.
+- Independent focused verification passed 48 tests and 408 assertions; JavaScript, diff, and compiled-CSS comparison checks were also green.

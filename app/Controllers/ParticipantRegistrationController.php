@@ -78,10 +78,15 @@ final class ParticipantRegistrationController extends Controller
             return $this->redirectWith('/events/' . rawurlencode((string) $event['slug']), 'error', 'This event is not available for registration.');
         }
 
+        $isFree = (float) $event['ticket_price'] <= 0;
+
         return $this->render('participant/registrations/register', [
             'pageTitle' => 'Register for ' . (string) $event['title'],
             'event' => $this->presentEvent($event),
-            'isFree' => (float) $event['ticket_price'] <= 0,
+            'isFree' => $isFree,
+            'manualPayment' => $isFree
+                ? null
+                : $this->manualPaymentPresentation($this->payments->findActiveMethodBySlug('manual')),
         ], 'dashboard');
     }
 
@@ -227,6 +232,28 @@ final class ParticipantRegistrationController extends Controller
             'start_display' => $this->date((string) $event['start_date'])->format('M j, Y, g:i A'),
             'total_display' => $this->currency($amount, (string) ($event['currency'] ?? 'BDT')),
         ]);
+    }
+
+    private function manualPaymentPresentation(?array $method): ?array
+    {
+        if ($method === null) {
+            return null;
+        }
+
+        $configuration = is_array($method['configuration'] ?? null) ? $method['configuration'] : [];
+        $presentation = [
+            'name' => $this->boundedText($method['name'] ?? null, 100),
+            'account_title' => $this->boundedText($configuration['account_title'] ?? null, 120),
+            'account_identifier' => $this->boundedText($configuration['account_identifier'] ?? null, 120),
+            'instructions' => $this->boundedText($configuration['instructions'] ?? null, 500),
+        ];
+
+        return array_filter($presentation, static fn (string $value): bool => $value !== '');
+    }
+
+    private function boundedText(mixed $value, int $limit): string
+    {
+        return is_scalar($value) ? mb_substr(trim((string) $value), 0, $limit) : '';
     }
 
     private function presentRegistration(

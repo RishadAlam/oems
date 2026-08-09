@@ -16,6 +16,10 @@ INSERT INTO payment_methods (name, slug, configuration, is_active, sort_order) V
         JSON_OBJECT(
             'instructions',
             'DEMO ONLY: use a fictional reference such as OEMS-DEMO-REFERENCE-001. Do not send money or enter real account details.',
+            'account_title',
+            'OEMS Demo Payments',
+            'account_identifier',
+            'DEMO-NOT-A-REAL-ACCOUNT',
             'review_mode',
             'administrator_manual_review'
         ),
@@ -348,7 +352,10 @@ INSERT INTO payments (
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-005'), @manual_payment_method_id, 'OEMS-DEMO-PAY-005', 1200.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-09 13:05:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-006'), @free_payment_method_id, 'OEMS-DEMO-PAY-006', 0.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-10 15:05:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-007'), @free_payment_method_id, 'OEMS-DEMO-PAY-007', 0.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-11 16:05:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), @manual_payment_method_id, 'OEMS-DEMO-PAY-008', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-12 17:05:00')
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), @manual_payment_method_id, 'OEMS-DEMO-PAY-008', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-12 17:05:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-009'), @manual_payment_method_id, 'OEMS-DEMO-PAY-009', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 10:05:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-010'), @manual_payment_method_id, 'OEMS-DEMO-PAY-010', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 11:05:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-011'), @manual_payment_method_id, 'OEMS-DEMO-PAY-011', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 12:05:00')
 ON DUPLICATE KEY UPDATE
     registration_id = VALUES(registration_id),
     payment_method_id = VALUES(payment_method_id),
@@ -368,7 +375,10 @@ INSERT INTO tickets (
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-005'), 'OEMS-DEMO-TKT-005', SHA2('OEMS-DEMO-TKT-005', 256), NULL, NULL, 'valid', '2026-07-09 13:06:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-006'), 'OEMS-DEMO-TKT-006', SHA2('OEMS-DEMO-TKT-006', 256), NULL, NULL, 'valid', '2026-07-10 15:06:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-007'), 'OEMS-DEMO-TKT-007', SHA2('OEMS-DEMO-TKT-007', 256), NULL, NULL, 'valid', '2026-07-11 16:06:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), 'OEMS-DEMO-TKT-008', SHA2('OEMS-DEMO-TKT-008', 256), NULL, NULL, 'used', '2026-07-12 17:06:00')
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), 'OEMS-DEMO-TKT-008', SHA2('OEMS-DEMO-TKT-008', 256), NULL, NULL, 'used', '2026-07-12 17:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-009'), 'OEMS-DEMO-TKT-009', SHA2('OEMS-DEMO-TKT-009', 256), NULL, NULL, 'valid', '2026-07-13 10:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-010'), 'OEMS-DEMO-TKT-010', SHA2('OEMS-DEMO-TKT-010', 256), NULL, NULL, 'valid', '2026-07-13 11:06:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-011'), 'OEMS-DEMO-TKT-011', SHA2('OEMS-DEMO-TKT-011', 256), NULL, NULL, 'valid', '2026-07-13 12:06:00')
 ON DUPLICATE KEY UPDATE
     registration_id = VALUES(registration_id),
     qr_payload_hash = VALUES(qr_payload_hash),
@@ -376,6 +386,25 @@ ON DUPLICATE KEY UPDATE
     pdf_path = VALUES(pdf_path),
     status = VALUES(status),
     issued_at = VALUES(issued_at);
+
+INSERT INTO attendance (
+    registration_id, ticket_id, scanned_by, status, scanned_at, scanner_ip
+) VALUES
+    (
+        (SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'),
+        (SELECT id FROM tickets WHERE ticket_number = 'OEMS-DEMO-TKT-008'),
+        @ayesha_user_id,
+        'present',
+        '2026-07-20 18:35:00',
+        '203.0.113.8'
+    )
+ON DUPLICATE KEY UPDATE
+    registration_id = VALUES(registration_id),
+    ticket_id = VALUES(ticket_id),
+    scanned_by = VALUES(scanned_by),
+    status = VALUES(status),
+    scanned_at = VALUES(scanned_at),
+    scanner_ip = VALUES(scanner_ip);
 
 INSERT INTO favorites (user_id, event_id) VALUES
     (@tahmid_user_id, @startup_event_id),

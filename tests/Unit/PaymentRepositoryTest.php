@@ -70,6 +70,19 @@ final class PaymentRepositoryTest extends TestCase
         $this->repository = new PaymentRepository($this->connection);
     }
 
+    public function testActivePaymentMethodDecodesConfigurationAndInactiveMethodIsUnavailable(): void
+    {
+        $method = $this->repository->findActiveMethodBySlug('manual-bank');
+
+        $this->assertNotNull($method);
+        $this->assertSame('Manual Bank', $method['name']);
+        $this->assertSame([
+            'account_title' => 'Example account',
+            'instructions' => 'Use a fictional reference.',
+        ], $method['configuration']);
+        $this->assertNull($this->repository->findActiveMethodBySlug('inactive-manual'));
+    }
+
     public function testCreatePersistsBoundedPaymentDataAndReferencesAreGloballyUnique(): void
     {
         $paymentId = $this->repository->createForRegistration(102, [
@@ -273,7 +286,7 @@ final class PaymentRepositoryTest extends TestCase
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL)');
-        $this->connection->exec('CREATE TABLE payment_methods (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE payment_methods (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL, configuration TEXT NULL, is_active INTEGER NOT NULL)');
         $this->connection->exec(
             'CREATE TABLE payments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -303,7 +316,9 @@ final class PaymentRepositoryTest extends TestCase
         $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug) VALUES (20, 10, 'Transaction Event', 'transaction-event')");
         $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, deleted_at) VALUES (21, 10, 'Deleted Event', 'deleted-event', '2026-08-05 00:00:00')");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status) VALUES (101, 20, 1, 'REG-101', 'pending'), (102, 20, 1, 'REG-102', 'pending'), (103, 20, 2, 'REG-103', 'confirmed'), (104, 21, 1, 'REG-104', 'confirmed'), (105, 20, 4, 'REG-105', 'confirmed')");
-        $this->connection->exec("INSERT INTO payment_methods (id, name, slug) VALUES (1, 'Manual Bank', 'manual-bank')");
+        $this->connection->exec("INSERT INTO payment_methods (id, name, slug, configuration, is_active) VALUES
+            (1, 'Manual Bank', 'manual-bank', '{\"account_title\":\"Example account\",\"instructions\":\"Use a fictional reference.\"}', 1),
+            (2, 'Inactive Manual', 'inactive-manual', '{}', 0)");
         $this->connection->exec(
             "INSERT INTO payments (id, registration_id, payment_method_id, transaction_reference, amount, currency, status, gateway_response, paid_at, reviewed_by, reviewed_at, review_note, created_at, updated_at) VALUES
                 (1, 101, 1, 'REF-PENDING-OLD', 450, 'BDT', 'pending', '{\"channel\":\"bank\"}', NULL, NULL, NULL, NULL, '2026-08-01 09:00:00', '2026-08-01 09:00:00'),

@@ -66,7 +66,18 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $event = $this->eventFixture();
         $this->events->events[31] = $event;
         $this->registrations->eligibleEvents[31] = $event;
-        $this->payments->methods['manual'] = ['id' => 2, 'slug' => 'manual', 'is_active' => 1];
+        $this->payments->methods['manual'] = [
+            'id' => 2,
+            'name' => 'Manual <Demo> payment',
+            'slug' => 'manual',
+            'is_active' => 1,
+            'configuration' => [
+                'account_title' => 'OEMS <Demo> Payments',
+                'account_identifier' => 'DEMO-<NOT-REAL>',
+                'instructions' => 'DEMO ONLY: use a fictional reference. Do not send money.',
+                'gateway_secret' => 'PRIVATE-GATEWAY-SECRET',
+            ],
+        ];
         $this->payments->methods['free'] = ['id' => 1, 'slug' => 'free', 'is_active' => 1];
         $connection = new PDO('sqlite::memory:');
         $this->ticketRoot = sys_get_temp_dir() . '/oems-controller-ticket-' . bin2hex(random_bytes(6));
@@ -122,6 +133,13 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'name="channel"'));
         $this->assertTrue(str_contains($body, 'name="transaction_reference"'));
         $this->assertTrue(str_contains($body, 'maxlength="190"'));
+        $this->assertTrue(str_contains($body, 'Manual &lt;Demo&gt; payment'));
+        $this->assertTrue(str_contains($body, 'OEMS &lt;Demo&gt; Payments'));
+        $this->assertTrue(str_contains($body, 'DEMO-&lt;NOT-REAL&gt;'));
+        $this->assertTrue(str_contains($body, 'DEMO ONLY: use a fictional reference. Do not send money.'));
+        $this->assertTrue(str_contains($body, 'aria-labelledby="manual-payment-guidance-heading"'));
+        $this->assertFalse(str_contains($body, 'PRIVATE-GATEWAY-SECRET'));
+        $this->assertFalse(str_contains($body, 'gateway_secret'));
         $this->assertFalse(str_contains($body, 'card_number'));
         $this->assertFalse(str_contains($body, 'account_number'));
     }
@@ -135,8 +153,21 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $body = $this->controller()->create($this->slugged('GET', 'community-meetup'))->body();
 
         $this->assertTrue(str_contains($body, 'Confirm free registration'));
+        $this->assertFalse(str_contains($body, 'manual-payment-guidance-heading'));
+        $this->assertFalse(str_contains($body, 'DEMO ONLY'));
         $this->assertFalse(str_contains($body, 'name="channel"'));
         $this->assertFalse(str_contains($body, 'name="transaction_reference"'));
+    }
+
+    public function testPaidCheckoutBoundsManualInstructionsBeforeRendering(): void
+    {
+        $this->payments->methods['manual']['configuration']['instructions'] = str_repeat('A', 500)
+            . 'PRIVATE-INSTRUCTION-TAIL';
+
+        $body = $this->controller()->create($this->slugged('GET', 'future-craft'))->body();
+
+        $this->assertFalse(str_contains($body, 'PRIVATE-INSTRUCTION-TAIL'));
+        $this->assertTrue(str_contains($body, str_repeat('A', 500)));
     }
 
     public function testPaidSubmissionUsesAuthenticatedOwnerAndDatabaseAmount(): void

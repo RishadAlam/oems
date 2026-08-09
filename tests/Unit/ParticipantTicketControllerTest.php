@@ -50,6 +50,9 @@ final class ParticipantTicketControllerTest extends TestCase
             42 => $this->ticketFixture(42, 88, 'Foreign event'),
             43 => array_merge($this->ticketFixture(43, 7, 'Missing artifact'), ['qr_path' => 'uploads/tickets/missing.png']),
             44 => array_merge($this->ticketFixture(44, 7, 'Confined artifact'), ['pdf_path' => '../owned-ticket.pdf']),
+            45 => array_merge($this->ticketFixture(45, 7, '<script>Demo ticket</script>'), ['qr_path' => null, 'pdf_path' => null]),
+            46 => array_merge($this->ticketFixture(46, 7, 'QR only'), ['pdf_path' => null]),
+            47 => array_merge($this->ticketFixture(47, 7, 'PDF only'), ['qr_path' => null]),
         ];
 
         if (class_exists(ParticipantTicketController::class)) {
@@ -134,6 +137,38 @@ final class ParticipantTicketControllerTest extends TestCase
             $this->assertSame(404, $response->status());
             $this->assertFalse(str_contains($response->body(), $this->ticketRoot));
         }
+    }
+
+    public function testTicketDetailOffersOnlyIndependentlyAvailableSafeArtifacts(): void
+    {
+        $none = $this->controller()->show($this->routed(45))->body();
+        $qrOnly = $this->controller()->show($this->routed(46))->body();
+        $pdfOnly = $this->controller()->show($this->routed(47))->body();
+        $both = $this->controller()->show($this->routed(41))->body();
+        $missing = $this->controller()->show($this->routed(43))->body();
+
+        $this->assertTrue(str_contains($none, '&lt;script&gt;Demo ticket&lt;/script&gt;'));
+        $this->assertFalse(str_contains($none, '<script>Demo ticket</script>'));
+        $this->assertFalse(str_contains($none, '/participant/tickets/45/qr'));
+        $this->assertFalse(str_contains($none, '/participant/tickets/45/pdf'));
+        $this->assertTrue(str_contains($none, 'aria-label="QR code unavailable"'));
+        $this->assertTrue(str_contains($none, 'aria-label="PDF ticket unavailable"'));
+
+        $this->assertTrue(str_contains($qrOnly, 'src="/participant/tickets/46/qr"'));
+        $this->assertFalse(str_contains($qrOnly, '/participant/tickets/46/pdf'));
+        $this->assertFalse(str_contains($qrOnly, 'aria-label="QR code unavailable"'));
+        $this->assertTrue(str_contains($qrOnly, 'aria-label="PDF ticket unavailable"'));
+
+        $this->assertFalse(str_contains($pdfOnly, '/participant/tickets/47/qr'));
+        $this->assertTrue(str_contains($pdfOnly, 'href="/participant/tickets/47/pdf"'));
+        $this->assertTrue(str_contains($pdfOnly, 'aria-label="QR code unavailable"'));
+        $this->assertFalse(str_contains($pdfOnly, 'aria-label="PDF ticket unavailable"'));
+
+        $this->assertTrue(str_contains($both, 'src="/participant/tickets/41/qr"'));
+        $this->assertTrue(str_contains($both, 'href="/participant/tickets/41/pdf"'));
+        $this->assertFalse(str_contains($both, 'artifact unavailable'));
+        $this->assertFalse(str_contains($missing, '/participant/tickets/43/qr'));
+        $this->assertTrue(str_contains($missing, 'aria-label="QR code unavailable"'));
     }
 
     private function controller(): ParticipantTicketController

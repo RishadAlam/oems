@@ -29,6 +29,20 @@ $described = static function (string $field, string $help, array $errors): strin
             <div class="form-alert mt-5" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($error) ?></span></div>
         <?php endif; ?>
 
+        <?php if (!$isFree && is_array($manualPayment)): ?>
+            <aside class="transaction-note mt-5" aria-labelledby="manual-payment-guidance-heading">
+                <div class="transaction-note__icon"><i class="ph ph-info" aria-hidden="true"></i></div>
+                <div>
+                    <h3 id="manual-payment-guidance-heading">Fictional demo payment guidance</h3>
+                    <p>This method is for local product demonstration only. Do not send money or enter real account credentials.</p>
+                    <?php if (!empty($manualPayment['name'])): ?><p><strong>Method:</strong> <?= e($manualPayment['name']) ?></p><?php endif; ?>
+                    <?php if (!empty($manualPayment['account_title'])): ?><p><strong>Account title:</strong> <?= e($manualPayment['account_title']) ?></p><?php endif; ?>
+                    <?php if (!empty($manualPayment['account_identifier'])): ?><p><strong>Demo identifier:</strong> <?= e($manualPayment['account_identifier']) ?></p><?php endif; ?>
+                    <?php if (!empty($manualPayment['instructions'])): ?><p><?= e($manualPayment['instructions']) ?></p><?php endif; ?>
+                </div>
+            </aside>
+        <?php endif; ?>
+
         <form class="form-stack mt-6" action="/participant/events/<?= e($event['slug']) ?>/register" method="post" novalidate>
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
             <?php if (!$isFree): ?>

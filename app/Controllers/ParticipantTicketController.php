@@ -41,7 +41,7 @@ final class ParticipantTicketController extends Controller
 
         return $this->render('participant/tickets/index', [
             'pageTitle' => 'My tickets',
-            'tickets' => array_map($this->presentTicket(...), $this->tickets->forParticipant($userId)),
+            'tickets' => array_map(fn (array $ticket): array => $this->presentTicket($ticket), $this->tickets->forParticipant($userId)),
         ], 'dashboard');
     }
 
@@ -55,7 +55,7 @@ final class ParticipantTicketController extends Controller
 
         return $this->render('participant/tickets/show', [
             'pageTitle' => 'Ticket ' . (string) $ticket['ticket_number'],
-            'ticket' => $this->presentTicket($ticket),
+            'ticket' => $this->presentTicket($ticket, true),
         ], 'dashboard');
     }
 
@@ -110,16 +110,30 @@ final class ParticipantTicketController extends Controller
         return $id === null || $userId === null ? null : $this->tickets->findForParticipant($userId, $id);
     }
 
-    private function presentTicket(array $ticket): array
+    private function presentTicket(array $ticket, bool $includeArtifactAvailability = false): array
     {
         $issued = trim((string) ($ticket['issued_at'] ?? ''));
         $starts = trim((string) ($ticket['event_start_date'] ?? ''));
 
-        return array_merge($ticket, [
+        $presentation = [
             'ticket_status' => (string) ($ticket['ticket_status'] ?? $ticket['status'] ?? 'valid'),
             'issued_display' => $issued === '' ? 'Issue date unavailable' : $this->date($issued)->format('M j, Y, g:i A'),
             'event_start_display' => $starts === '' ? 'Schedule unavailable' : $this->date($starts)->format('M j, Y, g:i A'),
-        ]);
+        ];
+
+        if ($includeArtifactAvailability) {
+            $presentation['has_qr_artifact'] = $this->hasArtifact($ticket['qr_path'] ?? null);
+            $presentation['has_pdf_artifact'] = $this->hasArtifact($ticket['pdf_path'] ?? null);
+        }
+
+        return array_merge($ticket, $presentation);
+    }
+
+    private function hasArtifact(mixed $path): bool
+    {
+        return is_string($path)
+            && trim($path) !== ''
+            && $this->artifacts->resolvePublicPath($path) !== null;
     }
 
     private function positiveId(mixed $value): ?int

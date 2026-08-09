@@ -10,6 +10,9 @@ $statusLabel = match ($status) {
     'cancelled' => 'Cancelled',
     default => 'Valid',
 };
+$canUseArtifacts = $status !== 'cancelled';
+$hasQr = $canUseArtifacts && !empty($ticket['has_qr_artifact']);
+$hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
 ?>
 <header class="dashboard-page-header">
     <div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span><?= e($ticket['ticket_number']) ?></span></p><h1><?= e($ticket['event_title']) ?></h1><p><?= e($statusCopy) ?></p></div>
@@ -19,9 +22,17 @@ $statusLabel = match ($status) {
 <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] lg:items-start">
     <section class="ticket-panel dashboard-panel text-center" aria-labelledby="ticket-code-heading">
         <h2 id="ticket-code-heading" class="text-xl font-bold">Check-in code</h2>
-        <?php if ($status !== 'cancelled'): ?><div class="qr-frame"><img src="/participant/tickets/<?= e($ticket['id']) ?>/qr" alt="QR code for ticket <?= e($ticket['ticket_number']) ?>" width="280" height="280"></div><?php endif; ?>
+        <?php if ($hasQr): ?>
+            <div class="qr-frame"><img src="/participant/tickets/<?= e($ticket['id']) ?>/qr" alt="QR code for ticket <?= e($ticket['ticket_number']) ?>" width="280" height="280"></div>
+        <?php elseif ($canUseArtifacts): ?>
+            <div class="ticket-artifact-unavailable mt-5" role="status" aria-label="QR code unavailable"><i class="ph ph-qr-code" aria-hidden="true"></i><p>The QR code is not available for this ticket. Use the printed ticket number at check-in.</p></div>
+        <?php endif; ?>
         <p class="mt-4 break-all text-sm font-semibold"><?= e($ticket['ticket_number']) ?></p>
-        <?php if ($status !== 'cancelled'): ?><a class="button button--primary mt-5 w-full" href="/participant/tickets/<?= e($ticket['id']) ?>/pdf"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download PDF ticket</span></a><?php endif; ?>
+        <?php if ($hasPdf): ?>
+            <a class="button button--primary mt-5 w-full" href="/participant/tickets/<?= e($ticket['id']) ?>/pdf"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download PDF ticket</span></a>
+        <?php elseif ($canUseArtifacts): ?>
+            <p class="mt-5 text-sm text-muted" role="status" aria-label="PDF ticket unavailable">The PDF download is not available. Keep the ticket number above for check-in.</p>
+        <?php endif; ?>
     </section>
 
     <section class="dashboard-panel" aria-labelledby="ticket-details-heading">

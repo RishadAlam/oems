@@ -94,6 +94,8 @@ final class TransactionUiTest extends TestCase
                 'event_start_display' => 'August 8, 2026 at 10:00 AM',
                 'registration_number' => 'OEMS-REG-012',
                 'issued_display' => 'August 1, 2026',
+                'has_qr_artifact' => true,
+                'has_pdf_artifact' => true,
             ],
         ]);
 

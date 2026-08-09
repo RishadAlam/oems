@@ -87,6 +87,10 @@ INSERT INTO payment_methods (name, slug, configuration, is_active, sort_order) V
         JSON_OBJECT(
             'instructions',
             'DEMO ONLY: use a fictional reference such as OEMS-DEMO-REFERENCE-001. Do not send money or enter real account details.',
+            'account_title',
+            'OEMS Demo Payments',
+            'account_identifier',
+            'DEMO-NOT-A-REAL-ACCOUNT',
             'review_mode',
             'administrator_manual_review'
         ),

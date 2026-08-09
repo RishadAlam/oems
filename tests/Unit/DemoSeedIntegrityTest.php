@@ -214,11 +214,65 @@ final class DemoSeedIntegrityTest extends TestCase
         }
     }
 
+    public function testPaidConfirmedRegistrationsHavePaidPaymentsAndTickets(): void
+    {
+        $payments = [];
+        foreach ($this->insertRows('payments') as $row) {
+            $payments[$this->selectedIdentifier($row[0] ?? '', 'registration_number')] = $row;
+        }
+
+        $tickets = [];
+        foreach ($this->insertRows('tickets') as $row) {
+            $tickets[$this->selectedIdentifier($row[0] ?? '', 'registration_number')] = $row;
+        }
+
+        foreach ($this->insertRows('registrations') as $registration) {
+            $number = $this->literal($registration[2] ?? '');
+            $confirmed = $this->literal($registration[3] ?? '') === 'confirmed';
+            $paid = (float) ($registration[4] ?? 0) > 0;
+            if (!$confirmed || !$paid) {
+                continue;
+            }
+
+            $this->assertTrue(isset($payments[$number]), "{$number} must have a payment.");
+            $this->assertSame('paid', $this->literal($payments[$number][5] ?? ''));
+            $this->assertSame((float) ($registration[4] ?? 0), (float) ($payments[$number][3] ?? -1));
+            $this->assertTrue(isset($tickets[$number]), "{$number} must have a ticket.");
+            $this->assertTrue(in_array($this->literal($tickets[$number][5] ?? ''), ['valid', 'used'], true));
+        }
+    }
+
+    public function testEveryUsedDemoTicketHasMatchingAttendance(): void
+    {
+        $attendance = [];
+        foreach ($this->insertRows('attendance') as $row) {
+            $registrationNumber = $this->selectedIdentifier($row[0] ?? '', 'registration_number');
+            $ticketNumber = $this->selectedIdentifier($row[1] ?? '', 'ticket_number');
+            $attendance[$registrationNumber . ':' . $ticketNumber] = $row;
+        }
+
+        foreach ($this->insertRows('tickets') as $ticket) {
+            if ($this->literal($ticket[5] ?? '') !== 'used') {
+                continue;
+            }
+
+            $registrationNumber = $this->selectedIdentifier($ticket[0] ?? '', 'registration_number');
+            $ticketNumber = $this->literal($ticket[1] ?? '');
+            $this->assertTrue(
+                isset($attendance[$registrationNumber . ':' . $ticketNumber]),
+                "Used ticket {$ticketNumber} must have matching attendance.",
+            );
+            $attendanceRow = $attendance[$registrationNumber . ':' . $ticketNumber] ?? [];
+            $this->assertSame('present', $this->literal($attendanceRow[3] ?? ''));
+            $this->assertTrue(str_starts_with((string) ($attendanceRow[2] ?? ''), '@'));
+        }
+    }
+
     public function testFutureTicketRowsDoNotClaimGeneratedMediaFiles(): void
     {
         $ticketRows = $this->insertRows('tickets');
 
-        $this->assertSame(8, count($ticketRows));
+        $this->assertSame(11, count($ticketRows));
 
         foreach ($ticketRows as $row) {
             $this->assertSame('NULL', $row[3] ?? null);
@@ -333,6 +387,21 @@ final class DemoSeedIntegrityTest extends TestCase
     private function literal(string $value): string
     {
         return trim($value, "' \t\n\r\0\x0B");
+    }
+
+    private function selectedIdentifier(string $expression, string $column): string
+    {
+        $matched = preg_match(
+            "/SELECT id FROM [a-z_]+ WHERE " . preg_quote($column, '/') . " = '([^']+)'/",
+            $expression,
+            $matches,
+        );
+
+        if ($matched !== 1) {
+            throw new RuntimeException("Unable to parse selected {$column}.");
+        }
+
+        return $matches[1];
     }
 
     private function eventVariableForSlug(string $slug): string

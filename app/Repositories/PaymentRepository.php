@@ -32,7 +32,22 @@ final class PaymentRepository implements PaymentRepositoryInterface
         $statement->execute(['slug' => $slug, 'is_active' => 1]);
         $method = $statement->fetch();
 
-        return is_array($method) ? $method : null;
+        if (!is_array($method)) {
+            return null;
+        }
+
+        $configuration = [];
+        if (is_string($method['configuration'] ?? null) && trim((string) $method['configuration']) !== '') {
+            try {
+                $decoded = json_decode((string) $method['configuration'], true, 16, JSON_THROW_ON_ERROR);
+                $configuration = is_array($decoded) ? $decoded : [];
+            } catch (JsonException) {
+                $configuration = [];
+            }
+        }
+        $method['configuration'] = $configuration;
+
+        return $method;
     }
 
     public function createForRegistration(int $registrationId, array $attributes): int

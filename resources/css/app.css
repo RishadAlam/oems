@@ -1176,6 +1176,30 @@
         @apply aspect-square w-full;
     }
 
+    .ticket-artifact-unavailable {
+        @apply mx-auto grid min-h-44 w-full max-w-[312px] place-items-center gap-2 rounded-[18px] border border-dashed border-[var(--transaction-rail)] bg-[var(--surface-soft)] p-5 text-sm leading-6 text-[var(--ink-muted)];
+    }
+
+    .ticket-artifact-unavailable > .ph {
+        @apply text-4xl text-[var(--accent)];
+    }
+
+    .transaction-note {
+        @apply flex items-start gap-3 rounded-[12px] border border-[color-mix(in_srgb,var(--accent)_30%,var(--line))] bg-[var(--accent-soft)] p-4 text-sm leading-6;
+    }
+
+    .transaction-note__icon {
+        @apply grid size-9 shrink-0 place-items-center rounded-[10px] bg-[var(--surface-raised)] text-xl text-[var(--accent)];
+    }
+
+    .transaction-note h3 {
+        @apply font-bold text-[var(--ink)];
+    }
+
+    .transaction-note p {
+        @apply mt-1 text-[var(--ink-muted)];
+    }
+
     .operations-table {
         @apply min-w-[760px];
     }
