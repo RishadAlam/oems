@@ -32,6 +32,8 @@ final class StreamHttpClient implements HttpClientInterface
                 'header' => implode("\r\n", $lines),
                 'timeout' => $timeoutSeconds,
                 'ignore_errors' => true,
+                'follow_location' => 0,
+                'max_redirects' => 0,
             ],
             'ssl' => [
                 'verify_peer' => true,
@@ -66,12 +68,14 @@ final class StreamHttpClient implements HttpClientInterface
             return 0;
         }
 
+        $status = 0;
+
         foreach ($headers as $header) {
             if (is_string($header) && preg_match('/^HTTP\/\S+\s+(\d{3})\b/', $header, $match) === 1) {
-                return (int) $match[1];
+                $status = (int) $match[1];
             }
         }
 
-        return 0;
+        return $status;
     }
 }

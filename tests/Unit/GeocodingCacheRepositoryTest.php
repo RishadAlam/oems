@@ -87,4 +87,71 @@ final class GeocodingCacheRepositoryTest extends TestCase
 
         unlink($path);
     }
+
+    public function testDecodedCacheValuesMustMatchTheBoundedVenueResultSchema(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'oems-geocode-log-');
+        $this->assertNotNull($path);
+        $repository = new GeocodingCacheRepository($this->connection, new Logger($path));
+        $now = new DateTimeImmutable('2026-08-09 12:00:00');
+        $hash = hash('sha256', 'Private venue address');
+
+        foreach ([
+            '{}',
+            '"scalar"',
+            '[["nested"]]',
+            json_encode([['label' => str_repeat('L', 256), 'latitude' => '23.8', 'longitude' => '90.4']], JSON_THROW_ON_ERROR),
+            json_encode([['label' => 'Outside range', 'latitude' => '91', 'longitude' => '90.4']], JSON_THROW_ON_ERROR),
+        ] as $response) {
+            $this->connection->prepare(
+                'INSERT INTO geocoding_cache (query_hash, normalized_query, provider, response_json, expires_at)
+                 VALUES (:hash, :query, :provider, :response, :expires)
+                 ON CONFLICT(query_hash) DO UPDATE SET response_json = excluded.response_json',
+            )->execute([
+                'hash' => $hash,
+                'query' => 'Private venue address',
+                'provider' => 'nominatim',
+                'response' => $response,
+                'expires' => '2026-09-09 12:00:00',
+            ]);
+
+            $this->assertNull($repository->findFresh($hash, $now));
+        }
+
+        $log = file_get_contents($path);
+        $this->assertTrue(is_string($log) && str_contains($log, $hash));
+        $this->assertFalse(str_contains((string) $log, 'Private venue address'));
+        unlink($path);
+    }
+
+    public function testFreshCacheDeduplicatesCoordinatesAndCapsValidResultsAtFive(): void
+    {
+        $hash = hash('sha256', 'dhaka venues');
+        $results = [
+            ['label' => 'First', 'latitude' => '23.8', 'longitude' => '90.4'],
+            ['label' => 'Duplicate', 'latitude' => '23.8000', 'longitude' => '90.4000'],
+            ['label' => 'Second', 'latitude' => '23.9', 'longitude' => '90.5'],
+            ['label' => 'Third', 'latitude' => '24.0', 'longitude' => '90.6'],
+            ['label' => 'Fourth', 'latitude' => '24.1', 'longitude' => '90.7'],
+            ['label' => 'Fifth', 'latitude' => '24.2', 'longitude' => '90.8'],
+            ['label' => 'Sixth', 'latitude' => '24.3', 'longitude' => '90.9'],
+        ];
+        $this->connection->prepare(
+            'INSERT INTO geocoding_cache (query_hash, normalized_query, provider, response_json, expires_at)
+             VALUES (:hash, :query, :provider, :response, :expires)',
+        )->execute([
+            'hash' => $hash,
+            'query' => 'dhaka venues',
+            'provider' => 'nominatim',
+            'response' => json_encode($results, JSON_THROW_ON_ERROR),
+            'expires' => '2026-09-09 12:00:00',
+        ]);
+
+        $fresh = (new GeocodingCacheRepository($this->connection))->findFresh($hash, new DateTimeImmutable('2026-08-09 12:00:00'));
+
+        $this->assertNotNull($fresh);
+        $this->assertSame(5, count($fresh['results']));
+        $this->assertSame('First', $fresh['results'][0]['label']);
+        $this->assertSame('Fifth', $fresh['results'][4]['label']);
+    }
 }

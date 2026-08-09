@@ -8,14 +8,13 @@ use InvalidArgumentException;
 use JsonException;
 use OEMS\App\Contracts\GeocoderInterface;
 use OEMS\App\Contracts\HttpClientInterface;
+use OEMS\App\Support\GeocodingResultNormalizer;
 use RuntimeException;
 use UnexpectedValueException;
 
 final class NominatimGeocoder implements GeocoderInterface
 {
     private const MAX_RESULTS = 5;
-
-    private const MAX_LABEL_LENGTH = 255;
 
     public function __construct(
         private readonly HttpClientInterface $http,
@@ -58,43 +57,7 @@ final class NominatimGeocoder implements GeocoderInterface
             throw new UnexpectedValueException('Geocoding provider returned an invalid response shape.');
         }
 
-        $results = [];
-        $seenCoordinates = [];
-
-        foreach ($payload as $place) {
-            if (!is_array($place)) {
-                continue;
-            }
-
-            $label = $place['display_name'] ?? null;
-            $latitude = $place['lat'] ?? null;
-            $longitude = $place['lon'] ?? null;
-
-            if (!is_string($label) || trim($label) === '' || !$this->validCoordinate($latitude, -90, 90) || !$this->validCoordinate($longitude, -180, 180)) {
-                continue;
-            }
-
-            $latitude = trim((string) $latitude);
-            $longitude = trim((string) $longitude);
-            $coordinateKey = number_format((float) $latitude, 7, '.', '') . ':' . number_format((float) $longitude, 7, '.', '');
-
-            if (isset($seenCoordinates[$coordinateKey])) {
-                continue;
-            }
-
-            $seenCoordinates[$coordinateKey] = true;
-            $results[] = [
-                'label' => mb_substr(trim($label), 0, self::MAX_LABEL_LENGTH),
-                'latitude' => $latitude,
-                'longitude' => $longitude,
-            ];
-
-            if (count($results) >= min(self::MAX_RESULTS, max(1, $limit))) {
-                break;
-            }
-        }
-
-        return $results;
+        return GeocodingResultNormalizer::providerResults($payload, min(self::MAX_RESULTS, max(1, $limit)));
     }
 
     private function requestUserAgent(): string
@@ -105,8 +68,4 @@ final class NominatimGeocoder implements GeocoderInterface
         return $email === '' ? $userAgent : $userAgent . ' (' . $email . ')';
     }
 
-    private function validCoordinate(mixed $value, float $minimum, float $maximum): bool
-    {
-        return is_numeric($value) && is_finite((float) $value) && (float) $value >= $minimum && (float) $value <= $maximum;
-    }
 }

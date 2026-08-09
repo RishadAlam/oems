@@ -7,6 +7,7 @@ namespace OEMS\App\Repositories;
 use DateTimeImmutable;
 use JsonException;
 use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
+use OEMS\App\Support\GeocodingResultNormalizer;
 use OEMS\Core\Logger;
 use PDO;
 
@@ -36,15 +37,25 @@ final class GeocodingCacheRepository implements GeocodingCacheRepositoryInterfac
             return null;
         }
 
+        $responseJson = (string) $row['response_json'];
+
+        if (!str_starts_with(ltrim($responseJson), '[')) {
+            $this->logMalformedCache($queryHash);
+
+            return null;
+        }
+
         try {
-            $results = json_decode((string) $row['response_json'], true, 512, JSON_THROW_ON_ERROR);
+            $results = json_decode($responseJson, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             $this->logMalformedCache($queryHash);
 
             return null;
         }
 
-        if (!is_array($results)) {
+        $results = GeocodingResultNormalizer::cachedResults($results);
+
+        if ($results === null) {
             $this->logMalformedCache($queryHash);
 
             return null;

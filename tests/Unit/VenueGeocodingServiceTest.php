@@ -19,6 +19,8 @@ final class VenueGeocodingServiceTest extends TestCase
 {
     private PDO $connection;
 
+    private string $throttlePath;
+
     protected function setUp(): void
     {
         $this->connection = new PDO('sqlite::memory:');
@@ -32,6 +34,14 @@ final class VenueGeocodingServiceTest extends TestCase
                 expires_at TEXT NOT NULL
             )',
         );
+        $this->throttlePath = (string) tempnam(sys_get_temp_dir(), 'oems-geocode-throttle-');
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_file($this->throttlePath)) {
+            unlink($this->throttlePath);
+        }
     }
 
     public function testExplicitSearchNormalizesCachesBuildsProviderUrlAndReturnsBoundedResults(): void
@@ -130,6 +140,67 @@ final class VenueGeocodingServiceTest extends TestCase
         $this->assertTrue(microtime(true) - $startedAt >= 0.9, 'Provider calls must be spaced by one second.');
     }
 
+    public function testSharedProviderThrottleSpacesNearSimultaneousSeparateServiceInstances(): void
+    {
+        $throttlePath = tempnam(sys_get_temp_dir(), 'oems-geocode-throttle-');
+        $this->assertNotNull($throttlePath);
+        $now = 1_000.0;
+        $delays = [];
+        $clock = static function () use (&$now): float {
+            return $now;
+        };
+        $sleeper = static function (float $seconds) use (&$now, &$delays): void {
+            $delays[] = $seconds;
+            $now += $seconds;
+        };
+        $first = $this->service(
+            new FakeHttpClient(200, '[{"display_name":"First","lat":"23.8","lon":"90.4"}]'),
+            null,
+            $throttlePath,
+            $clock,
+            $sleeper,
+        );
+        $second = $this->service(
+            new FakeHttpClient(200, '[{"display_name":"Second","lat":"23.9","lon":"90.5"}]'),
+            null,
+            $throttlePath,
+            $clock,
+            $sleeper,
+        );
+
+        $first->search('First venue');
+        $second->search('Second venue');
+
+        $this->assertSame([1.0], $delays);
+        unlink($throttlePath);
+    }
+
+    public function testMalformedFreshCacheMissesThenRepopulatesFromTheProvider(): void
+    {
+        $query = 'Dhaka venue';
+        $this->connection->prepare(
+            'INSERT INTO geocoding_cache (query_hash, normalized_query, provider, response_json, expires_at)
+             VALUES (:hash, :query, :provider, :response, :expires)',
+        )->execute([
+            'hash' => hash('sha256', $query),
+            'query' => $query,
+            'provider' => 'OpenStreetMap Nominatim',
+            'response' => json_encode([[
+                'label' => str_repeat('L', 256),
+                'latitude' => '23.8',
+                'longitude' => '90.4',
+            ]], JSON_THROW_ON_ERROR),
+            'expires' => '2026-09-09 12:00:00',
+        ]);
+        $http = new FakeHttpClient(200, '[{"display_name":"Fresh venue","lat":"23.8","lon":"90.4"}]');
+
+        $result = $this->service($http)->search($query);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('Fresh venue', $result['results'][0]['label']);
+        $this->assertSame(1, $http->calls);
+    }
+
     public function testNonHttpsEndpointIsRejected(): void
     {
         try {
@@ -160,13 +231,22 @@ final class VenueGeocodingServiceTest extends TestCase
         unlink($path);
     }
 
-    private function service(FakeHttpClient $http, ?Logger $logger = null): VenueGeocodingService
+    private function service(
+        FakeHttpClient $http,
+        ?Logger $logger = null,
+        ?string $throttlePath = null,
+        ?\Closure $clock = null,
+        ?\Closure $sleeper = null,
+    ): VenueGeocodingService
     {
         return new VenueGeocodingService(
             new GeocodingCacheRepository($this->connection, $logger),
             new NominatimGeocoder($http, 'https://nominatim.example.test/search', 'OEMS Test/1.0', 'ops@example.test'),
             'OpenStreetMap Nominatim',
             $logger,
+            $throttlePath ?? $this->throttlePath,
+            $clock,
+            $sleeper,
         );
     }
 }
