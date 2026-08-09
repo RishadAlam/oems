@@ -12,6 +12,7 @@ use OEMS\App\Services\TransactionMailer;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
@@ -42,6 +43,8 @@ final class ParticipantRegistrationControllerTest extends TestCase
     private FakeTicketRepository $tickets;
 
     private string $ticketRoot;
+
+    private string $limitRoot;
 
     protected function setUp(): void
     {
@@ -81,6 +84,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->payments->methods['free'] = ['id' => 1, 'slug' => 'free', 'is_active' => 1];
         $connection = new PDO('sqlite::memory:');
         $this->ticketRoot = sys_get_temp_dir() . '/oems-controller-ticket-' . bin2hex(random_bytes(6));
+        $this->limitRoot = sys_get_temp_dir() . '/oems-controller-registration-limit-' . bin2hex(random_bytes(6));
         $artifacts = new TicketArtifactService($this->ticketRoot, 'uploads/tickets');
         $service = new RegistrationService(
             $connection,
@@ -107,6 +111,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
                 $this->payments,
                 $this->tickets,
                 $service,
+                new RateLimiter($this->limitRoot, 5, 900),
             );
         }
     }
@@ -118,6 +123,12 @@ final class ParticipantRegistrationControllerTest extends TestCase
         }
         if (is_dir($this->ticketRoot)) {
             rmdir($this->ticketRoot);
+        }
+        foreach (glob($this->limitRoot . '/*') ?: [] as $path) {
+            unlink($path);
+        }
+        if (is_dir($this->limitRoot)) {
+            rmdir($this->limitRoot);
         }
         $_SESSION = [];
     }
@@ -343,6 +354,26 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertFalse(array_key_exists('transaction_reference', $this->session->get('_flash.old', [])));
         $this->assertArrayHasKey('channel', $this->session->get('_flash.errors', []));
         $this->assertArrayHasKey('transaction_reference', $this->session->get('_flash.errors', []));
+    }
+
+    public function testRegistrationAndPaymentSubmissionIsRateLimitedPerParticipantEventAndIp(): void
+    {
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $response = $this->controller()->store($this->slugged('POST', 'future-craft', [
+                'channel' => 'card',
+                'transaction_reference' => 'short',
+            ]));
+            $this->assertSame(302, $response->status());
+        }
+
+        $limited = $this->controller()->store($this->slugged('POST', 'future-craft', [
+            'channel' => 'mobile',
+            'transaction_reference' => 'PRIVATE-REFERENCE-MUST-NOT-ECHO',
+        ]));
+
+        $this->assertSame(429, $limited->status());
+        $this->assertTrue(str_contains($limited->body(), 'Too many registration attempts'));
+        $this->assertFalse(str_contains($limited->body(), 'PRIVATE-REFERENCE-MUST-NOT-ECHO'));
     }
 
     private function controller(): ParticipantRegistrationController

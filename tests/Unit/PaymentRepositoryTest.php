@@ -266,6 +266,19 @@ final class PaymentRepositoryTest extends TestCase
         $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
     }
 
+    public function testCancellationFailsPendingAttemptsWithoutInventingAnExternalRefund(): void
+    {
+        $this->assertTrue($this->repository->cancelForRegistration(102));
+        $this->assertTrue($this->repository->cancelForRegistration(103));
+
+        $pending = $this->connection->query('SELECT status, refunded_at FROM payments WHERE id = 4')->fetch();
+        $paid = $this->connection->query('SELECT status, refunded_at FROM payments WHERE id = 2')->fetch();
+        $this->assertSame('failed', $pending['status']);
+        $this->assertNull($pending['refunded_at']);
+        $this->assertSame('paid', $paid['status']);
+        $this->assertNull($paid['refunded_at']);
+    }
+
     public function testDashboardSummaryPreservesExactDecimalStringsBeyondFloatPrecision(): void
     {
         $repository = new PaymentRepository(new ExactDecimalPaymentSummaryPdo([

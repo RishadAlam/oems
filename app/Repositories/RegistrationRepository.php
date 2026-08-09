@@ -251,11 +251,13 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             return null;
         }
 
+        $registrationId = (int) $this->connection->lastInsertId();
+
         if (!$this->consumeSeat($eventId)) {
             throw new RuntimeException('The reserved event seat could not be consumed.');
         }
 
-        return $this->findForParticipant($participantId, (int) $this->connection->lastInsertId());
+        return $this->findForParticipant($participantId, $registrationId);
     }
 
     public function reactivate(int $registrationId, array $attributes): bool

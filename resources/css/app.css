@@ -931,7 +931,7 @@
     }
 
     .dashboard-panel {
-        @apply rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6;
+        @apply min-w-0 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6;
     }
 
     .dashboard-panel__heading {
@@ -1092,7 +1092,7 @@
 
     .status-list dd,
     .readiness-grid dd {
-        @apply rounded-full bg-[var(--success-soft)] px-2 py-1 text-xs font-bold text-[var(--success)];
+        @apply min-w-0 rounded-full bg-[var(--success-soft)] px-2 py-1 text-right text-xs font-bold text-[var(--success)];
     }
 
     .status-list dd.status-list__pending {

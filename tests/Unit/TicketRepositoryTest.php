@@ -109,6 +109,15 @@ final class TicketRepositoryTest extends TestCase
         $this->assertSame(1, $this->attendanceCount());
     }
 
+    public function testCheckInRejectsALegacyValidTicketAfterItsEventIsCancelled(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'cancelled' WHERE id = 10");
+
+        $this->assertNull($this->repository->recordAttendance(100, 201, 100, '127.0.0.1'));
+        $this->assertSame('valid', $this->ticketStatus(201));
+        $this->assertSame(0, $this->attendanceCount());
+    }
+
     public function testDuplicateCheckInReturnsTheOriginalAttendanceWithoutAnotherInsert(): void
     {
         $first = $this->repository->recordAttendance(100, 201, 100, '127.0.0.1');

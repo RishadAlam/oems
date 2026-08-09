@@ -23,6 +23,7 @@ final class NotificationService
         'review_published',
         'review_hidden',
         'review_reply',
+        'event_cancelled',
     ];
 
     public function __construct(

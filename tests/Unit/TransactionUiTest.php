@@ -101,6 +101,8 @@ final class TransactionUiTest extends TestCase
 
         $this->assertTrue(str_contains($html, 'class="ticket-panel'));
         $this->assertTrue(str_contains($html, 'class="qr-frame'));
+        $this->assertTrue(str_contains($html, 'class="ticket-panel dashboard-panel min-w-0'));
+        $this->assertTrue(str_contains($html, 'class="text-link break-all"'));
         $this->assertTrue(str_contains($html, '>Checked in<'));
         $this->assertTrue(str_contains($html, 'aria-label="Ticket status: Checked in"'));
     }

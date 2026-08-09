@@ -183,6 +183,20 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame([], $this->repository->gallery(999));
     }
 
+    public function testCompletedEventDetailAndGalleryRemainPublicForPublishedReviews(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'completed' WHERE id = 501");
+
+        $event = $this->repository->findPublishedBySlug('free-dhaka-summit');
+
+        $this->assertNotNull($event);
+        $this->assertSame('completed', $event['status']);
+        $this->assertSame(
+            ['summit-cover.jpg', 'summit-stage.jpg'],
+            array_column($this->repository->gallery(501), 'image_path'),
+        );
+    }
+
     public function testOrganizerListsSummaryAndOwnershipAreScopedToAuthenticatedUser(): void
     {
         $summary = $this->repository->organizerSummary(10);
@@ -473,6 +487,25 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame('2026-01-04 10:00:00', $this->eventValue(503, 'published_at'));
     }
 
+    public function testEventCancellationAtomicallyClosesParticipantFulfillmentAndNotifiesOwners(): void
+    {
+        $this->connection->exec("UPDATE events SET available_seats = 48 WHERE id = 503");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (901, 503, 31, 'REG-CANCEL-PAID', 'confirmed', 500, 'BDT', CURRENT_TIMESTAMP), (902, 503, 32, 'REG-CANCEL-PENDING', 'pending', 500, 'BDT', CURRENT_TIMESTAMP)");
+        $this->connection->exec("INSERT INTO payments (id, registration_id, status, refunded_at, updated_at) VALUES (911, 901, 'paid', NULL, CURRENT_TIMESTAMP), (912, 902, 'pending', NULL, CURRENT_TIMESTAMP)");
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, status, updated_at) VALUES (921, 901, 'valid', CURRENT_TIMESTAMP), (922, 902, 'valid', CURRENT_TIMESTAMP)");
+
+        $this->assertTrue($this->repository->transitionOwned(20, 503, $this->auditContext(), 'cancelled'));
+
+        $this->assertSame('cancelled', $this->eventValue(503, 'status'));
+        $this->assertSame(50, (int) $this->eventValue(503, 'available_seats'));
+        $this->assertSame(['cancelled', 'cancelled'], $this->connection->query('SELECT status FROM registrations ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame(['paid', 'failed'], $this->connection->query('SELECT status FROM payments ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([null, null], $this->connection->query('SELECT refunded_at FROM payments ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame(['cancelled', 'cancelled'], $this->connection->query('SELECT status FROM tickets ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([31, 32], $this->connection->query('SELECT user_id FROM notifications ORDER BY user_id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame(['event_cancelled', 'event_cancelled'], $this->connection->query('SELECT type FROM notifications ORDER BY user_id')->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     public function testAdminTransitionRollsBackWhenAuditWriteFails(): void
     {
         $this->connection->exec("CREATE TRIGGER reject_event_audit BEFORE INSERT ON activity_logs BEGIN SELECT RAISE(ABORT, 'audit failed'); END");
@@ -577,6 +610,10 @@ final class EventRepositoryTest extends TestCase
         );
         $this->connection->exec('CREATE TABLE event_gallery (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, image_path TEXT NOT NULL, alt_text TEXT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE activity_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NULL, action TEXT NOT NULL, subject_type TEXT NULL, subject_id INTEGER NULL, description TEXT NOT NULL, properties TEXT NULL, ip_address TEXT NULL, user_agent TEXT NULL, created_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_number TEXT NOT NULL, status TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT NOT NULL, registered_at TEXT NOT NULL, cancelled_at TEXT NULL, cancellation_reason TEXT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+        $this->connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL, refunded_at TEXT NULL, updated_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL, updated_at TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, action_url TEXT NULL, data TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
     }
 
     private function seedEvents(): void

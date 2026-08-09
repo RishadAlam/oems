@@ -190,6 +190,20 @@ final class PublicEventControllerTest extends TestCase
         }
     }
 
+    public function testShowKeepsCompletedEventDetailVisibleWithRegistrationClosed(): void
+    {
+        $event = array_merge($this->eventFixture(), ['status' => 'completed']);
+        $this->events->events[$event['slug']] = $event;
+
+        $response = $this->controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        );
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($response->body(), 'Event ended'));
+        $this->assertFalse(str_contains($response->body(), 'href="/participant/events/future-craft/register"'));
+    }
+
     public function testShowRendersSemanticEventDetailsGalleryAndGuestRegistrationAction(): void
     {
         $event = $this->eventFixture();

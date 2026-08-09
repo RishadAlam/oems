@@ -394,7 +394,7 @@ final class RegistrationServiceTest extends TestCase
         $freeRegistrationId = (int) $free['registration']['id'];
         $cancelledFree = $this->service->cancel(1, $freeRegistrationId, 'No longer attending');
         $this->assertTrue($cancelledFree['success']);
-        $this->assertSame('refunded', $cancelledFree['payment']['payment_status']);
+        $this->assertSame('paid', $cancelledFree['payment']['payment_status']);
         $this->assertSame('cancelled', $cancelledFree['ticket']['ticket_status']);
 
         $reactivated = $this->service->register(1, 10);

@@ -85,7 +85,7 @@ final class PublicEventController extends Controller
         $event = $this->events->findPublishedBySlug($slug);
 
         if ($event === null
-            || ($event['status'] ?? null) !== 'published'
+            || !in_array(($event['status'] ?? null), ['published', 'completed'], true)
             || !empty($event['deleted_at'])) {
             return $this->notFound();
         }
@@ -151,6 +151,10 @@ final class PublicEventController extends Controller
                     'href' => '/participant/registrations/' . (int) $registration['id'],
                 ];
             }
+        }
+
+        if (($event['status'] ?? null) === 'completed') {
+            return ['label' => 'Event ended', 'description' => 'This event has already ended.', 'href' => null];
         }
 
         if ($this->date((string) $event['end_date']) <= $now) {

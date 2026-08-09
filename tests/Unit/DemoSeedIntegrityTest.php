@@ -242,6 +242,33 @@ final class DemoSeedIntegrityTest extends TestCase
         }
     }
 
+    public function testPaidPendingRegistrationsHavePendingPaymentsAndNoTickets(): void
+    {
+        $payments = [];
+        foreach ($this->insertRows('payments') as $row) {
+            $payments[$this->selectedIdentifier($row[0] ?? '', 'registration_number')] = $row;
+        }
+
+        $tickets = [];
+        foreach ($this->insertRows('tickets') as $row) {
+            $tickets[$this->selectedIdentifier($row[0] ?? '', 'registration_number')] = $row;
+        }
+
+        foreach ($this->insertRows('registrations') as $registration) {
+            $number = $this->literal($registration[2] ?? '');
+            $pending = $this->literal($registration[3] ?? '') === 'pending';
+            $paid = (float) ($registration[4] ?? 0) > 0;
+            if (!$pending || !$paid) {
+                continue;
+            }
+
+            $this->assertTrue(isset($payments[$number]), "{$number} must have a pending payment.");
+            $this->assertSame('pending', $this->literal($payments[$number][5] ?? ''));
+            $this->assertSame((float) ($registration[4] ?? 0), (float) ($payments[$number][3] ?? -1));
+            $this->assertFalse(isset($tickets[$number]), "{$number} must not have an issued ticket.");
+        }
+    }
+
     public function testEveryUsedDemoTicketHasMatchingAttendance(): void
     {
         $attendance = [];

@@ -93,9 +93,10 @@ final class DashboardMetricsRepositoryTest extends TestCase
             (12, 'Owned completed event', 'owned-completed', datetime('now', '-5 days'), datetime('now', '-5 days', '+2 hours'), 'published', NULL),
             (13, 'Foreign future event', 'foreign-future', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), 'published', NULL),
             (14, 'Owned ongoing event', 'owned-ongoing', datetime('now', '-2 hours'), datetime('now', '+2 hours'), 'published', NULL),
-            (15, 'Deleted event', 'deleted-event', datetime('now', '+8 days'), datetime('now', '+8 days', '+2 hours'), 'published', '2026-08-01 00:00:00')");
+            (15, 'Deleted event', 'deleted-event', datetime('now', '+8 days'), datetime('now', '+8 days', '+2 hours'), 'published', '2026-08-01 00:00:00'),
+            (16, 'Cancelled event', 'cancelled-event', datetime('now', '+6 days'), datetime('now', '+6 days', '+2 hours'), 'cancelled', NULL)");
         $connection->exec("INSERT INTO registrations (id, user_id, event_id, status, registration_number) VALUES
-            (21, 7, 11, 'confirmed', 'REG-OWNED'), (22, 7, 12, 'confirmed', 'REG-REVIEW'), (23, 8, 13, 'confirmed', 'REG-FOREIGN'), (24, 7, 14, 'confirmed', 'REG-ONGOING'), (25, 7, 15, 'confirmed', 'REG-DELETED-EVENT'), (26, 9, 11, 'confirmed', 'REG-DELETED-USER')");
+            (21, 7, 11, 'confirmed', 'REG-OWNED'), (22, 7, 12, 'confirmed', 'REG-REVIEW'), (23, 8, 13, 'confirmed', 'REG-FOREIGN'), (24, 7, 14, 'confirmed', 'REG-ONGOING'), (25, 7, 15, 'confirmed', 'REG-DELETED-EVENT'), (26, 9, 11, 'confirmed', 'REG-DELETED-USER'), (27, 7, 16, 'confirmed', 'REG-CANCELLED-EVENT')");
         $connection->exec("INSERT INTO payments (registration_id, status) VALUES (21, 'paid'), (21, 'pending'), (22, 'paid'), (23, 'paid')");
         $connection->exec('INSERT INTO favorites (user_id, event_id) VALUES (7, 11), (7, 12), (8, 13)');
         $connection->exec("INSERT INTO reviews (id, user_id, event_id, status, organizer_reply) VALUES (1, 8, 13, 'published', NULL)");

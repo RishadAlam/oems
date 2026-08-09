@@ -62,6 +62,7 @@ final class DashboardMetricsRepository
              )
              WHERE registrations.user_id = :participant_user_id
                AND registrations.status IN ('pending', 'confirmed')
+               AND events.status <> 'cancelled'
                AND events.start_date > CURRENT_TIMESTAMP
                AND events.deleted_at IS NULL
                AND users.deleted_at IS NULL

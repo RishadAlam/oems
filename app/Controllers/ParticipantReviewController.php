@@ -9,6 +9,7 @@ use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -23,6 +24,7 @@ final class ParticipantReviewController extends Controller
         Auth $auth,
         Config $config,
         private readonly ReviewService $reviewService,
+        private readonly ?RateLimiter $limiter = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -67,10 +69,23 @@ final class ParticipantReviewController extends Controller
             return $this->notFound();
         }
 
+        $userId = (int) ($this->auth->id() ?? 0);
+        $limitKey = 'participant-review:' . $userId . ':' . $eventId . ':' . hash('sha256', $request->ip());
+        if ($this->limiter !== null && !$this->limiter->consumeAttempt($limitKey)) {
+            $this->session->flash('errors', [
+                'review' => ['Too many review attempts. Wait before trying again.'],
+            ]);
+            $limited = $this->create($request);
+
+            return $limited->status() === 200
+                ? Response::html($limited->body(), 429)
+                : Response::html('<h1>Too many review attempts</h1><p>Wait before trying again.</p>', 429);
+        }
+
         $rating = $request->input('rating');
         $comment = $request->input('review');
         $result = $this->reviewService->submit(
-            (int) ($this->auth->id() ?? 0),
+            $userId,
             $eventId,
             $rating,
             $comment,

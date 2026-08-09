@@ -14,6 +14,7 @@ use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Router;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -145,6 +146,36 @@ final class ReviewControllerTest extends TestCase
         $this->assertSame('pending', $this->reviews->saved[0]['status']);
     }
 
+    public function testParticipantReviewSubmissionIsRateLimitedPerParticipantEventAndIp(): void
+    {
+        $directory = sys_get_temp_dir() . '/oems-review-limit-' . bin2hex(random_bytes(6));
+        $controller = $this->participantController(new RateLimiter($directory, 1, 900));
+
+        try {
+            $first = $controller->store($this->idRequest('POST', '/participant/events/41/review', 41, [
+                'rating' => '4',
+                'review' => 'A valid first review submission for moderation.',
+            ]));
+            $limited = $controller->store($this->idRequest('POST', '/participant/events/41/review', 41, [
+                'rating' => '5',
+                'review' => 'PRIVATE SECOND REVIEW MUST NOT BE PROCESSED',
+            ]));
+
+            $this->assertSame(302, $first->status());
+            $this->assertSame(429, $limited->status());
+            $this->assertTrue(str_contains($limited->body(), 'Too many review attempts'));
+            $this->assertFalse(str_contains($limited->body(), 'PRIVATE SECOND REVIEW MUST NOT BE PROCESSED'));
+            $this->assertSame(1, count($this->reviews->saved));
+        } finally {
+            foreach (glob($directory . '/*') ?: [] as $path) {
+                unlink($path);
+            }
+            if (is_dir($directory)) {
+                rmdir($directory);
+            }
+        }
+    }
+
     public function testParticipantFormUses404ForInvalidOrIneligibleEventIds(): void
     {
         $controller = $this->participantController();
@@ -235,9 +266,9 @@ final class ReviewControllerTest extends TestCase
         $this->assertSame(419, $admin->dispatch(Request::create('POST', '/admin/reviews/15/hide', input: ['_token' => 'invalid']))->status());
     }
 
-    private function participantController(): ParticipantReviewController
+    private function participantController(?RateLimiter $limiter = null): ParticipantReviewController
     {
-        $controller = $this->controllerFor(ParticipantReviewController::class, 7);
+        $controller = $this->controllerFor(ParticipantReviewController::class, 7, $limiter);
         $this->assertTrue($controller instanceof ParticipantReviewController, 'Participant review controller is missing.');
 
         return $controller;
@@ -259,7 +290,7 @@ final class ReviewControllerTest extends TestCase
         return $controller;
     }
 
-    private function controllerFor(string $class, int $userId): mixed
+    private function controllerFor(string $class, int $userId, ?RateLimiter $limiter = null): mixed
     {
         if (!class_exists($class)) {
             return null;
@@ -270,14 +301,19 @@ final class ReviewControllerTest extends TestCase
         $security = $userId === 7 ? $this->security : new Security($session);
         $service = new ReviewService(new PDO('sqlite::memory:'), $this->users, $this->reviews);
 
-        return new $class(
+        $arguments = [
             new View(base_path('app/Views')),
             $session,
             $security,
             new Auth($session, $this->users),
             new Config(['name' => 'OEMS', 'timezone' => 'Asia/Dhaka']),
             $service,
-        );
+        ];
+        if ($class === ParticipantReviewController::class && $limiter !== null) {
+            $arguments[] = $limiter;
+        }
+
+        return new $class(...$arguments);
     }
 
     private function idRequest(string $method, string $uri, int $id, array $input = []): Request

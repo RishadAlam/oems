@@ -355,7 +355,8 @@ INSERT INTO payments (
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-008'), @manual_payment_method_id, 'OEMS-DEMO-PAY-008', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-12 17:05:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-009'), @manual_payment_method_id, 'OEMS-DEMO-PAY-009', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 10:05:00'),
     ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-010'), @manual_payment_method_id, 'OEMS-DEMO-PAY-010', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 11:05:00'),
-    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-011'), @manual_payment_method_id, 'OEMS-DEMO-PAY-011', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 12:05:00')
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-011'), @manual_payment_method_id, 'OEMS-DEMO-PAY-011', 800.00, 'BDT', 'paid', JSON_OBJECT('source', 'demo'), '2026-07-13 12:05:00'),
+    ((SELECT id FROM registrations WHERE registration_number = 'OEMS-DEMO-REG-012'), @manual_payment_method_id, 'OEMS-DEMO-PAY-012', 700.00, 'BDT', 'pending', JSON_OBJECT('source', 'demo'), NULL)
 ON DUPLICATE KEY UPDATE
     registration_id = VALUES(registration_id),
     payment_method_id = VALUES(payment_method_id),

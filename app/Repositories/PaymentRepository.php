@@ -210,12 +210,7 @@ final class PaymentRepository implements PaymentRepositoryInterface
     {
         $statement = $this->connection->prepare(
             "UPDATE payments
-             SET refunded_at = CASE WHEN status = 'paid' THEN CURRENT_TIMESTAMP ELSE refunded_at END,
-                 status = CASE status
-                    WHEN 'pending' THEN 'failed'
-                    WHEN 'paid' THEN 'refunded'
-                    ELSE status
-                 END,
+             SET status = 'failed',
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = (
                  SELECT id FROM (
@@ -225,11 +220,24 @@ final class PaymentRepository implements PaymentRepositoryInterface
                      LIMIT 1
                  ) AS latest_payment
              )
-               AND status IN ('pending', 'paid')",
+               AND status = 'pending'",
         );
         $statement->execute(['registration_id' => $registrationId]);
 
-        return $statement->rowCount() === 1;
+        if ($statement->rowCount() === 1) {
+            return true;
+        }
+
+        $current = $this->connection->prepare(
+            'SELECT status
+             FROM payments
+             WHERE registration_id = :registration_id
+             ORDER BY created_at DESC, id DESC
+             LIMIT 1',
+        );
+        $current->execute(['registration_id' => $registrationId]);
+
+        return in_array((string) $current->fetchColumn(), ['paid', 'failed', 'refunded'], true);
     }
 
     public function summaryForParticipant(int $participantId): array

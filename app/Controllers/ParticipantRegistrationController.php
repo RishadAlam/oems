@@ -15,6 +15,7 @@ use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -33,6 +34,7 @@ final class ParticipantRegistrationController extends Controller
         private readonly PaymentRepositoryInterface $payments,
         private readonly TicketRepositoryInterface $tickets,
         private readonly RegistrationService $registrationService,
+        private readonly ?RateLimiter $limiter = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -105,6 +107,18 @@ final class ParticipantRegistrationController extends Controller
 
         if (!$this->eventAcceptsRegistration($event)) {
             return $this->redirectWith('/events/' . rawurlencode((string) $event['slug']), 'error', 'This event is not available for registration.');
+        }
+
+        $limitKey = 'participant-registration:' . $userId . ':' . (int) $event['id'] . ':' . hash('sha256', $request->ip());
+        if ($this->limiter !== null && !$this->limiter->consumeAttempt($limitKey)) {
+            $this->session->flash('errors', [
+                'registration' => ['Too many registration attempts. Wait before trying again.'],
+            ]);
+            $limited = $this->create($request);
+
+            return $limited->status() === 200
+                ? Response::html($limited->body(), 429)
+                : Response::html('<h1>Too many registration attempts</h1><p>Wait before trying again.</p>', 429);
         }
 
         $paymentDetails = [

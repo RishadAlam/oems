@@ -157,12 +157,12 @@ final class EventRepository implements EventRepositoryInterface
         $statement = $this->connection->prepare(
             $this->eventSelect()
             . ' WHERE events.slug = :slug
-                  AND events.status = :status
+                  AND events.status IN (\'published\', \'completed\')
                   AND events.deleted_at IS NULL
                   AND categories.is_active = 1
                 LIMIT 1',
         );
-        $statement->execute(['slug' => $slug, 'status' => 'published']);
+        $statement->execute(['slug' => $slug]);
 
         return $this->decodeEvent($statement->fetch());
     }
@@ -176,12 +176,12 @@ final class EventRepository implements EventRepositoryInterface
              INNER JOIN events ON events.id = event_gallery.event_id
              INNER JOIN categories ON categories.id = events.category_id
              WHERE event_gallery.event_id = :event_id
-               AND events.status = :status
+               AND events.status IN (\'published\', \'completed\')
                AND events.deleted_at IS NULL
                AND categories.is_active = 1
              ORDER BY event_gallery.sort_order ASC, event_gallery.id ASC',
         );
-        $statement->execute(['event_id' => $eventId, 'status' => 'published']);
+        $statement->execute(['event_id' => $eventId]);
         $gallery = $statement->fetchAll();
 
         return is_array($gallery) ? $gallery : [];
@@ -530,6 +530,10 @@ final class EventRepository implements EventRepositoryInterface
                 return false;
             }
 
+            if ($status === 'cancelled') {
+                $this->cancelParticipantFulfillment($eventId);
+            }
+
             $this->writeActivity($userId, $eventId, $status, $context, null);
 
             return true;
@@ -659,6 +663,10 @@ final class EventRepository implements EventRepositoryInterface
 
             if ($statement->rowCount() === 0) {
                 return false;
+            }
+
+            if ($status === 'cancelled') {
+                $this->cancelParticipantFulfillment($eventId);
             }
 
             $this->writeActivity($userId, $eventId, $status, $context, $reason);
@@ -875,6 +883,63 @@ final class EventRepository implements EventRepositoryInterface
             'ip_address' => $context['ip_address'] ?? null,
             'user_agent' => $context['user_agent'] ?? null,
         ]);
+    }
+
+    private function cancelParticipantFulfillment(int $eventId): void
+    {
+        $notify = $this->connection->prepare(
+            "INSERT INTO notifications (user_id, type, title, message, action_url, data)
+             SELECT registrations.user_id,
+                    'event_cancelled',
+                    'Event cancelled',
+                    'An event in your registrations was cancelled. Your registration and ticket are no longer active.',
+                    '/participant/registrations',
+                    NULL
+             FROM registrations
+             WHERE registrations.event_id = :notification_event_id
+               AND registrations.status IN ('pending', 'confirmed')",
+        );
+        $notify->execute(['notification_event_id' => $eventId]);
+
+        $tickets = $this->connection->prepare(
+            "UPDATE tickets
+             SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+             WHERE status = 'valid'
+               AND registration_id IN (
+                   SELECT id FROM registrations
+                   WHERE event_id = :ticket_event_id
+                     AND status IN ('pending', 'confirmed')
+               )",
+        );
+        $tickets->execute(['ticket_event_id' => $eventId]);
+
+        $payments = $this->connection->prepare(
+            "UPDATE payments
+             SET status = 'failed', updated_at = CURRENT_TIMESTAMP
+             WHERE status = 'pending'
+               AND registration_id IN (
+                   SELECT id FROM registrations
+                   WHERE event_id = :payment_event_id
+                     AND status IN ('pending', 'confirmed')
+               )",
+        );
+        $payments->execute(['payment_event_id' => $eventId]);
+
+        $registrations = $this->connection->prepare(
+            "UPDATE registrations
+             SET status = 'cancelled',
+                 cancelled_at = CURRENT_TIMESTAMP,
+                 cancellation_reason = 'Event cancelled',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE event_id = :registration_event_id
+               AND status IN ('pending', 'confirmed')",
+        );
+        $registrations->execute(['registration_event_id' => $eventId]);
+
+        $event = $this->connection->prepare(
+            'UPDATE events SET available_seats = capacity, updated_at = CURRENT_TIMESTAMP WHERE id = :capacity_event_id',
+        );
+        $event->execute(['capacity_event_id' => $eventId]);
     }
 
     private function statusPredicate(array $statuses): array

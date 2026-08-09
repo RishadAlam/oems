@@ -195,6 +195,7 @@ final class TicketRepository implements TicketRepositoryInterface
                    INNER JOIN organizers ON organizers.id = events.organizer_id
                    WHERE registrations.id = tickets.registration_id
                      AND registrations.status = 'confirmed'
+                     AND events.status <> 'cancelled'
                      AND organizers.user_id = :organizer_user_id
                      " . ($eventId === null ? '' : ' AND events.id = :attendance_event_id') . "
                )",
@@ -404,7 +405,8 @@ final class TicketRepository implements TicketRepositoryInterface
              WHERE tickets.id = :ticket_id
                AND organizers.user_id = :organizer_user_id
                AND tickets.status = 'valid'
-               AND registrations.status = 'confirmed'"
+               AND registrations.status = 'confirmed'
+               AND events.status <> 'cancelled'"
             . ($eventId === null ? '' : ' AND events.id = :attendance_event_id')
             . "
              LIMIT 1" . $lockingClause,

@@ -19,8 +19,8 @@ $hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
     <a class="button button--quiet" href="/participant/tickets"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>All tickets</span></a>
 </header>
 
-<div class="mt-8 grid gap-6 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] lg:items-start">
-    <section class="ticket-panel dashboard-panel text-center" aria-labelledby="ticket-code-heading">
+<div class="mt-8 grid min-w-0 gap-6 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)] lg:items-start">
+    <section class="ticket-panel dashboard-panel min-w-0 text-center" aria-labelledby="ticket-code-heading">
         <h2 id="ticket-code-heading" class="text-xl font-bold">Check-in code</h2>
         <?php if ($hasQr): ?>
             <div class="qr-frame"><img src="/participant/tickets/<?= e($ticket['id']) ?>/qr" alt="QR code for ticket <?= e($ticket['ticket_number']) ?>" width="280" height="280"></div>
@@ -35,13 +35,13 @@ $hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
         <?php endif; ?>
     </section>
 
-    <section class="dashboard-panel" aria-labelledby="ticket-details-heading">
+    <section class="dashboard-panel min-w-0" aria-labelledby="ticket-details-heading">
         <h2 id="ticket-details-heading" class="text-xl font-bold">Ticket details</h2>
         <dl class="status-list mt-5">
             <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($status) ?>" aria-label="Ticket status: <?= e($statusLabel) ?>"><?= e($statusLabel) ?></span></dd></div>
             <div><dt>Event</dt><dd><a class="text-link" href="/events/<?= e($ticket['event_slug']) ?>"><?= e($ticket['event_title']) ?></a></dd></div>
             <div><dt>Schedule</dt><dd><?= e($ticket['event_start_display']) ?></dd></div>
-            <div><dt>Registration</dt><dd><a class="text-link" href="/participant/registrations/<?= e($ticket['registration_id']) ?>"><?= e($ticket['registration_number']) ?></a></dd></div>
+            <div><dt>Registration</dt><dd><a class="text-link break-all" href="/participant/registrations/<?= e($ticket['registration_id']) ?>"><?= e($ticket['registration_number']) ?></a></dd></div>
             <div><dt>Issued</dt><dd><?= e($ticket['issued_display']) ?></dd></div>
         </dl>
     </section>
