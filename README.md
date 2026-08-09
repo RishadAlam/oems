@@ -1,6 +1,6 @@
 # OEMS
 
-OEMS is a custom PHP MVC online event management platform. Week 2 adds database-backed event discovery, organizer-owned venues and events, secure event media, administrator moderation, and real event metrics on the role dashboards.
+OEMS is a custom PHP MVC online event management platform for public discovery, participant registration, manual payment review, QR ticketing, attendance, reviews, notifications, and organizer and administrator operations.
 
 ## Requirements
 
@@ -80,17 +80,20 @@ Change this password immediately outside isolated local development.
 
 ## Demo accounts
 
-The optional `database/demo_seed.sql` file adds realistic local-only organizers, participants, venues, lifecycle events, schedules, and event media references. It also contains full-schema reference rows for later milestones; ticket rows intentionally keep their nullable QR and PDF paths empty until Week 3 generates real files. The current product does not expose registration, payment, revenue, or ticket workflows until Week 3. Every non-administrator demo account uses the password `DemoPass!2026`.
+The optional `database/demo_seed.sql` file adds internally consistent local-only organizers, participants, venues, lifecycle events, registrations, manual payments, tickets, notifications, and eligible reviews. It can be imported repeatedly. Existing rows are updated by stable keys and guarded inserts prevent duplicate schedules, galleries, and notifications. Every non-administrator demo account uses the password `DemoPass!2026`.
+
+The demo activates the manual payment method with explicitly fictional instructions. Seeded future tickets keep `qr_path` and `pdf_path` as `NULL` because no media file has been generated for those reference rows. The application generates real QR and PDF assets only when its ticket issuance workflow runs.
 
 - Super administrator: `admin@oems.local` / `ChangeMe!2026`
 - Approved organizer: `ayesha.organizer@oems.local` / `DemoPass!2026`
 - Approved organizer: `farhan.organizer@oems.local` / `DemoPass!2026`
 - Pending organizer: `nusrat.organizer@oems.local` / `DemoPass!2026`
 - Participant: `tahmid.participant@oems.local` / `DemoPass!2026`
+- Participant with a completed-event review: `jannat.participant@oems.local` / `DemoPass!2026`
 
 Never import the demo dataset into a production database.
 
-## Week 2 workflows
+## Application workflows
 
 Public discovery is available without authentication:
 
@@ -113,6 +116,18 @@ A super administrator uses these authenticated routes:
 - `/admin/categories` creates, edits, activates, and deactivates event categories.
 
 Every organizer mutation is scoped to the authenticated organizer. Every organizer and administrator POST action requires a valid CSRF token.
+
+### Manual payment workflow and limitations
+
+Paid registration uses a manual review flow:
+
+1. The participant selects a supported payment channel and submits a provider reference.
+2. OEMS reserves one seat and records the registration and payment as pending.
+3. A super administrator reviews the reference in `/admin/payments`.
+4. Verification confirms the registration and generates its QR and PDF ticket. Rejection cancels the registration and releases the seat.
+5. OEMS records in-app notifications and attempts the configured transactional email.
+
+The included instructions and demo references are fictional. Do not send money or enter real banking, card, wallet, or account credentials while using the demo. OEMS does not connect to a payment gateway, bank, or mobile wallet, and it cannot independently prove that funds moved. An administrator must verify references using an approved process outside this application before marking a payment paid.
 
 ### Event lifecycle
 
@@ -138,7 +153,28 @@ Only non-deleted `published` events appear in public discovery.
 - Files are validated from their actual bytes and dimensions, renamed randomly, and stored under `public/uploads/events`.
 - The repeatable demo seed references the committed `/assets/images/hero-events.webp`, `/assets/images/event-creative.webp`, and `/assets/images/event-community.webp` files; it does not depend on untracked local uploads.
 
-## Week 2 deliverables
+### Ticket storage
+
+- Issued QR images and PDF tickets are stored under `public/uploads/tickets` with random filenames.
+- The database stores relative `qr_path` and `pdf_path` values. It stores only the QR payload hash, never the raw one-time token.
+- Participant download routes enforce registration ownership before returning an asset.
+- Ticket cancellation invalidates entry. A successful check-in records attendance and moves a valid ticket to checked in.
+- Ensure the PHP process can create and write `public/uploads/tickets` in local and production environments. Do not commit generated ticket files.
+
+### Full acceptance journey
+
+Use an isolated local database with both seeds imported.
+
+1. Sign in as `tahmid.participant@oems.local`, open Startup Growth Forum 2026, and submit a registration with a fictional reference such as `OEMS-DEMO-ACCEPTANCE-001`.
+2. Confirm the participant registration page shows payment review pending and no ticket yet.
+3. Sign in as `admin@oems.local`, open `/admin/payments?status=pending`, inspect the submitted evidence, and verify it.
+4. Sign back in as Tahmid. Confirm the registration is confirmed, the ticket opens, QR and PDF downloads work, and the notification center reports the update.
+5. Sign in as `farhan.organizer@oems.local`, open the Startup Growth Forum participant operations page, and confirm the participant, payment, ticket, and attendance states agree.
+6. Use that event's check-in screen to scan the QR or enter the printed ticket number. Confirm a repeated scan is reported as already checked in rather than creating duplicate attendance.
+7. For the review lifecycle, sign in as `jannat.participant@oems.local`, update the completed Product Leaders Meetup review, then sign in as the administrator to publish it and as `ayesha.organizer@oems.local` to add a public organizer reply.
+8. Check both light and dark themes at mobile and desktop widths on the participant registration, ticket, notification, administrator payment queue, and organizer operations screens.
+
+## Current platform capabilities
 
 - Prepared, ownership-scoped repositories for categories, venues, events, public filters, moderation, galleries, and dashboard summaries
 - Organizer venue and event create, edit, preview, submit, cancel, and eligible soft-delete workflows
@@ -148,25 +184,18 @@ Only non-deleted `published` events appear in public discovery.
 - Repository-backed organizer and administrator dashboards with enabled workflow actions
 - Role guards, CSRF protection, escaped views, prepared queries, lifecycle validation, and automated regression coverage
 
-Registration, checkout, payments, revenue reporting, QR tickets, and attendance begin in Week 3. Week 2 screens intentionally do not calculate registration or revenue totals and do not expose active registration controls.
-
-## Week 1 deliverables
-
-- Dependency-injected custom MVC core with routing, middleware, sessions, validation, views, configuration, database transactions, logging, and error responses
-- MySQL schema for accounts, permissions, organizers, events, schedules, registrations, payments, tickets, attendance, notifications, reviews, CMS, reporting support, and audit data
-- Participant and organizer registration, SMTP email verification, login, logout, remember-me sessions, password reset, and password change
-- Authenticated profile management for contact details, personal details, address, locale, and timezone
-- CSRF protection, prepared database statements, escaped views, session rotation, password hashing, token hashing, and file-backed login and password-reset throttling
-- Role guards and separate participant, organizer, and super-admin dashboard shells
-- Responsive public, authentication, events, and dashboard interfaces with light and dark themes
-- Self-hosted Manrope font and original generated event imagery
-
-The Week 1 deliverables remain the foundation for the Week 2 workflows above.
+- Participant registration, manual payment review, seat reconciliation, QR and PDF ticket issuance, attendance, favorites, notifications, and reviews
+- Owner-scoped organizer participant operations, CSV export, camera-enhanced check-in, revenue metrics, and review replies
+- Administrator payment, event, category, and participant-review moderation queues
+- Responsive transaction tables that become explicitly labeled mobile cards, accessible forms, and light and dark token themes
+- Dependency-injected custom MVC foundations, role guards, CSRF protection, prepared queries, escaped views, and automated regression coverage
 
 ## Quality checks
 
 ```bash
 php tests/run.php DashboardLayoutTest
+php tests/run.php DemoSeedIntegrityTest
+php tests/run.php TransactionUiTest
 composer test
 composer check:syntax
 composer validate --strict

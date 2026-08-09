@@ -11,6 +11,8 @@ final class DemoSeedIntegrityTest extends TestCase
 {
     private string $seed;
 
+    private string $baseSeed;
+
     protected function setUp(): void
     {
         $seed = file_get_contents(base_path('database/demo_seed.sql'));
@@ -20,6 +22,13 @@ final class DemoSeedIntegrityTest extends TestCase
         }
 
         $this->seed = $seed;
+
+        $baseSeed = file_get_contents(base_path('database/seed.sql'));
+        if (!is_string($baseSeed)) {
+            throw new RuntimeException('Unable to read database/seed.sql.');
+        }
+
+        $this->baseSeed = $baseSeed;
     }
 
     public function testEveryDemoEventUsesAnOwnedVenueAndLifecycleEligibleOrganizer(): void
@@ -126,6 +135,83 @@ final class DemoSeedIntegrityTest extends TestCase
 
         $this->assertNotNull($techEvent);
         $this->assertSame((int) $techEvent[11] - $confirmed, (int) $techEvent[12]);
+    }
+
+    public function testEveryDemoEventAvailableSeatCountMatchesActiveRegistrations(): void
+    {
+        $activeRegistrations = [];
+
+        foreach ($this->insertRows('registrations') as $row) {
+            if (in_array($this->literal($row[3] ?? ''), ['pending', 'confirmed'], true)) {
+                $activeRegistrations[$row[0]] = ($activeRegistrations[$row[0]] ?? 0) + 1;
+            }
+        }
+
+        foreach ($this->insertRows('events') as $row) {
+            $eventVariable = $this->eventVariableForSlug($this->literal($row[4] ?? ''));
+            $expectedAvailable = (int) ($row[11] ?? 0) - ($activeRegistrations[$eventVariable] ?? 0);
+
+            $this->assertSame(
+                $expectedAvailable,
+                (int) ($row[12] ?? 0),
+                'Demo event seat counts must equal capacity minus active registrations.',
+            );
+        }
+    }
+
+    public function testManualPaymentDemoConfigurationIsRepeatableActiveAndClearlyFictional(): void
+    {
+        $this->assertTrue(str_contains($this->seed, "INSERT INTO payment_methods"));
+        $this->assertTrue(str_contains($this->seed, "'manual'"));
+        $this->assertTrue(str_contains($this->seed, 'ON DUPLICATE KEY UPDATE'));
+        $this->assertTrue(str_contains($this->seed, "'DEMO ONLY"));
+        $this->assertTrue(str_contains($this->seed, 'is_active = TRUE'));
+        $this->assertFalse(str_contains($this->seed, 'gateway verified'));
+        $this->assertFalse(str_contains($this->seed, 'automatic payment'));
+    }
+
+    public function testBaseSeedKeepsDemoOnlyManualPaymentInactive(): void
+    {
+        $this->assertTrue(str_contains($this->baseSeed, "'Manual payment'"));
+        $this->assertTrue(str_contains($this->baseSeed, "'DEMO ONLY"));
+        $this->assertTrue(str_contains($this->baseSeed, "        FALSE,\n        20"));
+    }
+
+    public function testDemoSeedReconcilesAvailableSeatsAfterRegistrationUpserts(): void
+    {
+        $registrationUpsert = strpos($this->seed, 'INSERT INTO registrations');
+        $reconciliation = strpos($this->seed, 'UPDATE events AS demo_event');
+
+        $this->assertTrue(is_int($registrationUpsert));
+        $this->assertTrue(is_int($reconciliation));
+        $this->assertTrue($reconciliation > $registrationUpsert);
+        $this->assertTrue(str_contains($this->seed, 'demo_registration.event_id = demo_event.id'));
+        $this->assertTrue(str_contains($this->seed, "demo_registration.status IN ('pending', 'confirmed')"));
+        $this->assertTrue(str_contains($this->seed, 'GREATEST('));
+    }
+
+    public function testDemoReviewsBelongToConfirmedRegistrationsForCompletedEvents(): void
+    {
+        $completedEvents = [];
+        foreach ($this->insertRows('events') as $row) {
+            if ($this->literal($row[16] ?? '') === 'completed') {
+                $completedEvents[$this->eventVariableForSlug($this->literal($row[4] ?? ''))] = true;
+            }
+        }
+
+        $eligible = [];
+        foreach ($this->insertRows('registrations') as $row) {
+            if ($this->literal($row[3] ?? '') === 'confirmed' && isset($completedEvents[$row[0] ?? ''])) {
+                $eligible[($row[0] ?? '') . ':' . ($row[1] ?? '')] = true;
+            }
+        }
+
+        foreach ($this->insertRows('reviews') as $row) {
+            $this->assertTrue(
+                isset($eligible[($row[0] ?? '') . ':' . ($row[1] ?? '')]),
+                'Demo reviews must belong to confirmed attendees of completed events.',
+            );
+        }
     }
 
     public function testFutureTicketRowsDoNotClaimGeneratedMediaFiles(): void
@@ -247,5 +333,18 @@ final class DemoSeedIntegrityTest extends TestCase
     private function literal(string $value): string
     {
         return trim($value, "' \t\n\r\0\x0B");
+    }
+
+    private function eventVariableForSlug(string $slug): string
+    {
+        return match ($slug) {
+            'dhaka-tech-summit-2026' => '@tech_event_id',
+            'startup-growth-forum-2026' => '@startup_event_id',
+            'community-arts-night-2026' => '@arts_event_id',
+            'future-skills-workshop-2026' => '@skills_event_id',
+            'wellness-weekend-dhaka-2026' => '@wellness_event_id',
+            'product-leaders-meetup-july-2026' => '@product_event_id',
+            default => '@unknown_event_id',
+        };
     }
 }

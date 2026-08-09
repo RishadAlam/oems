@@ -20,11 +20,11 @@ $pagination = is_array($notifications['pagination'] ?? null) ? $notifications['p
     <?php else: ?>
         <div class="grid gap-3">
             <?php foreach ($items as $notification): ?>
-                <article class="rounded-[18px] border border-[var(--line)] p-5<?= empty($notification['read_at']) ? ' bg-[var(--surface-soft)]' : '' ?>">
+                <article class="notification-row<?= empty($notification['read_at']) ? ' notification-row--unread' : '' ?>" data-notification-row<?= empty($notification['read_at']) ? ' aria-label="Unread notification"' : '' ?>>
                     <div class="flex items-start justify-between gap-4"><div><h2 class="text-base font-bold"><?= e($notification['title'] ?? '') ?></h2><p class="mt-1 text-sm text-[var(--ink-muted)]"><?= e($notification['message'] ?? '') ?></p></div><small class="shrink-0 text-xs text-[var(--ink-muted)]"><?= e($notification['created_at'] ?? '') ?></small></div>
                     <div class="mt-4 flex flex-wrap items-center gap-3">
                         <?php if (!empty($notification['action_url'])): ?><a class="button button--quiet button--compact" href="<?= e($notification['action_url']) ?>">View update</a><?php endif; ?>
-                        <?php if (empty($notification['read_at'])): ?><form action="/participant/notifications/<?= e((int) $notification['id']) ?>/read" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--quiet button--compact" type="submit">Mark read</button></form><?php endif; ?>
+                        <?php if (empty($notification['read_at'])): ?><form action="/participant/notifications/<?= e((int) $notification['id']) ?>/read" method="post" data-notification-status-form><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--quiet button--compact" type="submit">Mark read</button></form><?php endif; ?>
                     </div>
                 </article>
             <?php endforeach; ?>

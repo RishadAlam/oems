@@ -9,6 +9,25 @@ SET @admin_user_id = (SELECT id FROM users WHERE email = 'admin@oems.local');
 SET @organizer_role_id = (SELECT id FROM roles WHERE slug = 'organizer');
 SET @participant_role_id = (SELECT id FROM roles WHERE slug = 'participant');
 
+INSERT INTO payment_methods (name, slug, configuration, is_active, sort_order) VALUES
+    (
+        'Manual payment',
+        'manual',
+        JSON_OBJECT(
+            'instructions',
+            'DEMO ONLY: use a fictional reference such as OEMS-DEMO-REFERENCE-001. Do not send money or enter real account details.',
+            'review_mode',
+            'administrator_manual_review'
+        ),
+        TRUE,
+        20
+    )
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    configuration = VALUES(configuration),
+    is_active = TRUE,
+    sort_order = VALUES(sort_order);
+
 UPDATE users
 SET password = @admin_password
 WHERE id = @admin_user_id;
@@ -295,6 +314,25 @@ ON DUPLICATE KEY UPDATE
     amount = VALUES(amount),
     currency = VALUES(currency),
     registered_at = VALUES(registered_at);
+
+UPDATE events AS demo_event
+SET demo_event.available_seats = GREATEST(
+    demo_event.capacity - (
+        SELECT COUNT(*)
+        FROM registrations AS demo_registration
+        WHERE demo_registration.event_id = demo_event.id
+          AND demo_registration.status IN ('pending', 'confirmed')
+    ),
+    0
+)
+WHERE demo_event.id IN (
+    @tech_event_id,
+    @startup_event_id,
+    @arts_event_id,
+    @skills_event_id,
+    @wellness_event_id,
+    @product_event_id
+);
 
 SET @manual_payment_method_id = (SELECT id FROM payment_methods WHERE slug = 'manual');
 SET @free_payment_method_id = (SELECT id FROM payment_methods WHERE slug = 'free');

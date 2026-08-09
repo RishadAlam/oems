@@ -3,6 +3,7 @@ $ratingError = field_error($errors, 'rating');
 $reviewError = field_error($errors, 'review');
 $selectedRating = old_value($old, 'rating', (string) ($review['rating'] ?? ''));
 $comment = old_value($old, 'review', (string) ($review['review'] ?? ''));
+$ratingLabels = [1 => 'poor', 2 => 'fair', 3 => 'good', 4 => 'very good', 5 => 'excellent'];
 ?>
 
 <section class="dashboard-page-heading">
@@ -23,10 +24,10 @@ $comment = old_value($old, 'review', (string) ($review['review'] ?? ''));
 
     <fieldset class="field-group" aria-describedby="rating-help<?= $ratingError !== null ? ' rating-error' : '' ?>"<?= $ratingError !== null ? ' aria-invalid="true"' : '' ?>>
         <legend>Rating</legend>
-        <div class="mt-3 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Event rating">
+        <div class="rating-control" role="radiogroup" aria-label="Event rating">
             <?php foreach (range(1, 5) as $rating): ?>
                 <label class="review-rating-option grid min-h-11 cursor-pointer place-items-center rounded-[12px] border border-[var(--line)] bg-[var(--surface)] text-sm font-bold has-[:checked]:border-[var(--accent)] has-[:checked]:bg-[var(--accent-soft)] has-[:checked]:text-[var(--accent)]">
-                    <input class="sr-only" type="radio" name="rating" value="<?= $rating ?>"<?= $selectedRating === (string) $rating ? ' checked' : '' ?> required>
+                    <input class="sr-only" type="radio" name="rating" value="<?= $rating ?>" aria-label="<?= $rating ?> out of 5, <?= e($ratingLabels[$rating]) ?>"<?= $selectedRating === (string) $rating ? ' checked' : '' ?> required>
                     <span><?= $rating ?><span class="sr-only"> out of 5</span></span>
                 </label>
             <?php endforeach; ?>

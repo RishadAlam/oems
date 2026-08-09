@@ -81,7 +81,18 @@ INSERT INTO categories (name, slug, description, icon, sort_order) VALUES
 
 INSERT INTO payment_methods (name, slug, configuration, is_active, sort_order) VALUES
     ('Free registration', 'free', JSON_OBJECT(), TRUE, 10),
-    ('Manual payment', 'manual', JSON_OBJECT(), FALSE, 20);
+    (
+        'Manual payment',
+        'manual',
+        JSON_OBJECT(
+            'instructions',
+            'DEMO ONLY: use a fictional reference such as OEMS-DEMO-REFERENCE-001. Do not send money or enter real account details.',
+            'review_mode',
+            'administrator_manual_review'
+        ),
+        FALSE,
+        20
+    );
 
 INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('general', 'site_name', 'OEMS', 'string', TRUE),
@@ -102,4 +113,3 @@ INSERT INTO pages (title, slug, content, status, published_at, created_by, updat
 -- Email: admin@oems.local
 -- Password: ChangeMe!2026
 -- Change this password immediately outside local development.
-

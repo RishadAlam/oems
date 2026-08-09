@@ -149,6 +149,22 @@ document.querySelectorAll('[data-dismiss-flash]').forEach((button) => {
     });
 });
 
+document.querySelectorAll('[data-notification-status-form]').forEach((form) => {
+    form.addEventListener('submit', () => {
+        const row = form.closest('[data-notification-row]');
+        const submit = form.querySelector('button[type="submit"]');
+
+        row?.classList.add('notification-row--updating');
+        row?.setAttribute('aria-busy', 'true');
+        submit?.setAttribute('aria-busy', 'true');
+
+        if (submit) {
+            submit.disabled = true;
+            submit.textContent = 'Updating';
+        }
+    });
+});
+
 const sidebar = document.querySelector('[data-dashboard-sidebar]');
 const overlay = document.querySelector('[data-dashboard-overlay]');
 const openSidebar = document.querySelector('[data-dashboard-open]');

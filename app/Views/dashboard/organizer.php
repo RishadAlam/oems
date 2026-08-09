@@ -73,7 +73,7 @@ $statusLabels = [
                         <tr>
                             <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><?php if (!empty($event['start_date'])): ?><small><time datetime="<?= e(str_replace(' ', 'T', (string) $event['start_date'])) ?>"><?= e(date('M j, Y', strtotime((string) $event['start_date']))) ?></time></small><?php endif; ?></td>
                             <td data-label="Status"><span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></td>
-                            <td class="organizer-table__action"><a class="text-link" href="<?= e($nextUrl) ?>"><?= e($nextLabel) ?> <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
+                            <td class="organizer-table__action" data-label="Action"><a class="text-link" href="<?= e($nextUrl) ?>"><?= e($nextLabel) ?> <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

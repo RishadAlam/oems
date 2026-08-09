@@ -29,10 +29,10 @@
         <p>Choose another status or return later for new participant submissions.</p>
     </section>
 <?php else: ?>
-    <div class="mt-6 grid gap-5">
+    <div class="queue-list">
         <?php foreach ($reviews as $review): ?>
             <?php $reviewStatus = (string) ($review['status'] ?? 'pending'); ?>
-            <article class="dashboard-panel grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <article class="queue-item dashboard-panel grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div>
                     <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e($reviewStatus) ?>"><?= e($statusLabels[$reviewStatus] ?? ucfirst($reviewStatus)) ?></span><strong class="text-sm"><?= e($review['event_title'] ?? 'Event') ?></strong></div>
                     <h2 class="mt-4 text-lg font-semibold"><?= e($review['participant_name'] ?? 'Participant') ?> rated <?= e($review['rating'] ?? 0) ?>/5</h2>

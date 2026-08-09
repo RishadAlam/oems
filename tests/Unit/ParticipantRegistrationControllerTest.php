@@ -285,8 +285,9 @@ final class ParticipantRegistrationControllerTest extends TestCase
 
         $this->assertTrue(str_contains(
             $body,
-            'name="reason" rows="3" maxlength="500" required aria-invalid="true" aria-describedby="reason-error"',
+            'name="reason" rows="3" maxlength="500" required aria-describedby="reason-help reason-error" aria-invalid="true"',
         ));
+        $this->assertTrue(str_contains($body, 'id="reason-help"'));
         $this->assertTrue(str_contains($body, 'id="reason-error"'));
         $this->assertTrue(str_contains($body, 'This registration can no longer be cancelled.'));
     }
