@@ -18,4 +18,5 @@
 !/public/uploads/.gitkeep
 !/public/uploads/tickets/
 !/public/uploads/tickets/.gitkeep
+!/public/uploads/tickets/.htaccess
 !/public/tickets/.gitkeep

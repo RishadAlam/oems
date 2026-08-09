@@ -35,4 +35,16 @@ final class PublicFilePolicyTest extends TestCase
         $this->assertFalse(PublicFilePolicy::mayServe($this->publicRoot, '/uploads/tickets/legacy.pdf'));
         $this->assertTrue(PublicFilePolicy::mayServe($this->publicRoot, '/assets/app.css'));
     }
+
+    public function testCanonicalPathBypassesCannotReachLegacyTicketArtifacts(): void
+    {
+        foreach ([
+            '/assets/../uploads/tickets/legacy.pdf',
+            '/assets/%2e%2e/uploads/tickets/legacy.pdf',
+            '/uploads//tickets/legacy.pdf',
+            '/uploads/%2ftickets/legacy.pdf',
+        ] as $path) {
+            $this->assertFalse(PublicFilePolicy::mayServe($this->publicRoot, $path));
+        }
+    }
 }

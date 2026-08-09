@@ -12,11 +12,27 @@ final class PublicFilePolicy
         $path = is_string($path) ? rawurldecode($path) : '/';
 
         if (str_contains($path, "\0")
-            || $path === '/uploads/tickets'
+            || str_contains($path, '\\')
+            || str_contains($path, '//')) {
+            return false;
+        }
+
+        $segments = explode('/', $path);
+        if (in_array('.', $segments, true) || in_array('..', $segments, true)) {
+            return false;
+        }
+
+        if ($path === '/uploads/tickets'
             || str_starts_with($path, '/uploads/tickets/')) {
             return false;
         }
 
-        return $path !== '/' && is_file(rtrim($documentRoot, DIRECTORY_SEPARATOR) . $path);
+        $root = realpath($documentRoot);
+        $target = $root === false ? false : realpath($root . $path);
+
+        return $path !== '/'
+            && $target !== false
+            && str_starts_with($target, $root . DIRECTORY_SEPARATOR)
+            && is_file($target);
     }
 }
