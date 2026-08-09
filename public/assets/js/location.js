@@ -15,6 +15,7 @@
         || document.querySelector('#event-detail-map-data');
     const cards = Array.from(document.querySelectorAll('[data-event-id]'));
     const reduceMotion = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const mobileViewQuery = global.matchMedia?.('(max-width: 767px)');
     let map = null;
     let payload = null;
     let locationSubmitted = false;
@@ -121,7 +122,12 @@
                 continue;
             }
 
-            const marker = global.L.marker([latitude, longitude])
+            const markerTitle = String(item.title || 'Event');
+            const marker = global.L.marker([latitude, longitude], {
+                alt: markerTitle,
+                keyboard: true,
+                title: markerTitle,
+            })
                 .bindPopup(`<a href="${escapeHtml(item.href || '#')}">${escapeHtml(item.title || 'Event')}</a>`)
                 .addTo(map);
             const card = cardById.get(String(item.id));
@@ -184,9 +190,16 @@
 
         if (mapPanel) mapPanel.hidden = false;
         const usable = initializeMap();
-        const mobile = global.matchMedia?.('(max-width: 767px)').matches ?? false;
+        const mobile = mobileViewQuery?.matches ?? false;
         if (results) results.hidden = usable && mobile;
     };
+
+    const syncViewToViewport = () => {
+        const selectedView = viewButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.view;
+        if (selectedView === 'map') setView('map');
+    };
+
+    mobileViewQuery?.addEventListener?.('change', syncViewToViewport);
 
     for (const button of viewButtons) {
         button.addEventListener('click', () => setView(button.dataset.view));

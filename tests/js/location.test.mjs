@@ -77,9 +77,10 @@ function createLeafletHarness() {
             maps.push(map);
             return map;
         },
-        marker(coordinates) {
+        marker(coordinates, options = {}) {
             const marker = {
                 coordinates,
+                options,
                 events: new Map(),
                 popup: '',
                 openPopupCalls: 0,
@@ -110,6 +111,7 @@ function createHarness({
     reducedMotion = false,
     supported = true,
 } = {}) {
+    let mobileViewport = mobile;
     const useLocation = new ElementStub();
     const status = new ElementStub();
     const form = new ElementStub();
@@ -171,6 +173,7 @@ function createHarness({
         });
     };
 
+    const mediaListeners = new Map();
     const sandbox = {
         console,
         document: {
@@ -198,10 +201,16 @@ function createHarness({
             },
         } : {},
         matchMedia(query) {
-            return {
-                matches: query.includes('max-width') ? mobile : reducedMotion,
-                addEventListener() {},
+            const mediaQuery = {
+                get matches() { return query.includes('max-width') ? mobileViewport : reducedMotion; },
+                addEventListener(type, callback) {
+                    if (type === 'change') mediaListeners.set(query, callback);
+                },
+                removeEventListener(type, callback) {
+                    if (type === 'change' && mediaListeners.get(query) === callback) mediaListeners.delete(query);
+                },
             };
+            return mediaQuery;
         },
         addEventListener(type, callback) { windowListeners.set(type, callback); },
         setTimeout,
@@ -226,6 +235,10 @@ function createHarness({
         clickUseLocation: async () => { useLocation.click(); await Promise.resolve(); },
         pagehide: (persisted = false) => windowListeners.get('pagehide')?.({ persisted }),
         pageshow: (persisted = false) => windowListeners.get('pageshow')?.({ persisted }),
+        resizeToMobile: (nextMobile) => {
+            mobileViewport = nextMobile;
+            mediaListeners.get('(max-width: 767px)')?.({ matches: nextMobile });
+        },
     };
 }
 
@@ -287,6 +300,19 @@ test('list and map controls expose pressed state and mobile panel visibility', (
     assert.equal(harness.list.hidden, false);
 });
 
+test('active map view follows responsive breakpoint changes without hiding desktop results', () => {
+    const harness = createHarness({ mobile: true });
+    harness.mapToggle.click();
+    assert.equal(harness.list.hidden, true);
+
+    harness.resizeToMobile(false);
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, false);
+
+    harness.resizeToMobile(true);
+    assert.equal(harness.list.hidden, true);
+});
+
 test('marker and card interactions preserve keyboard focus and disable reduced motion', () => {
     const harness = createHarness({ reducedMotion: true });
     harness.mapToggle.click();
@@ -300,6 +326,17 @@ test('marker and card interactions preserve keyboard focus and disable reduced m
     harness.card.focus();
     assert.equal(marker.openPopupCalls, 1);
     assert.equal(map.panToCalls[0].options.animate, false);
+});
+
+test('event markers expose the event title to keyboard and screen-reader users', () => {
+    const harness = createHarness();
+    harness.mapToggle.click();
+
+    assert.deepEqual(JSON.parse(JSON.stringify(harness.leaflet.markers[0].options)), {
+        alt: 'Future Craft',
+        keyboard: true,
+        title: 'Future Craft',
+    });
 });
 
 test('focus entering a nested event link activates its marker', () => {

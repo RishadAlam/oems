@@ -256,6 +256,10 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, '\\u003C/script\\u003E'));
         $this->assertFalse(str_contains($body, '</script><script>unsafe()'));
         $this->assertFalse(str_contains(json_encode($payload), 'Secret Hall'));
+        $this->assertTrue(str_contains(
+            $body,
+            'class="event-discovery-layout"',
+        ), 'The canonical result list and supplemental map must share the responsive discovery layout.');
     }
 
     public function testIndexShowsOnlyCoarseDistanceAndCoarsePlaceForRestrictedRows(): void

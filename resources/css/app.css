@@ -1402,7 +1402,7 @@
     }
 
     .venue-search-result {
-        @apply min-h-11 w-full rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-semibold leading-5 text-[var(--ink)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)];
+        @apply min-h-11 w-full rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-semibold leading-5 text-[var(--ink)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-[var(--accent)];
     }
 
     .venue-map {
@@ -1426,7 +1426,7 @@
     }
 
     .venue-coordinate-details summary {
-        @apply min-h-11 cursor-pointer content-center font-semibold text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)];
+        @apply min-h-11 cursor-pointer content-center font-semibold text-[var(--ink)] focus-visible:outline-[var(--accent)];
     }
 
     .venue-coordinate-details[open] summary {
@@ -1615,7 +1615,7 @@
     }
 
     .event-view-switch button {
-        @apply inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-[9px] px-3 text-sm font-bold text-[var(--ink-muted)] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)];
+        @apply inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-[9px] px-3 text-sm font-bold text-[var(--ink-muted)] transition focus-visible:outline-[var(--accent)];
     }
 
     .event-view-switch button[aria-pressed="true"] {
@@ -1624,6 +1624,15 @@
 
     .event-map-panel {
         @apply mt-10 overflow-hidden rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:p-5;
+    }
+
+    .event-discovery-layout {
+        @apply mt-10 grid gap-6;
+    }
+
+    .event-discovery-layout > .event-results-grid,
+    .event-discovery-layout > .event-map-panel {
+        @apply mt-0;
     }
 
     .event-map-panel__heading {
@@ -1902,6 +1911,22 @@
 
 [data-theme="dark"] .venue-map .leaflet-control-attribution a {
     color: var(--accent);
+}
+
+@media (min-width: 1024px) {
+    .event-discovery-layout:not(.event-discovery-layout--empty) {
+        grid-template-columns: minmax(0, 1.15fr) minmax(22rem, 0.85fr);
+        align-items: start;
+    }
+
+    .event-discovery-layout:not(.event-discovery-layout--empty) > .event-results-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .event-discovery-layout:not(.event-discovery-layout--empty) > .event-map-panel {
+        position: sticky;
+        top: 6rem;
+    }
 }
 
 @media (max-width: 767px) {

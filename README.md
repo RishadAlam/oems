@@ -53,10 +53,11 @@ OEMS is a custom PHP MVC online event management platform for public discovery, 
    mysql -u root -p oems < database/demo_seed.sql
    ```
 
-5. Build the Tailwind stylesheet.
+5. Build the Tailwind stylesheet and copy self-hosted frontend assets.
 
    ```bash
    npm run build:css
+   npm run build:assets
    ```
 
 6. Start the local server and visit `http://localhost:8000`.
@@ -67,7 +68,7 @@ OEMS is a custom PHP MVC online event management platform for public discovery, 
 
 Registration and password-reset messages are sent through the configured SMTP transport. With `APP_DEBUG=true`, the screens also expose local development links so account flows can be tested without opening the mail sandbox.
 
-In production, set `APP_URL` to the externally reachable HTTPS origin so account email links open the correct secure site.
+In production, set `APP_URL` to the externally reachable HTTPS origin so account email links open the correct secure site. Browser location access also requires HTTPS outside `localhost`; it will not work on an ordinary remote HTTP origin.
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
@@ -79,16 +80,38 @@ For an existing populated database created from baseline `5857358`, use this exa
 
 1. Back up the database and stop or drain application processes that can write to it.
 2. Make the new release files available, but do not start the new PHP code yet.
-3. Run the forward migration before deploying the code that reads the new payment-review columns.
+3. Run the forward migrations in order before deploying code that reads the new columns.
 
    ```bash
    mysql -u root -p oems < database/migrations/2026-08-09-participant-transactions.sql
+   mysql -u root -p oems < database/migrations/2026-08-09-live-location.sql
    ```
 
 4. Deploy the new PHP code and restart the application processes.
 5. Run the health and acceptance checks. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
 
-The migration adds nullable `payments.reviewed_by`, `payments.reviewed_at`, and `payments.review_note`, the reviewer foreign key, and the review moderation index. Its `information_schema` guards make a second deployment and recovery after a partially applied MySQL DDL run safe; existing rows and values are preserved.
+The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. Both migrations use `information_schema` guards and can be run again after a partially applied MySQL DDL deployment without replacing existing rows.
+
+If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run only `database/migrations/2026-08-09-live-location.sql`. Never import `schema.sql` or either seed over a populated production database.
+
+## Maps and nearby discovery
+
+The map integration uses locally built Leaflet assets and provider-neutral configuration:
+
+- `MAP_TILE_URL` is the HTTPS tile template. The local default is `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
+- `MAP_TILE_ATTRIBUTION` is the visible provider attribution. Keep the attribution required by the selected provider.
+- `MAP_DEFAULT_LAT`, `MAP_DEFAULT_LNG`, and `MAP_DEFAULT_ZOOM` define the fallback map view before a pin or result is selected.
+- `MAP_GEOCODER_URL` is the HTTPS server-side forward-geocoding endpoint.
+- `MAP_PROVIDER_NAME` names the configured geocoder in safe operational messages.
+- `MAP_USER_AGENT` identifies this installation to the geocoding provider.
+- `MAP_CONTACT_EMAIL` supplies provider contact information when required. It may be blank locally.
+- `LOCATION_SESSION_TTL` is the nearby-location session lifetime in seconds. The default `1209600` is 14 days.
+
+The public OpenStreetMap tile service and Nominatim defaults are for low-volume, human-driven local development only. OEMS displays map attribution, sends only explicit organizer address searches to the server-side geocoder, caches bounded results, and limits provider requests to at most one per second. Before production use, configure tile and geocoding services that permit the installation's expected traffic. Switching providers requires environment changes, not template or JavaScript changes. Do not commit provider credentials.
+
+Nearby discovery begins only after a visitor selects **Use my location**. The browser coordinates are rounded to three decimal places, stored only in the session, expire after 14 days by default, and can be removed with **Clear location**. OEMS does not continuously track attendees, call `watchPosition`, infer location from an IP address, broadcast participant position, or write device coordinates to application tables or analytics.
+
+Organizers can enter the written venue address without JavaScript. **Find address** performs one explicit search; selecting a result, clicking or dragging the map pin, or choosing **Use current position** fills the coordinate pair. **Clear pin** removes both coordinates. Moving a pin never silently rewrites the written address. Each event can expose its exact location publicly or only to confirmed participants, and may include arrival notes. Public exact locations show a map and directions. A registered-only event shows guests and pending participants only its city and country; confirmed participants, the owning organizer, and administrators can see its exact address, map, directions, and arrival notes.
 
 ## Development administrator
 
@@ -102,6 +125,14 @@ Change this password immediately outside isolated local development.
 The optional `database/demo_seed.sql` file adds internally consistent local-only organizers, participants, venues, lifecycle events, registrations, manual payments, tickets, notifications, and eligible reviews. It can be imported repeatedly. Existing rows are updated by stable keys and guarded inserts prevent duplicate schedules, galleries, and notifications. Every non-administrator demo account uses the password `DemoPass!2026`.
 
 The demo activates the manual payment method with explicitly fictional instructions. Seeded future tickets keep `qr_path` and `pdf_path` as `NULL` because no media file has been generated for those reference rows. The application generates real QR and PDF assets only when its ticket issuance workflow runs.
+
+The demo also provides repeatable map journeys:
+
+- `dhaka-tech-summit-2026` is a future published event with a public exact location, map, directions, and arrival notes.
+- `startup-growth-forum-2026` is a future published event whose exact location and arrival notes are restricted. Guests cannot see them; `sohana.participant@oems.local` and `arif.participant@oems.local` have confirmed registrations and can verify the authorized state.
+- `community-arts-night-2026` is another future published coordinate-backed event for nearby radius and map-result testing.
+
+The demo seed refreshes only the three owned venue pins and does not seed or clear the geocoding cache. Reimporting it keeps stable event, registration, payment, and ticket identifiers.
 
 - Super administrator: `admin@oems.local` / `ChangeMe!2026`
 - Approved organizer: `ayesha.organizer@oems.local` / `DemoPass!2026`
@@ -226,6 +257,11 @@ composer check:syntax
 composer validate --strict
 composer audit
 npm run build:css
+npm run build:assets
+node --check public/assets/js/location.js
+node --check public/assets/js/venue-map.js
+node tests/js/location.test.mjs
+node tests/js/venue-map.test.mjs
 git diff --check
 ```
 

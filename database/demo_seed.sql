@@ -135,6 +135,28 @@ WHERE NOT EXISTS (
 SET @bic_center_id = (SELECT id FROM venues WHERE name = 'Bangabandhu International Conference Center' AND organizer_id = @ayesha_organizer_id LIMIT 1);
 SET @emk_center_id = (SELECT id FROM venues WHERE name = 'EMK Center' AND organizer_id = @farhan_organizer_id LIMIT 1);
 SET @bengal_shilpalay_id = (SELECT id FROM venues WHERE name = 'Bengal Shilpalay' AND organizer_id = @nusrat_organizer_id LIMIT 1);
+
+UPDATE venues
+SET latitude = 23.7807,
+    longitude = 90.3779,
+    map_url = 'https://www.google.com/maps/dir/?api=1&destination=23.7807%2C90.3779'
+WHERE name = 'Bangabandhu International Conference Center'
+  AND organizer_id = @ayesha_organizer_id;
+
+UPDATE venues
+SET latitude = 23.7465,
+    longitude = 90.3760,
+    map_url = 'https://www.google.com/maps/dir/?api=1&destination=23.7465%2C90.3760'
+WHERE name = 'EMK Center'
+  AND organizer_id = @farhan_organizer_id;
+
+UPDATE venues
+SET latitude = 23.7552,
+    longitude = 90.3747,
+    map_url = 'https://www.google.com/maps/dir/?api=1&destination=23.7552%2C90.3747'
+WHERE name = 'Bengal Shilpalay'
+  AND organizer_id = @nusrat_organizer_id;
+
 SET @technology_category_id = (SELECT id FROM categories WHERE slug = 'technology');
 SET @business_category_id = (SELECT id FROM categories WHERE slug = 'business');
 SET @arts_category_id = (SELECT id FROM categories WHERE slug = 'arts-culture');
@@ -163,7 +185,7 @@ INSERT INTO events (
         @farhan_organizer_id, @business_category_id, @emk_center_id,
         'Startup Growth Forum 2026', 'startup-growth-forum-2026',
         'Focused sessions on early growth, fundraising, operations, and sustainable teams.',
-        '/assets/images/event-creative.webp', 'public',
+        '/assets/images/event-creative.webp', 'registered',
         'Enter through the Midas Center reception and take the lift to the event floor.',
         'Founders Forum faculty', '2026-10-05 10:00:00', '2026-10-05 17:00:00',
         '2026-10-02 23:59:00', 120, 118, 1200.00, 'BDT',

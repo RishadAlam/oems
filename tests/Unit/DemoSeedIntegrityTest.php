@@ -325,12 +325,98 @@ final class DemoSeedIntegrityTest extends TestCase
         $this->assertSame(count($ticketNumbers), count(array_unique($ticketNumbers)));
     }
 
-    public function testDemoEventsSetPublicLocationVisibilityAndBoundedArrivalNotes(): void
+    public function testPublishedFutureDemoEventsProvidePublicAndRestrictedLocationJourneys(): void
     {
+        $venues = $this->demoVenueCoordinates();
+        $publishedFuture = [];
+
         foreach ($this->insertRows('events') as $row) {
-            $this->assertSame('public', $this->literal($row[7] ?? ''));
-            $this->assertTrue(strlen($this->literal($row[8] ?? '')) <= 500);
+            if ($this->literal($row[18] ?? '') !== 'published'
+                || strcmp($this->literal($row[10] ?? ''), '2026-08-10 00:00:00') <= 0) {
+                continue;
+            }
+
+            $venue = $venues[$row[2] ?? ''] ?? null;
+            $this->assertNotNull($venue, 'Every published future demo event must use a mapped venue.');
+            $this->assertTrue(
+                isset($venue['latitude'], $venue['longitude'])
+                    && $venue['latitude'] >= -90
+                    && $venue['latitude'] <= 90
+                    && $venue['longitude'] >= -180
+                    && $venue['longitude'] <= 180,
+                'Every published future demo event must have a valid coordinate pair.',
+            );
+
+            $publishedFuture[] = [
+                'slug' => $this->literal($row[4] ?? ''),
+                'visibility' => $this->literal($row[7] ?? ''),
+                'arrival_notes' => $this->literal($row[8] ?? ''),
+            ];
         }
+
+        $this->assertTrue(count($publishedFuture) >= 3);
+        $this->assertTrue(count(array_filter(
+            $publishedFuture,
+            static fn (array $event): bool => $event['visibility'] === 'public',
+        )) >= 1);
+        $restricted = array_values(array_filter(
+            $publishedFuture,
+            static fn (array $event): bool => $event['visibility'] === 'registered',
+        ));
+        $this->assertTrue(count($restricted) >= 1);
+        $this->assertTrue(($restricted[0]['arrival_notes'] ?? '') !== '');
+        $this->assertTrue(strlen($restricted[0]['arrival_notes']) <= 500);
+    }
+
+    public function testDemoLocationRefreshIsRepeatableAndDoesNotSeedPrivateSearchCache(): void
+    {
+        $this->assertFalse(str_contains($this->seed, 'INSERT INTO geocoding_cache'));
+        $this->assertFalse(str_contains($this->seed, 'DELETE FROM geocoding_cache'));
+        $this->assertFalse(str_contains($this->seed, 'TRUNCATE'));
+
+        $venues = $this->demoVenueCoordinates();
+        $this->assertSame(3, count($venues));
+
+        foreach ($venues as $venue) {
+            $this->assertSame(
+                1,
+                substr_count($this->seed, "WHERE name = '{$venue['name']}'\n  AND organizer_id = {$venue['organizer']};"),
+                "{$venue['name']} coordinates must be refreshed through one repeatable owned update.",
+            );
+        }
+    }
+
+    /** @return array<string, array{name: string, organizer: string, latitude: float, longitude: float}> */
+    private function demoVenueCoordinates(): array
+    {
+        preg_match_all(
+            "/SET\\s+(?<venue>@[a-z_]+_id)\\s*=\\s*\\(SELECT id FROM venues WHERE name = '(?<name>[^']+)' AND organizer_id = (?<organizer>@[a-z_]+_organizer_id) LIMIT 1\\);/",
+            $this->seed,
+            $venueMatches,
+            PREG_SET_ORDER,
+        );
+
+        $venues = [];
+        foreach ($venueMatches as $match) {
+            $pattern = "/UPDATE venues\\s+SET latitude = (?<latitude>-?[0-9.]+),\\s+longitude = (?<longitude>-?[0-9.]+),\\s+map_url = '[^']+'\\s+WHERE name = '"
+                . preg_quote($match['name'], '/')
+                . "'\\s+AND organizer_id = "
+                . preg_quote($match['organizer'], '/')
+                . ";/";
+
+            if (preg_match($pattern, $this->seed, $coordinates) !== 1) {
+                continue;
+            }
+
+            $venues[$match['venue']] = [
+                'name' => $match['name'],
+                'organizer' => $match['organizer'],
+                'latitude' => (float) $coordinates['latitude'],
+                'longitude' => (float) $coordinates['longitude'],
+            ];
+        }
+
+        return $venues;
     }
 
     private function insertRows(string $table): array

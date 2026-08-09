@@ -104,6 +104,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
             <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Showing <?= count($events) ?> <?= count($events) === 1 ? 'match' : 'matches' ?> for your selected filters.</span></p>
         <?php endif; ?>
 
+        <div class="event-discovery-layout<?= $events === [] ? ' event-discovery-layout--empty' : '' ?>">
         <?php if ($events === []): ?>
             <div class="event-empty-state">
                 <span><i class="ph ph-calendar-x" aria-hidden="true"></i></span>
@@ -155,6 +156,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                 <p data-map-fallback>Map is unavailable. Browse the complete event list instead.</p>
             </div>
         </section>
+        </div>
 
         <script type="application/json" id="event-map-data"><?= json_encode($mapPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     </div>
