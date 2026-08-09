@@ -179,7 +179,7 @@ final class PublicEventControllerTest extends TestCase
             'radius' => 25,
             'label' => 'Current area',
             'source' => 'device',
-            'expires_at' => 1_900_000_000,
+            'expires_at' => 1_801_000_000,
         ]);
         $locations = new LocationService(1209600, static fn (): int => 1_800_000_000);
         $controller = new PublicEventController(
@@ -271,7 +271,7 @@ final class PublicEventControllerTest extends TestCase
             'radius' => 25,
             'label' => 'Current area',
             'source' => 'device',
-            'expires_at' => 1_900_000_000,
+            'expires_at' => 1_801_000_000,
         ]);
         $this->events->events = [array_merge($this->restrictedEventFixture(), [
             'distance_km' => '7.3',
@@ -281,9 +281,11 @@ final class PublicEventControllerTest extends TestCase
         $controller = $this->controllerForSession($session, new FakeUserRepository(), new LocationService(1209600, static fn (): int => 1_800_000_000));
 
         $body = $controller->index(Request::create('GET', '/events'))->body();
+        $payload = $this->jsonScript($body, 'event-map-data');
 
         $this->assertTrue(str_contains($body, 'Within 10 km'));
         $this->assertTrue(str_contains($body, '<address>Dhaka, Bangladesh</address>'));
+        $this->assertSame([], $payload['markers'] ?? null);
         foreach (['7.3 km away', 'Secret Hall', 'Road 12', '23.8117', '90.4159', 'maps.example.test', 'Use gate B'] as $secret) {
             $this->assertFalse(str_contains($body, $secret), 'Leaked restricted location value: ' . $secret);
         }
@@ -398,7 +400,7 @@ final class PublicEventControllerTest extends TestCase
 
             $this->assertTrue(str_contains($body, 'Secret Hall, Road 12, Dhaka, Bangladesh'));
             $this->assertTrue(str_contains($body, 'Use gate B'));
-            $this->assertTrue(str_contains($body, 'https://maps.example.test/secret'));
+            $this->assertTrue(str_contains($body, 'https://www.google.com/maps/dir/'));
             $this->assertTrue(str_contains($body, '<script type="application/ld+json">'));
             $this->assertTrue(str_contains($body, '"name":"Secret Hall"'));
             $this->assertTrue(str_contains($body, 'id="event-detail-map-data"'));
@@ -422,7 +424,7 @@ final class PublicEventControllerTest extends TestCase
 
         $this->assertTrue(str_contains($body, 'Dhaka Arts Hall, Main Road, Dhaka, Bangladesh'));
         $this->assertTrue(str_contains($body, 'Use the east entrance.'));
-        $this->assertTrue(str_contains($body, 'https://maps.example.test/public'));
+        $this->assertTrue(str_contains($body, 'https://www.google.com/maps/dir/'));
         $this->assertTrue(str_contains($body, '<script type="application/ld+json">'));
         $this->assertTrue(str_contains($body, '"name":"Dhaka Arts Hall"'));
     }

@@ -69,6 +69,28 @@ final class HomeControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'Browse all events'));
     }
 
+    public function testGuestHomeNeverExposesRestrictedVenueIdentity(): void
+    {
+        $this->events->events[41] = array_merge(
+            $this->eventFixture(41, 'Restricted gathering', 'restricted-gathering'),
+            [
+                'location_visibility' => 'registered',
+                'venue_name' => 'HOSTILE SECRET VENUE',
+                'venue_address_line' => 'PRIVATE ROAD 99',
+                'venue_latitude' => '23.8103',
+                'venue_longitude' => '90.4125',
+                'arrival_notes' => 'PRIVATE DOOR CODE',
+            ],
+        );
+
+        $body = $this->controller->index(Request::create('GET', '/'))->body();
+
+        $this->assertTrue(str_contains($body, 'Dhaka, Bangladesh'));
+        foreach (['HOSTILE SECRET VENUE', 'PRIVATE ROAD 99', '23.8103', '90.4125', 'PRIVATE DOOR CODE'] as $secret) {
+            $this->assertFalse(str_contains($body, $secret), 'Guest home leaked restricted venue data: ' . $secret);
+        }
+    }
+
     public function testParticipantFeaturedCardsUseOneBulkFavoriteLookupAndAccessibleControls(): void
     {
         $this->events->events[41] = $this->eventFixture(41, 'Saved featured event', 'saved-featured-event');

@@ -23,6 +23,7 @@ final class EventService
         private readonly OrganizerRepositoryInterface $organizers,
         private readonly ?Logger $logger = null,
         private readonly ?NotificationService $notifications = null,
+        private readonly ?LocationService $locations = null,
     ) {
     }
 
@@ -306,6 +307,12 @@ final class EventService
             'arrival_notes' => 'nullable|string|max:500',
         ]);
         $normalizedTicketPrice = Money::normalize($normalized['ticket_price']);
+
+        if ($normalized['map_url'] !== ''
+            && !isset($errors['map_url'])
+            && !($this->locations ?? new LocationService())->isTrustedDirectionsUrl($normalized['map_url'])) {
+            $errors['map_url'][] = 'Use a directions URL from a trusted map provider.';
+        }
 
         if (!isset($errors['ticket_price']) && $normalizedTicketPrice === null) {
             $errors['ticket_price'][] = 'The ticket price may have no more than two decimal places.';

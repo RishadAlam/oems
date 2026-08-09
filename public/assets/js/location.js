@@ -17,6 +17,10 @@
     const reduceMotion = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const mobileViewQuery = global.matchMedia?.('(max-width: 767px)');
     let map = null;
+    let tileLayer = null;
+    let handleTileLoad = null;
+    let handleTileError = null;
+    let mapReady = false;
     let payload = null;
     let locationSubmitted = false;
     let cardFocusCleanups = [];
@@ -86,10 +90,26 @@
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 
+    const selectedMapView = () => viewButtons.length === 0
+        || viewButtons.some((button) => button.dataset.view === 'map'
+            && button.getAttribute('aria-pressed') === 'true');
+
+    const setMapAvailability = (ready, message) => {
+        mapReady = ready;
+        const fallback = mapElement?.querySelector?.('[data-map-fallback]');
+        if (fallback) fallback.hidden = ready;
+        if (message) setStatus(message);
+
+        if (results) {
+            const mobile = mobileViewQuery?.matches ?? false;
+            results.hidden = ready && mobile && selectedMapView();
+        }
+    };
+
     const initializeMap = () => {
         if (map) {
             map.invalidateSize();
-            return true;
+            return mapReady;
         }
 
         if (!payload || !mapElement || !global.L?.map) {
@@ -102,12 +122,6 @@
             [Number(config.default_lat), Number(config.default_lng)],
             Number(config.default_zoom),
         );
-
-        if (typeof config.tile_url === 'string' && config.tile_url !== '') {
-            global.L.tileLayer(config.tile_url, {
-                attribution: String(config.tile_attribution || ''),
-            }).addTo(map);
-        }
 
         const cardById = new Map(cards.map((card) => [String(card.dataset.eventId), card]));
         const markerById = new Map();
@@ -156,9 +170,6 @@
             cardFocusCleanups.push(() => card.removeEventListener('focusin', handleCardFocus));
         }
 
-        const fallback = mapElement.querySelector?.('[data-map-fallback]');
-        if (fallback) fallback.hidden = true;
-
         if (markerPoints.length > 1) {
             const bounds = global.L.featureGroup(markerPoints.map((point) => point.marker)).getBounds();
             if (bounds.isValid()) map.fitBounds(bounds, { padding: [28, 28], animate: !reduceMotion });
@@ -166,14 +177,41 @@
             map.setView(markerPoints[0].coordinates, Math.max(Number(config.default_zoom), 13));
         }
 
-        return true;
+        if (markerPoints.length === 0) {
+            setMapAvailability(false, 'No public event locations can be mapped. The complete event list is still available.');
+            return false;
+        }
+
+        if (typeof config.tile_url !== 'string' || config.tile_url === '') {
+            setMapAvailability(false, 'The map tiles are unavailable. The complete event list is still available.');
+            return false;
+        }
+
+        tileLayer = global.L.tileLayer(config.tile_url, {
+            attribution: String(config.tile_attribution || ''),
+        });
+        handleTileLoad = () => setMapAvailability(true, 'Map loaded. Use the List view for complete event details.');
+        handleTileError = () => setMapAvailability(false, 'The map tiles could not load. The complete event list is still available.');
+        tileLayer.on('load', handleTileLoad);
+        tileLayer.on('tileerror', handleTileError);
+        tileLayer.addTo(map);
+
+        return mapReady;
     };
 
     const destroyMap = () => {
         for (const cleanup of cardFocusCleanups) cleanup();
         cardFocusCleanups = [];
+        if (tileLayer && handleTileLoad && handleTileError) {
+            tileLayer.off('load', handleTileLoad);
+            tileLayer.off('tileerror', handleTileError);
+        }
+        tileLayer = null;
+        handleTileLoad = null;
+        handleTileError = null;
         map?.remove();
         map = null;
+        mapReady = false;
     };
 
     const setView = (view) => {

@@ -170,6 +170,29 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertFalse(str_contains($body, 'name="transaction_reference"'));
     }
 
+    public function testPreRegistrationSummaryNeverExposesRestrictedVenueIdentity(): void
+    {
+        $restricted = array_merge($this->eventFixture(), [
+            'location_visibility' => 'registered',
+            'venue_name' => 'HOSTILE SECRET VENUE',
+            'venue_address_line' => 'PRIVATE ROAD 99',
+            'venue_city' => 'Dhaka',
+            'venue_country' => 'Bangladesh',
+            'venue_latitude' => '23.8103',
+            'venue_longitude' => '90.4125',
+            'arrival_notes' => 'PRIVATE DOOR CODE',
+        ]);
+        $this->events->events[31] = $restricted;
+        $this->registrations->eligibleEvents[31] = $restricted;
+
+        $body = $this->controller()->create($this->slugged('GET', 'future-craft'))->body();
+
+        $this->assertTrue(str_contains($body, 'Dhaka, Bangladesh'));
+        foreach (['HOSTILE SECRET VENUE', 'PRIVATE ROAD 99', '23.8103', '90.4125', 'PRIVATE DOOR CODE'] as $secret) {
+            $this->assertFalse(str_contains($body, $secret), 'Pre-registration view leaked restricted venue data: ' . $secret);
+        }
+    }
+
     public function testPaidCheckoutBoundsManualInstructionsBeforeRendering(): void
     {
         $this->payments->methods['manual']['configuration']['instructions'] = str_repeat('A', 500)
@@ -272,6 +295,48 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertTrue(str_contains($owned->body(), 'Status timeline'));
         $this->assertSame(404, $foreign->status());
         $this->assertSame(404, $this->controller()->show($this->idRouted('GET', 0))->status());
+    }
+
+    public function testOnlyConfirmedRegistrationDetailExposesRestrictedVenueIdentity(): void
+    {
+        foreach (['pending', 'cancelled', 'refunded'] as $index => $status) {
+            $id = 20 + $index;
+            $this->registrations->registrations[$id] = array_merge($this->registrationFixture(), [
+                'id' => $id,
+                'user_id' => 7,
+                'status' => $status,
+                'registration_status' => $status,
+                'location_visibility' => 'registered',
+                'venue_name' => 'HOSTILE SECRET VENUE',
+                'venue_address_line' => 'PRIVATE ROAD 99',
+                'venue_city' => 'Dhaka',
+                'venue_country' => 'Bangladesh',
+                'venue_latitude' => '23.8103',
+                'venue_longitude' => '90.4125',
+                'arrival_notes' => 'PRIVATE DOOR CODE',
+            ]);
+
+            $body = $this->controller()->show($this->idRouted('GET', $id))->body();
+
+            $this->assertTrue(str_contains($body, 'Dhaka, Bangladesh'));
+            foreach (['HOSTILE SECRET VENUE', 'PRIVATE ROAD 99', '23.8103', '90.4125', 'PRIVATE DOOR CODE'] as $secret) {
+                $this->assertFalse(str_contains($body, $secret), ucfirst($status) . ' detail leaked: ' . $secret);
+            }
+        }
+
+        $this->registrations->registrations[30] = array_merge($this->registrationFixture(), [
+            'id' => 30,
+            'user_id' => 7,
+            'status' => 'confirmed',
+            'registration_status' => 'confirmed',
+            'location_visibility' => 'registered',
+            'venue_name' => 'HOSTILE SECRET VENUE',
+            'venue_city' => 'Dhaka',
+            'venue_country' => 'Bangladesh',
+        ]);
+
+        $confirmed = $this->controller()->show($this->idRouted('GET', 30))->body();
+        $this->assertTrue(str_contains($confirmed, 'HOSTILE SECRET VENUE'));
     }
 
     public function testCancellationUsesAuthenticatedOwnershipAndRedirectsToTheOwnedDetail(): void

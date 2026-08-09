@@ -14,7 +14,7 @@
 - RED/GREEN: `PublicLocationControllerTest` first failed with the controller class absent, then passed after implementation.
 - RED/GREEN: nearby repository tests first returned lifecycle and coordinate leaks, then passed after prepared bounding/distance logic.
 - RED/GREEN: public discovery controller tests first failed to merge/clear session preferences, then passed after session integration.
-- RED/GREEN review regression: an event named `Location` first produced slug `location`; it now produces `location-2`.
+- RED/GREEN review regression: an event named `Location` briefly produced `location-2` while the session route reserved that slug; method-specific routing removed the reservation, so the event correctly retains `location`.
 - Focused suites passed: `PublicLocationControllerTest` (6), `EventRepositoryTest` (33), `PublicEventControllerTest` (13), `RouterTest` (4), `AdminEventControllerTest` (6), and `EventServiceTest` (24).
 - `rtk composer test` passed: 464 tests, 2847 assertions, 0 failures. This was run with approved loopback-port access because the existing stream HTTP fixture cannot bind a local port in the sandbox.
 - `rtk composer check:syntax` and `rtk git diff --check` passed.

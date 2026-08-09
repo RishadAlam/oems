@@ -107,8 +107,14 @@ final class ProfileRouteSecurityTest extends TestCase
     public function testParticipantWriteControllersRequireARateLimiterDependency(): void
     {
         foreach ([ParticipantRegistrationController::class, ParticipantReviewController::class] as $controller) {
-            $parameter = (new \ReflectionClass($controller))->getConstructor()?->getParameters();
-            $limiter = is_array($parameter) ? $parameter[array_key_last($parameter)] : null;
+            $parameters = (new \ReflectionClass($controller))->getConstructor()?->getParameters() ?? [];
+            $limiter = null;
+            foreach ($parameters as $parameter) {
+                if ($parameter->getName() === 'limiter') {
+                    $limiter = $parameter;
+                    break;
+                }
+            }
 
             $this->assertNotNull($limiter);
             $this->assertSame('limiter', $limiter->getName());

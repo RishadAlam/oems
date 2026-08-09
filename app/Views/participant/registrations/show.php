@@ -72,7 +72,7 @@ $paymentDetailLabel = $eventCancelled
             <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($registrationStatus) ?>"><?= e(ucfirst($registrationStatus)) ?></span></dd></div>
             <div><dt>Registered</dt><dd><?= e($registration['registered_display']) ?></dd></div>
             <div><dt>Starts</dt><dd><?= e($registration['event_start_display']) ?></dd></div>
-            <div><dt>Venue</dt><dd><?= e($registration['venue_name'] ?? 'Venue to be announced') ?></dd></div>
+            <div><dt>Venue</dt><dd><?= e($registration['venue_display'] ?? 'Venue to be announced') ?></dd></div>
         </dl>
     </section>
     <section class="money-summary dashboard-panel" aria-labelledby="payment-status-heading">

@@ -33,6 +33,13 @@ return [
         'provider_name' => env('MAP_PROVIDER_NAME', 'OpenStreetMap Nominatim'),
         'user_agent' => env('MAP_USER_AGENT', 'OEMS/1.0'),
         'contact_email' => env('MAP_CONTACT_EMAIL', ''),
+        'directions_hosts' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'MAP_DIRECTIONS_HOSTS',
+                'www.google.com,maps.google.com,maps.app.goo.gl,www.openstreetmap.org',
+            )),
+        ))),
         'location_session_ttl' => (int) env('LOCATION_SESSION_TTL', 1209600),
     ],
 ];

@@ -19,16 +19,17 @@ final class GeocodingCacheRepository implements GeocodingCacheRepositoryInterfac
     ) {
     }
 
-    public function findFresh(string $queryHash, DateTimeImmutable $now): ?array
+    public function findFresh(string $queryHash, string $provider, DateTimeImmutable $now): ?array
     {
         $statement = $this->connection->prepare(
             'SELECT normalized_query, provider, response_json, expires_at
              FROM geocoding_cache
-             WHERE query_hash = :query_hash AND expires_at > :now
+             WHERE query_hash = :query_hash AND provider = :provider AND expires_at > :now
              LIMIT 1',
         );
         $statement->execute([
             'query_hash' => $queryHash,
+            'provider' => mb_substr(trim($provider), 0, 80),
             'now' => $this->timestamp($now),
         ]);
         $row = $statement->fetch(PDO::FETCH_ASSOC);

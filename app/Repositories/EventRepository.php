@@ -75,7 +75,7 @@ final class EventRepository implements EventRepositoryInterface
                 'speaker' => "COALESCE(events.speaker, '')",
                 'organizer' => 'organizers.organization_name',
                 'category' => 'categories.name',
-                'venue' => "COALESCE(venues.name, '')",
+                'venue' => "CASE WHEN events.location_visibility = 'public' THEN COALESCE(venues.name, '') ELSE '' END",
                 'city' => "COALESCE(venues.city, '')",
             ] as $name => $column) {
                 $parameter = 'search_' . $name;
@@ -125,7 +125,6 @@ final class EventRepository implements EventRepositoryInterface
         $nearby = $this->nearbyParameters($filters);
 
         if ($nearby !== null) {
-            $clauses[] = "events.location_visibility = 'public'";
             $clauses[] = 'venues.latitude IS NOT NULL';
             $clauses[] = 'venues.longitude IS NOT NULL';
             $clauses[] = 'venues.latitude >= :latitude_min AND venues.latitude <= :latitude_max';

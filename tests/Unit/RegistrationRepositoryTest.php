@@ -263,7 +263,7 @@ final class RegistrationRepositoryTest extends TestCase
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL)');
-        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NULL, country TEXT NULL, postal_code TEXT NULL, latitude NUMERIC NULL, longitude NUMERIC NULL, map_url TEXT NULL)');
         $this->connection->exec(
             'CREATE TABLE events (
                 id INTEGER PRIMARY KEY,
@@ -279,6 +279,8 @@ final class RegistrationRepositoryTest extends TestCase
                 ticket_price NUMERIC NOT NULL,
                 currency TEXT NOT NULL,
                 status TEXT NOT NULL,
+                location_visibility TEXT NOT NULL DEFAULT "public",
+                arrival_notes TEXT NULL,
                 deleted_at TEXT NULL,
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )',

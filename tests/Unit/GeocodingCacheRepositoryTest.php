@@ -38,10 +38,11 @@ final class GeocodingCacheRepositoryTest extends TestCase
 
         $repository->upsert($hash, 'bashundhara dhaka', 'nominatim', $results, $now->modify('+30 days'));
 
-        $fresh = $repository->findFresh($hash, $now);
+        $fresh = $repository->findFresh($hash, 'nominatim', $now);
         $this->assertNotNull($fresh);
         $this->assertSame($results, $fresh['results']);
-        $this->assertNull($repository->findFresh($hash, $now->modify('+31 days')));
+        $this->assertNull($repository->findFresh($hash, 'another-provider', $now));
+        $this->assertNull($repository->findFresh($hash, 'nominatim', $now->modify('+31 days')));
     }
 
     public function testUpsertBoundsStoredProviderAndQueryAndReplacesPriorResults(): void
@@ -80,7 +81,7 @@ final class GeocodingCacheRepositoryTest extends TestCase
         ]);
 
         $repository = new GeocodingCacheRepository($this->connection, new Logger($path));
-        $this->assertNull($repository->findFresh($hash, new DateTimeImmutable('2026-08-09 12:00:00')));
+        $this->assertNull($repository->findFresh($hash, 'nominatim', new DateTimeImmutable('2026-08-09 12:00:00')));
         $log = file_get_contents($path);
         $this->assertTrue(is_string($log) && str_contains($log, $hash));
         $this->assertFalse(str_contains((string) $log, 'Private venue address'));
@@ -115,7 +116,7 @@ final class GeocodingCacheRepositoryTest extends TestCase
                 'expires' => '2026-09-09 12:00:00',
             ]);
 
-            $this->assertNull($repository->findFresh($hash, $now));
+            $this->assertNull($repository->findFresh($hash, 'nominatim', $now));
         }
 
         $log = file_get_contents($path);
@@ -147,7 +148,7 @@ final class GeocodingCacheRepositoryTest extends TestCase
             'expires' => '2026-09-09 12:00:00',
         ]);
 
-        $fresh = (new GeocodingCacheRepository($this->connection))->findFresh($hash, new DateTimeImmutable('2026-08-09 12:00:00'));
+        $fresh = (new GeocodingCacheRepository($this->connection))->findFresh($hash, 'nominatim', new DateTimeImmutable('2026-08-09 12:00:00'));
 
         $this->assertNotNull($fresh);
         $this->assertSame(5, count($fresh['results']));

@@ -63,6 +63,41 @@ final class VenueGeocodingServiceTest extends TestCase
         $this->assertSame('OEMS Test/1.0 (ops@example.test)', $http->requests[0]['headers']['User-Agent']);
     }
 
+    public function testChangingProviderCannotReuseAnotherProvidersCachedResult(): void
+    {
+        $firstHttp = new FakeHttpClient(200, '[{"display_name":"First provider","lat":"23.8","lon":"90.4"}]');
+        $secondHttp = new FakeHttpClient(200, '[{"display_name":"Second provider","lat":"23.9","lon":"90.5"}]');
+        $firstPath = tempnam(sys_get_temp_dir(), 'oems-geocode-first-');
+        $secondPath = tempnam(sys_get_temp_dir(), 'oems-geocode-second-');
+        $this->assertNotNull($firstPath);
+        $this->assertNotNull($secondPath);
+        $cache = new GeocodingCacheRepository($this->connection);
+        $first = new VenueGeocodingService(
+            $cache,
+            new NominatimGeocoder($firstHttp, 'https://nominatim.example.test/search', 'OEMS Test/1.0', 'ops@example.test'),
+            'provider-one',
+            null,
+            $firstPath,
+        );
+        $second = new VenueGeocodingService(
+            $cache,
+            new NominatimGeocoder($secondHttp, 'https://nominatim.example.test/search', 'OEMS Test/1.0', 'ops@example.test'),
+            'provider-two',
+            null,
+            $secondPath,
+        );
+
+        $firstResult = $first->search('Shared venue');
+        $secondResult = $second->search('Shared venue');
+
+        $this->assertSame('First provider', $firstResult['results'][0]['label']);
+        $this->assertSame('Second provider', $secondResult['results'][0]['label']);
+        $this->assertSame(1, $firstHttp->calls);
+        $this->assertSame(1, $secondHttp->calls);
+        unlink($firstPath);
+        unlink($secondPath);
+    }
+
     public function testInvalidOrEmptyQueriesNeverCallTheProvider(): void
     {
         $http = new FakeHttpClient(200, '[]');
@@ -182,7 +217,7 @@ final class VenueGeocodingServiceTest extends TestCase
             'INSERT INTO geocoding_cache (query_hash, normalized_query, provider, response_json, expires_at)
              VALUES (:hash, :query, :provider, :response, :expires)',
         )->execute([
-            'hash' => hash('sha256', $query),
+            'hash' => hash('sha256', 'openstreetmap nominatim' . "\0" . $query),
             'query' => $query,
             'provider' => 'OpenStreetMap Nominatim',
             'response' => json_encode([[
@@ -223,7 +258,10 @@ final class VenueGeocodingServiceTest extends TestCase
         $log = file_get_contents($path);
 
         $this->assertFalse($result['success']);
-        $this->assertTrue(is_string($log) && str_contains($log, hash('sha256', strtolower($privateQuery))));
+        $this->assertTrue(is_string($log) && str_contains(
+            $log,
+            hash('sha256', 'openstreetmap nominatim' . "\0" . strtolower($privateQuery)),
+        ));
         $this->assertFalse(str_contains((string) $log, $privateQuery));
         $this->assertFalse(str_contains((string) $log, '23.8151'));
         $this->assertFalse(str_contains((string) $log, $privateBody));

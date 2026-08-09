@@ -55,9 +55,10 @@ class ElementStub {
     scrollIntoView(options) { this.scrollCalls.push(options); }
 }
 
-function createLeafletHarness() {
+function createLeafletHarness(tileOutcome = 'load') {
     const maps = [];
     const markers = [];
+    const tileLayers = [];
 
     const L = {
         map(element) {
@@ -93,13 +94,28 @@ function createLeafletHarness() {
             markers.push(marker);
             return marker;
         },
-        tileLayer() { return { addTo() { return this; } }; },
+        tileLayer(url, options) {
+            const layer = {
+                events: new Map(),
+                options,
+                url,
+                addTo() { this.emit(tileOutcome); return this; },
+                emit(type) { this.events.get(type)?.(); },
+                off(type, callback) {
+                    if (this.events.get(type) === callback) this.events.delete(type);
+                    return this;
+                },
+                on(type, callback) { this.events.set(type, callback); return this; },
+            };
+            tileLayers.push(layer);
+            return layer;
+        },
         featureGroup() {
             return { getBounds: () => ({ isValid: () => true }) };
         },
     };
 
-    return { L, maps, markers };
+    return { L, maps, markers, tileLayers };
 }
 
 function createHarness({
@@ -107,9 +123,11 @@ function createHarness({
     latitude = 23.810331,
     longitude = 90.412521,
     malformedPayload = false,
+    markers = null,
     mobile = false,
     reducedMotion = false,
     supported = true,
+    tileOutcome = 'load',
 } = {}) {
     let mobileViewport = mobile;
     const useLocation = new ElementStub();
@@ -125,6 +143,8 @@ function createHarness({
     const panel = new ElementStub();
     panel.hidden = true;
     const mapContainer = new ElementStub();
+    const mapFallback = new ElementStub();
+    mapContainer.querySelector = (selector) => selector === '[data-map-fallback]' ? mapFallback : null;
     const payload = new ElementStub({
         textContent: malformedPayload ? '{bad json' : JSON.stringify({
             config: {
@@ -134,7 +154,7 @@ function createHarness({
                 default_lng: 90.4125,
                 default_zoom: 11,
             },
-            markers: [{
+            markers: markers ?? [{
                 id: 501,
                 title: 'Future Craft',
                 href: '/events/future-craft',
@@ -150,7 +170,7 @@ function createHarness({
     const requests = [];
     const windowListeners = new Map();
     const geolocationCalls = [];
-    const leaflet = createLeafletHarness();
+    const leaflet = createLeafletHarness(tileOutcome);
 
     listToggle.dataset.view = 'list';
     mapToggle.dataset.view = 'map';
@@ -227,6 +247,7 @@ function createHarness({
         leaflet,
         list,
         listToggle,
+        mapFallback,
         mapToggle,
         panel,
         requests,
@@ -361,12 +382,34 @@ test('malformed marker payload keeps the list and renders an inline fallback', (
     assert.match(harness.status.textContent, /map is unavailable/i);
 });
 
+test('zero valid public markers keeps the canonical mobile list and visible fallback', () => {
+    const harness = createHarness({ markers: [], mobile: true });
+    harness.mapToggle.click();
+
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.mapFallback.hidden, false);
+    assert.match(harness.status.textContent, /no public event locations/i);
+});
+
+test('tile failure keeps the canonical mobile list and reports provider attribution', () => {
+    const harness = createHarness({ mobile: true, tileOutcome: 'tileerror' });
+    harness.mapToggle.click();
+
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.mapFallback.hidden, false);
+    assert.match(harness.status.textContent, /map tiles could not load/i);
+    assert.equal(harness.leaflet.tileLayers[0].options.attribution, 'Map data');
+});
+
 test('pagehide removes the Leaflet instance', () => {
     const harness = createHarness();
     harness.mapToggle.click();
+    assert.equal(harness.leaflet.tileLayers[0].events.size, 2);
     harness.pagehide();
 
     assert.equal(harness.leaflet.maps[0].removed, true);
+    assert.equal(harness.leaflet.tileLayers[0].events.size, 0);
 });
 
 test('persisted page restoration recreates the selected map without duplicate card listeners', () => {

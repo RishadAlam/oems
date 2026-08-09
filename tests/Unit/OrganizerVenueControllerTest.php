@@ -30,7 +30,7 @@ final class OrganizerVenueTestCache implements GeocodingCacheRepositoryInterface
 {
     public array $items = [];
 
-    public function findFresh(string $queryHash, DateTimeImmutable $now): ?array
+    public function findFresh(string $queryHash, string $provider, DateTimeImmutable $now): ?array
     {
         return $this->items[$queryHash] ?? null;
     }
@@ -447,7 +447,7 @@ final class OrganizerVenueControllerTest extends TestCase
             'postal_code' => '1205',
             'latitude' => '23.7465',
             'longitude' => '90.3760',
-            'map_url' => 'https://example.test/venue',
+            'map_url' => 'https://www.google.com/maps/venue',
             'capacity' => '100',
         ];
     }

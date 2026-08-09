@@ -17,6 +17,14 @@ PREPARE oems_migration_statement FROM @oems_sql;
 EXECUTE oems_migration_statement;
 DEALLOCATE PREPARE oems_migration_statement;
 
+-- The populated baseline allowed a single coordinate to be stored. A partial
+-- pair cannot identify a usable point, so discard both values rather than
+-- fabricate the missing coordinate before enforcing the pair invariant.
+UPDATE venues
+SET latitude = NULL,
+    longitude = NULL
+WHERE (latitude IS NULL) <> (longitude IS NULL);
+
 SET @oems_sql = IF(
     EXISTS (
         SELECT 1 FROM information_schema.COLUMNS

@@ -15,13 +15,30 @@ final class LocationService
 
     private const SOURCES = ['device', 'manual'];
 
+    private const MAX_TTL_SECONDS = 1209600;
+
+    private const DEFAULT_DIRECTIONS_HOSTS = [
+        'www.google.com',
+        'maps.google.com',
+        'maps.app.goo.gl',
+        'www.openstreetmap.org',
+    ];
+
     private readonly Closure $clock;
 
+    private readonly int $ttlSeconds;
+
+    /** @var list<string> */
+    private readonly array $trustedDirectionsHosts;
+
     public function __construct(
-        private readonly int $ttlSeconds = 1209600,
+        int $ttlSeconds = self::MAX_TTL_SECONDS,
         ?Closure $clock = null,
+        array $trustedDirectionsHosts = self::DEFAULT_DIRECTIONS_HOSTS,
     ) {
+        $this->ttlSeconds = max(1, min(self::MAX_TTL_SECONDS, $ttlSeconds));
         $this->clock = $clock ?? static fn (): int => time();
+        $this->trustedDirectionsHosts = $this->normalizeHosts($trustedDirectionsHosts);
     }
 
     public function preference(
@@ -89,7 +106,8 @@ final class LocationService
     {
         [$latitude, $longitude] = $this->coordinates($preference['latitude'] ?? null, $preference['longitude'] ?? null);
         $radius = $this->radius($preference['radius'] ?? null);
-        $latitudeDelta = rad2deg($radius / self::EARTH_RADIUS_KM);
+        $angularDistance = $radius / self::EARTH_RADIUS_KM;
+        $latitudeDelta = rad2deg($angularDistance);
         $latitudeMin = max(-90.0, $latitude - $latitudeDelta);
         $latitudeMax = min(90.0, $latitude + $latitudeDelta);
         $allLongitudes = $latitudeMin <= -90.0 || $latitudeMax >= 90.0;
@@ -100,7 +118,8 @@ final class LocationService
             $longitudeMax = 180.0;
             $longitudeWraps = false;
         } else {
-            $longitudeDelta = rad2deg($radius / (self::EARTH_RADIUS_KM * $cosine));
+            $longitudeRatio = max(-1.0, min(1.0, sin($angularDistance) / $cosine));
+            $longitudeDelta = rad2deg(asin($longitudeRatio));
             $longitudeMin = $longitude - $longitudeDelta;
             $longitudeMax = $longitude + $longitudeDelta;
             $longitudeWraps = false;
@@ -146,19 +165,80 @@ final class LocationService
         return 'More than 100 km away';
     }
 
+    public function canViewExactLocation(
+        array $event,
+        ?int $userId,
+        bool $isAdministrator = false,
+        bool $isOrganizer = false,
+        ?string $registrationStatus = null,
+    ): bool {
+        if (($event['location_visibility'] ?? 'public') === 'public') {
+            return true;
+        }
+
+        if ($userId === null) {
+            return false;
+        }
+
+        if ($isAdministrator) {
+            return true;
+        }
+
+        if ($isOrganizer && $userId === (int) ($event['organizer_user_id'] ?? 0)) {
+            return true;
+        }
+
+        return $registrationStatus === 'confirmed';
+    }
+
+    public function presentEventLocation(array $event, bool $exactLocationVisible): array
+    {
+        $parts = $exactLocationVisible ? [
+            trim((string) ($event['venue_name'] ?? '')),
+            trim((string) ($event['venue_address_line'] ?? '')),
+            trim((string) ($event['venue_city'] ?? '')),
+            trim((string) ($event['venue_postal_code'] ?? '')),
+            trim((string) ($event['venue_country'] ?? '')),
+        ] : [
+            trim((string) ($event['venue_city'] ?? '')),
+            trim((string) ($event['venue_country'] ?? '')),
+        ];
+        $parts = array_values(array_filter($parts, static fn (string $value): bool => $value !== ''));
+        $display = $parts === [] ? 'Venue to be announced' : implode(', ', $parts);
+        $presented = array_merge($event, [
+            'address' => $display,
+            'venue_display' => $display,
+            'exact_location_visible' => $exactLocationVisible,
+        ]);
+
+        if (!$exactLocationVisible) {
+            foreach ([
+                'venue_name',
+                'venue_address_line',
+                'venue_postal_code',
+                'venue_latitude',
+                'venue_longitude',
+                'venue_map_url',
+                'map_url',
+                'arrival_notes',
+                'latitude',
+                'longitude',
+            ] as $field) {
+                unset($presented[$field]);
+            }
+        }
+
+        return $presented;
+    }
+
     public function directionsUrl(array $location): ?string
     {
         $mapUrl = $location['map_url'] ?? null;
 
-        if (is_string($mapUrl) && trim($mapUrl) !== '') {
+        if (is_string($mapUrl) && $this->isTrustedDirectionsUrl($mapUrl)) {
             $mapUrl = trim($mapUrl);
-            $parts = parse_url($mapUrl);
 
-            return is_array($parts)
-                && ($parts['scheme'] ?? null) === 'https'
-                && isset($parts['host'])
-                ? $mapUrl
-                : null;
+            return $mapUrl;
         }
 
         try {
@@ -169,6 +249,23 @@ final class LocationService
 
         return 'https://www.google.com/maps/dir/?api=1&destination='
             . rawurlencode($this->coordinateString($latitude) . ',' . $this->coordinateString($longitude));
+    }
+
+    public function isTrustedDirectionsUrl(mixed $value): bool
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return false;
+        }
+
+        $parts = parse_url(trim($value));
+
+        if (!is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+            return false;
+        }
+
+        $host = strtolower(rtrim((string) ($parts['host'] ?? ''), '.'));
+
+        return $host !== '' && in_array($host, $this->trustedDirectionsHosts, true);
     }
 
     private function coordinates(mixed $latitude, mixed $longitude): array
@@ -198,7 +295,10 @@ final class LocationService
             return false;
         }
 
-        return (int) $value > ($this->clock)();
+        $timestamp = (int) $value;
+        $now = ($this->clock)();
+
+        return $timestamp > $now && $timestamp <= $now + self::MAX_TTL_SECONDS;
     }
 
     private function label(string $label): string
@@ -209,5 +309,25 @@ final class LocationService
     private function source(string $source): string
     {
         return in_array($source, self::SOURCES, true) ? $source : 'manual';
+    }
+
+    /** @param array<array-key, mixed> $hosts */
+    private function normalizeHosts(array $hosts): array
+    {
+        $normalized = [];
+
+        foreach ($hosts as $host) {
+            if (!is_string($host)) {
+                continue;
+            }
+
+            $host = strtolower(rtrim(trim($host), '.'));
+
+            if ($host !== '' && filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false) {
+                $normalized[] = $host;
+            }
+        }
+
+        return array_values(array_unique($normalized));
     }
 }

@@ -95,6 +95,16 @@ final class VenueServiceTest extends TestCase
         $this->assertArrayHasKey('map_url', $result['errors']);
     }
 
+    public function testVenueRejectsHttpsMapUrlFromUntrustedHost(): void
+    {
+        $result = $this->service->create(10, array_merge($this->validInput(), [
+            'map_url' => 'https://www.google.com.evil.test/venue',
+        ]));
+
+        $this->assertFalse($result['success']);
+        $this->assertArrayHasKey('map_url', $result['errors']);
+    }
+
     public function testCreateTrimsValuesNormalizesBlanksAndCoercesCapacity(): void
     {
         $input = $this->validInput();
@@ -219,7 +229,7 @@ final class VenueServiceTest extends TestCase
             'postal_code' => '1205',
             'latitude' => '23.7465',
             'longitude' => '90.3760',
-            'map_url' => 'https://example.test/venue',
+            'map_url' => 'https://www.google.com/maps/venue',
             'capacity' => '100',
         ];
     }

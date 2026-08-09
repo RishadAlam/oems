@@ -287,26 +287,17 @@ final class PublicEventController extends Controller
         $end = $this->date((string) $event['end_date']);
         $deadline = $this->date((string) $event['registration_deadline']);
         $exactLocationVisible ??= ($event['location_visibility'] ?? 'public') === 'public';
-        $addressParts = $exactLocationVisible ? [
-            trim((string) ($event['venue_name'] ?? '')),
-            trim((string) ($event['venue_address_line'] ?? '')),
-            trim((string) ($event['venue_city'] ?? '')),
-            trim((string) ($event['venue_postal_code'] ?? '')),
-            trim((string) ($event['venue_country'] ?? '')),
-        ] : [
-            trim((string) ($event['venue_city'] ?? '')),
-            trim((string) ($event['venue_country'] ?? '')),
-        ];
-        $address = array_values(array_filter($addressParts, static fn (string $value): bool => $value !== ''));
+        $locations = $this->locations ?? new LocationService();
         $isFree = Money::isFree($event['ticket_price'] ?? null);
         $distanceExact = ($event['location_visibility'] ?? 'public') === 'public';
         $directionsUrl = $exactLocationVisible
-            ? ($this->locations ?? new LocationService())->directionsUrl([
+            ? $locations->directionsUrl([
                 'map_url' => $event['venue_map_url'] ?? $event['map_url'] ?? null,
                 'latitude' => $event['venue_latitude'] ?? null,
                 'longitude' => $event['venue_longitude'] ?? null,
             ])
             : null;
+        $event = $locations->presentEventLocation($event, $exactLocationVisible);
 
         $presented = array_merge($event, [
             'start_iso' => $start->format(DATE_ATOM),
@@ -316,7 +307,6 @@ final class PublicEventController extends Controller
             'end_display' => $end->format('M j, Y, g:i A'),
             'deadline_iso' => $deadline->format(DATE_ATOM),
             'deadline_display' => $deadline->format('M j, Y, g:i A'),
-            'address' => $address === [] ? 'Venue to be announced' : implode(', ', $address),
             'price_display' => $isFree
                 ? 'Free'
                 : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
@@ -333,52 +323,24 @@ final class PublicEventController extends Controller
             ],
         ]);
 
-        if (!$exactLocationVisible) {
-            foreach ([
-                'venue_name',
-                'venue_address_line',
-                'venue_postal_code',
-                'venue_latitude',
-                'venue_longitude',
-                'venue_map_url',
-                'map_url',
-                'arrival_notes',
-                'latitude',
-                'longitude',
-            ] as $field) {
-                unset($presented[$field]);
-            }
-        }
-
         return $presented;
     }
 
     private function canViewExactLocation(array $event): bool
     {
-        if (($event['location_visibility'] ?? 'public') === 'public') {
-            return true;
-        }
-
         $userId = $this->auth->id();
-        if ($userId === null) {
-            return false;
-        }
-
-        if ($this->auth->hasRole('super-admin')) {
-            return true;
-        }
-
-        if ($this->auth->hasRole('organizer')
-            && $userId === (int) ($event['organizer_user_id'] ?? 0)) {
-            return true;
-        }
-
         $registration = $this->auth->hasRole('participant')
             ? $this->registrations->findForParticipantEvent($userId, (int) $event['id'])
             : null;
         $status = $registration['registration_status'] ?? $registration['status'] ?? null;
 
-        return $status === 'confirmed';
+        return ($this->locations ?? new LocationService())->canViewExactLocation(
+            $event,
+            $userId,
+            $this->auth->hasRole('super-admin'),
+            $this->auth->hasRole('organizer'),
+            is_string($status) ? $status : null,
+        );
     }
 
     private function mapConfig(): array

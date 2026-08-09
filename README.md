@@ -105,7 +105,8 @@ The map integration uses locally built Leaflet assets and provider-neutral confi
 - `MAP_PROVIDER_NAME` names the configured geocoder in safe operational messages.
 - `MAP_USER_AGENT` identifies this installation to the geocoding provider.
 - `MAP_CONTACT_EMAIL` supplies provider contact information when required. It may be blank locally.
-- `LOCATION_SESSION_TTL` is the nearby-location session lifetime in seconds. The default `1209600` is 14 days.
+- `MAP_DIRECTIONS_HOSTS` is the comma-separated allowlist for organizer-supplied HTTPS directions URLs. Invalid or untrusted custom URLs are ignored at display time; saved coordinates still produce a safe Google Maps directions link.
+- `LOCATION_SESSION_TTL` is the nearby-location session lifetime in seconds. It is hard-capped at `1209600` (14 days), which is also the default.
 
 The public OpenStreetMap tile service and Nominatim defaults are for low-volume, human-driven local development only. OEMS displays map attribution, sends only explicit organizer address searches to the server-side geocoder, caches bounded results, and limits provider requests to at most one per second. Before production use, configure tile and geocoding services that permit the installation's expected traffic. Switching providers requires environment changes, not template or JavaScript changes. Do not commit provider credentials.
 

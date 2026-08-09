@@ -66,6 +66,10 @@ scalar() {
 }
 
 events_before="$(scalar 'SELECT COUNT(*) FROM events')"
+partial_venue_id="$(scalar 'SELECT id FROM venues ORDER BY id ASC LIMIT 1')"
+mysql_run "$database" --execute="UPDATE venues SET latitude = 23.8123456, longitude = NULL WHERE id = $partial_venue_id"
+partial_identity_before="$(scalar "SELECT CONCAT_WS('|', name, address_line, city, country, COALESCE(postal_code, ''), COALESCE(capacity, '')) FROM venues WHERE id = $partial_venue_id")"
+expect "$(scalar 'SELECT COUNT(*) FROM venues WHERE (latitude IS NULL) <> (longitude IS NULL)')" '1' 'representative legacy partial coordinate pair'
 
 mysql_run "$database" < database/migrations/2026-08-09-live-location.sql >/dev/null
 mysql_run "$database" < database/migrations/2026-08-09-live-location.sql >/dev/null
@@ -82,6 +86,9 @@ expect "$(scalar "$event_columns_query")" '2' 'live location event columns'
 expect "$(scalar "$coordinate_index_query")" '2' 'venue coordinate index columns'
 expect "$(scalar "$coordinate_check_query")" '1' 'venue coordinate pair check'
 expect "$(scalar "$cache_table_query")" '1' 'geocoding cache table'
+expect "$(scalar 'SELECT COUNT(*) FROM venues WHERE (latitude IS NULL) <> (longitude IS NULL)')" '0' 'reconciled partial coordinate pairs'
+expect "$(scalar "SELECT CONCAT_WS('|', name, address_line, city, country, COALESCE(postal_code, ''), COALESCE(capacity, '')) FROM venues WHERE id = $partial_venue_id")" "$partial_identity_before" 'partial venue non-coordinate data preservation'
+expect "$(scalar "SELECT CONCAT(COALESCE(latitude, 'NULL'), ':', COALESCE(longitude, 'NULL')) FROM venues WHERE id = $partial_venue_id")" 'NULL:NULL' 'privacy-preserving partial coordinate reconciliation'
 
 mysql_run "$database" --execute="INSERT INTO geocoding_cache (query_hash, normalized_query, provider, response_json, expires_at) VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'Dhaka', 'native-test', JSON_OBJECT(), '2026-12-31 00:00:00')"
 

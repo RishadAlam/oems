@@ -68,7 +68,7 @@ $searchValue = trim(implode(', ', array_filter([
         </details>
 
         <div class="grid gap-5 sm:grid-cols-2">
-            <div class="field-group"><label for="map_url">Map URL <span class="field-label-note">Optional</span></label><input id="map_url" name="map_url" type="url" maxlength="500" placeholder="https://maps.example.com" value="<?= $venueValue('map_url') ?>"<?= $invalid('map_url') ?>><p class="field-help">Use an HTTPS directions or venue page.</p><?php if ($error = field_error($errors, 'map_url')): ?><p id="map-url-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+            <div class="field-group"><label for="map_url">Map URL <span class="field-label-note">Optional</span></label><input id="map_url" name="map_url" type="url" maxlength="500" placeholder="https://www.google.com/maps/..." value="<?= $venueValue('map_url') ?>"<?= $invalid('map_url') ?>><p class="field-help">Use an HTTPS link from an approved map provider, such as Google Maps or OpenStreetMap.</p><?php if ($error = field_error($errors, 'map_url')): ?><p id="map-url-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
             <div class="field-group"><label for="capacity">Maximum capacity <span class="field-label-note">Optional</span></label><input id="capacity" name="capacity" type="number" min="1" max="100000" step="1" value="<?= $venueValue('capacity') ?>"<?= $invalid('capacity') ?>><?php if ($error = field_error($errors, 'capacity')): ?><p id="capacity-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
     </section>

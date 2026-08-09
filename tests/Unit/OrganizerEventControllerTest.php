@@ -89,7 +89,7 @@ final class OrganizerEventControllerTest extends TestCase
             venueService: new VenueService($this->venues),
             geocoding: new VenueGeocodingService(
                 new class implements GeocodingCacheRepositoryInterface {
-                    public function findFresh(string $queryHash, DateTimeImmutable $now): ?array { return null; }
+                    public function findFresh(string $queryHash, string $provider, DateTimeImmutable $now): ?array { return null; }
                     public function upsert(string $queryHash, string $query, string $provider, array $results, DateTimeImmutable $expiresAt): void {}
                 },
                 new class implements GeocoderInterface {
@@ -426,7 +426,7 @@ final class OrganizerEventControllerTest extends TestCase
             'venue_id' => '1',
             'title' => 'Dhaka Product Design Forum',
             'description' => 'A practical forum for product teams building accessible services in Bangladesh.',
-            'map_url' => 'https://example.test/map',
+            'map_url' => 'https://www.google.com/maps/place',
             'speaker' => 'Samira Chowdhury',
             'start_date' => '2026-09-15T18:00',
             'end_date' => '2026-09-15T21:00',
@@ -453,7 +453,7 @@ final class OrganizerEventControllerTest extends TestCase
             'slug' => strtolower(str_replace(' ', '-', $title)),
             'description' => 'A complete description for this organizer event and its planned program.',
             'banner' => null,
-            'map_url' => 'https://example.test/map',
+            'map_url' => 'https://www.google.com/maps/place',
             'speaker' => 'Samira Chowdhury',
             'start_date' => '2026-09-15 18:00:00',
             'end_date' => '2026-09-15 21:00:00',

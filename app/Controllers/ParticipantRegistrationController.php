@@ -11,6 +11,7 @@ use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\LocationService;
 use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -36,6 +37,7 @@ final class ParticipantRegistrationController extends Controller
         private readonly TicketRepositoryInterface $tickets,
         private readonly RegistrationService $registrationService,
         private readonly RateLimiter $limiter,
+        private readonly ?LocationService $locations = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -85,7 +87,7 @@ final class ParticipantRegistrationController extends Controller
 
         return $this->render('participant/registrations/register', [
             'pageTitle' => 'Register for ' . (string) $event['title'],
-            'event' => $this->presentEvent($event),
+            'event' => $this->presentEvent($event, $existing),
             'isFree' => $isFree,
             'manualPayment' => $isFree
                 ? null
@@ -244,8 +246,19 @@ final class ParticipantRegistrationController extends Controller
         return $id === null || $userId === null ? null : $this->registrations->findForParticipant($userId, $id);
     }
 
-    private function presentEvent(array $event): array
+    private function presentEvent(array $event, ?array $registration = null): array
     {
+        $locations = $this->locations ?? new LocationService();
+        $status = $registration['registration_status'] ?? $registration['status'] ?? null;
+        $exact = $locations->canViewExactLocation(
+            $event,
+            $this->auth->id(),
+            false,
+            false,
+            is_string($status) ? $status : null,
+        );
+        $event = $locations->presentEventLocation($event, $exact);
+
         return array_merge($event, [
             'start_display' => $this->date((string) $event['start_date'])->format('M j, Y, g:i A'),
             'total_display' => Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
@@ -288,6 +301,16 @@ final class ParticipantRegistrationController extends Controller
         $paymentStatus = (string) ($payment['payment_status'] ?? $payment['status'] ?? 'not_required');
         $start = trim((string) ($registration['event_start_date'] ?? ''));
         $cancellationState ??= ['allowed' => false, 'code' => 'not_loaded', 'reason' => null];
+
+        $locations = $this->locations ?? new LocationService();
+        $exact = $locations->canViewExactLocation(
+            $registration,
+            $this->auth->id(),
+            false,
+            false,
+            $status,
+        );
+        $registration = $locations->presentEventLocation($registration, $exact);
 
         return array_merge($registration, [
             'registration_status' => $status,

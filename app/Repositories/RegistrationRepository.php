@@ -497,9 +497,18 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                        events.start_date AS event_start_date,
                        events.registration_deadline,
                        events.status AS event_status,
+                       events.location_visibility,
+                       events.arrival_notes,
                        events.ticket_price,
                        events.currency AS event_currency,
-                       venues.name AS venue_name
+                       venues.name AS venue_name,
+                       venues.address_line AS venue_address_line,
+                       venues.city AS venue_city,
+                       venues.country AS venue_country,
+                       venues.postal_code AS venue_postal_code,
+                       venues.latitude AS venue_latitude,
+                       venues.longitude AS venue_longitude,
+                       venues.map_url AS venue_map_url
                 FROM registrations
                 INNER JOIN events ON events.id = registrations.event_id
                 LEFT JOIN venues ON venues.id = events.venue_id';

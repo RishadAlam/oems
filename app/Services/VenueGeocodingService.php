@@ -52,10 +52,11 @@ final class VenueGeocodingService
             return $this->failure(['location' => ['Enter an address between 3 and 160 characters.']]);
         }
 
-        $queryHash = hash('sha256', $query);
+        $provider = mb_strtolower(mb_substr(trim($this->provider), 0, 80));
+        $queryHash = hash('sha256', $provider . "\0" . $query);
 
         try {
-            $cached = $this->cache->findFresh($queryHash, new DateTimeImmutable('now'));
+            $cached = $this->cache->findFresh($queryHash, $provider, new DateTimeImmutable('now'));
 
             if ($cached !== null) {
                 $results = GeocodingResultNormalizer::cachedResults($cached['results'] ?? null);
@@ -76,7 +77,7 @@ final class VenueGeocodingService
             $this->cache->upsert(
                 $queryHash,
                 $query,
-                $this->provider,
+                $provider,
                 $results,
                 new DateTimeImmutable('+30 days'),
             );

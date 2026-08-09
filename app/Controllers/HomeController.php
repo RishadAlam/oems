@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
+use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Services\LocationService;
 use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -28,6 +30,8 @@ final class HomeController extends Controller
         Config $config,
         private readonly EventRepositoryInterface $events,
         private readonly ?FavoriteRepositoryInterface $favorites = null,
+        private readonly ?RegistrationRepositoryInterface $registrations = null,
+        private readonly ?LocationService $locations = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -61,10 +65,8 @@ final class HomeController extends Controller
     {
         $timezone = new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka'));
         $start = new DateTimeImmutable((string) $event['start_date'], $timezone);
-        $venue = array_values(array_filter([
-            trim((string) ($event['venue_name'] ?? '')),
-            trim((string) ($event['venue_city'] ?? '')),
-        ], static fn (string $value): bool => $value !== ''));
+        $locations = $this->locations ?? new LocationService();
+        $event = $locations->presentEventLocation($event, $this->canViewExactLocation($event, $locations));
         $isFree = Money::isFree($event['ticket_price'] ?? null);
 
         return array_merge($event, [
@@ -72,7 +74,7 @@ final class HomeController extends Controller
             'time' => $start->format('g:i A'),
             'datetime' => $start->format(DATE_ATOM),
             'category' => (string) ($event['category_name'] ?? 'Event'),
-            'venue' => $venue === [] ? 'Venue to be announced' : implode(', ', $venue),
+            'venue' => (string) $event['venue_display'],
             'price' => $isFree
                 ? 'Free'
                 : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
@@ -84,6 +86,25 @@ final class HomeController extends Controller
                 'is_saved' => $isFavorited,
             ],
         ]);
+    }
+
+    private function canViewExactLocation(array $event, LocationService $locations): bool
+    {
+        $userId = $this->auth->id();
+        $registrationStatus = null;
+
+        if ($userId !== null && $this->auth->hasRole('participant') && $this->registrations !== null) {
+            $registration = $this->registrations->findForParticipantEvent($userId, (int) ($event['id'] ?? 0));
+            $registrationStatus = $registration['registration_status'] ?? $registration['status'] ?? null;
+        }
+
+        return $locations->canViewExactLocation(
+            $event,
+            $userId,
+            $this->auth->hasRole('super-admin'),
+            $this->auth->hasRole('organizer'),
+            is_string($registrationStatus) ? $registrationStatus : null,
+        );
     }
 
     /** @return array<int, bool> */

@@ -70,6 +70,36 @@ final class LocationServiceTest extends TestCase
         $this->assertSame(1_800_000_001, $preference['expires_at']);
     }
 
+    public function testLocationPreferenceAndStoredExpiryCannotExceedFourteenDays(): void
+    {
+        $now = 1_800_000_000;
+        $maximumExpiry = 1_801_209_600;
+        $service = new LocationService(99_999_999, static fn (): int => $now);
+
+        $preference = $service->preference('23.8103', '90.4125', 25, 'Current area', 'device');
+        $this->assertSame($maximumExpiry, $preference['expires_at']);
+
+        $forged = $service->fromSession([
+            'latitude' => '23.810',
+            'longitude' => '90.413',
+            'radius' => 25,
+            'label' => 'Current area',
+            'source' => 'device',
+            'expires_at' => $maximumExpiry + 1,
+        ]);
+        $boundary = $service->fromSession([
+            'latitude' => '23.810',
+            'longitude' => '90.413',
+            'radius' => 25,
+            'label' => 'Current area',
+            'source' => 'device',
+            'expires_at' => $maximumExpiry,
+        ]);
+
+        $this->assertNull($forged);
+        $this->assertNotNull($boundary);
+    }
+
     public function testBoundsArePoleSafeAndUseFullLongitudeAtThePole(): void
     {
         $service = new LocationService();
@@ -108,6 +138,17 @@ final class LocationServiceTest extends TestCase
         $this->assertFalse($bounds['longitude_wraps']);
     }
 
+    public function testHighLatitudeBoundsDoNotExcludeAnInRadiusLongitude(): void
+    {
+        $service = new LocationService();
+        $bounds = $service->bounds(['latitude' => '89', 'longitude' => '0', 'radius' => 50]);
+
+        // The great-circle distance from 89°N, 0° to 89°N, 25.9° is 49.835381km.
+        $this->assertTrue((float) $bounds['longitude_min'] <= -25.9);
+        $this->assertTrue((float) $bounds['longitude_max'] >= 25.9);
+        $this->assertFalse($bounds['longitude_wraps']);
+    }
+
     public function testRestrictedDistanceUsesCoarseBand(): void
     {
         $service = new LocationService();
@@ -118,12 +159,12 @@ final class LocationServiceTest extends TestCase
         $this->assertNull($service->distanceLabel('-1', false));
     }
 
-    public function testDirectionsUseHttpsCustomUrlOrEncodedCoordinatesAndRejectUnsafeUrls(): void
+    public function testDirectionsUseOnlyTrustedCustomHostsAndFallBackToEncodedCoordinates(): void
     {
         $service = new LocationService();
 
-        $this->assertSame('https://maps.example.test/venue?id=42', $service->directionsUrl([
-            'map_url' => 'https://maps.example.test/venue?id=42',
+        $this->assertSame('https://www.google.com/maps/venue?id=42', $service->directionsUrl([
+            'map_url' => 'https://www.google.com/maps/venue?id=42',
             'latitude' => '23.810331',
             'longitude' => '90.412521',
         ]));
@@ -131,7 +172,17 @@ final class LocationServiceTest extends TestCase
             'latitude' => '23.810331',
             'longitude' => '90.412521',
         ]));
-        $this->assertNull($service->directionsUrl(['map_url' => 'javascript:alert(1)', 'latitude' => '23', 'longitude' => '90']));
+        $this->assertSame('https://www.google.com/maps/dir/?api=1&destination=23%2C90', $service->directionsUrl([
+            'map_url' => 'https://maps.example.test/venue?id=42',
+            'latitude' => '23',
+            'longitude' => '90',
+        ]));
+        $this->assertSame('https://www.google.com/maps/dir/?api=1&destination=23%2C90', $service->directionsUrl([
+            'map_url' => 'javascript:alert(1)',
+            'latitude' => '23',
+            'longitude' => '90',
+        ]));
+        $this->assertNull($service->directionsUrl(['map_url' => 'https://www.google.com.evil.test/venue']));
         $this->assertNull($service->directionsUrl(['map_url' => 'data:text/html,nope']));
     }
 }

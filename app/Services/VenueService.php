@@ -26,6 +26,7 @@ final class VenueService
     public function __construct(
         private readonly VenueRepositoryInterface $venues,
         private readonly ?Logger $logger = null,
+        private readonly ?LocationService $locations = null,
     ) {
     }
 
@@ -137,6 +138,9 @@ final class VenueService
         if ($attributes['map_url'] !== null
             && strtolower((string) parse_url($attributes['map_url'], PHP_URL_SCHEME)) !== 'https') {
             $errors['map_url'][] = 'The map URL must use HTTPS.';
+        } elseif ($attributes['map_url'] !== null
+            && !($this->locations ?? new LocationService())->isTrustedDirectionsUrl($attributes['map_url'])) {
+            $errors['map_url'][] = 'Use a directions URL from a trusted map provider.';
         }
 
         if ($errors !== []) {

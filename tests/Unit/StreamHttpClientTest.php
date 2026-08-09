@@ -6,10 +6,48 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Support\StreamHttpClient;
 use OEMS\Tests\Support\TestCase;
+use RuntimeException;
 
 final class StreamHttpClientTest extends TestCase
 {
     public function testRedirectResponseIsNotFollowedAndKeepsItsOwnStatusAndBody(): void
+    {
+        $this->withServer(function (int $port): void {
+            $response = (new StreamHttpClient('OEMS Test/1.0'))->get("http://127.0.0.1:{$port}/redirect", [], 2);
+
+            $this->assertSame(302, $response['status']);
+            $this->assertSame('redirect response', $response['body']);
+        });
+    }
+
+    public function testResponseBodyCannotExceedConfiguredByteCeiling(): void
+    {
+        $this->withServer(function (int $port): void {
+            try {
+                (new StreamHttpClient('OEMS Test/1.0', 32))->get("http://127.0.0.1:{$port}/oversized", [], 2);
+                $this->assertTrue(false, 'Oversized responses must be rejected.');
+            } catch (RuntimeException $exception) {
+                $this->assertSame('HTTP response exceeded the allowed size.', $exception->getMessage());
+            }
+        });
+    }
+
+    public function testTimeoutIsAWholeRequestDeadlineEvenWhenBytesKeepArriving(): void
+    {
+        $this->withServer(function (int $port): void {
+            $startedAt = microtime(true);
+
+            try {
+                (new StreamHttpClient('OEMS Test/1.0'))->get("http://127.0.0.1:{$port}/slow-trickle", [], 1);
+                $this->assertTrue(false, 'A trickling response must not extend the whole-request deadline.');
+            } catch (RuntimeException $exception) {
+                $this->assertSame('HTTP request timed out.', $exception->getMessage());
+                $this->assertTrue(microtime(true) - $startedAt < 1.4, 'Deadline must stop the request promptly.');
+            }
+        });
+    }
+
+    private function withServer(\Closure $callback): void
     {
         $port = $this->unusedPort();
         $process = proc_open(
@@ -22,10 +60,7 @@ final class StreamHttpClientTest extends TestCase
 
         try {
             $this->waitForServer($port);
-            $response = (new StreamHttpClient('OEMS Test/1.0'))->get("http://127.0.0.1:{$port}/redirect", [], 2);
-
-            $this->assertSame(302, $response['status']);
-            $this->assertSame('redirect response', $response['body']);
+            $callback($port);
         } finally {
             foreach ($pipes as $pipe) {
                 if (is_resource($pipe)) {

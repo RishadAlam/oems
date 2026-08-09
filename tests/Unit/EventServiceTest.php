@@ -141,6 +141,16 @@ final class EventServiceTest extends TestCase
         $this->assertTrue($publicWithoutPin['success']);
     }
 
+    public function testEventRejectsHttpsMapUrlFromUntrustedHost(): void
+    {
+        $result = $this->service->createDraft(10, $this->validInput([
+            'map_url' => 'https://www.google.com.evil.test/event',
+        ]), null, []);
+
+        $this->assertFalse($result['success']);
+        $this->assertArrayHasKey('map_url', $result['errors']);
+    }
+
     public function testCreateDraftRejectsAnInactiveCategory(): void
     {
         $result = $this->service->createDraft(10, $this->validInput(['category_id' => '2']), null, []);
@@ -544,7 +554,7 @@ final class EventServiceTest extends TestCase
             'venue_id' => '1',
             'title' => 'Developer Summit',
             'description' => 'A practical event for developers to learn and connect with peers.',
-            'map_url' => 'https://maps.example.test/developer-summit',
+            'map_url' => 'https://www.google.com/maps/developer-summit',
             'speaker' => 'OEMS Community',
             'start_date' => '2030-01-10T10:00',
             'end_date' => '2030-01-10T13:00',

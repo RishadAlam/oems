@@ -81,6 +81,19 @@ final class EventRepositoryTest extends TestCase
         }
     }
 
+    public function testPublicSearchCannotUseRestrictedVenueIdentityAsAMatchOracle(): void
+    {
+        $this->connection->exec(
+            "UPDATE events SET location_visibility = 'registered' WHERE slug = 'needle-search-event'",
+        );
+
+        $hiddenVenueMatch = $this->repository->publicSearch(['search' => 'Needle Venue']);
+        $coarseCityMatch = $this->repository->publicSearch(['search' => 'Needle City']);
+
+        $this->assertSame([], array_column($hiddenVenueMatch, 'slug'));
+        $this->assertSame(['needle-search-event'], array_column($coarseCityMatch, 'slug'));
+    }
+
     public function testTextSearchUsesUniqueBindingsUnderNativePrepareContract(): void
     {
         $this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
@@ -121,16 +134,19 @@ final class EventRepositoryTest extends TestCase
             'sort' => 'distance',
         ]);
         $this->assertSame(
-            ['tie-earlier', 'tie-lower-id', 'tie-higher-id', 'near-one', 'near-two'],
+            ['tie-earlier', 'tie-lower-id', 'tie-higher-id', 'restricted-nearby', 'near-one', 'near-two'],
             array_column($events, 'slug'),
         );
-        $this->assertTrue((float) $events[3]['distance_km'] < (float) $events[4]['distance_km']);
+        $this->assertTrue((float) $events[4]['distance_km'] < (float) $events[5]['distance_km']);
         $nearOne = array_values(array_filter($events, static fn (array $event): bool => $event['slug'] === 'near-one'))[0];
         $this->assertSame('12 Lake Road', $nearOne['venue_address_line']);
         $this->assertSame('1205', $nearOne['venue_postal_code']);
         $this->assertSame('10', (string) $nearOne['organizer_user_id']);
         $this->assertSame('public', $nearOne['location_visibility']);
         $this->assertSame('Enter through the east gate.', $nearOne['arrival_notes']);
+        $restricted = array_values(array_filter($events, static fn (array $event): bool => $event['slug'] === 'restricted-nearby'))[0];
+        $this->assertSame('registered', $restricted['location_visibility']);
+        $this->assertTrue((float) $restricted['distance_km'] <= 5.0);
         $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
         preg_match_all('/:(\w+)/', $query, $bindings);
         $this->assertTrue(str_contains($query, 'venues.latitude >= :latitude_min AND venues.latitude <= :latitude_max'));
@@ -159,7 +175,7 @@ final class EventRepositoryTest extends TestCase
         $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
         preg_match_all('/:(\w+)/', $query, $bindings);
 
-        $this->assertSame(['near-one', 'near-two'], array_column($events, 'slug'));
+        $this->assertSame(['restricted-nearby', 'near-one', 'near-two'], array_column($events, 'slug'));
         $this->assertTrue(str_contains($query, 'venues.longitude >= :longitude_min OR venues.longitude <= :longitude_max'));
         $this->assertSame(count($bindings[1]), count(array_unique($bindings[1])));
     }
@@ -182,7 +198,7 @@ final class EventRepositoryTest extends TestCase
         ]);
         $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
 
-        $this->assertSame(['near-one', 'near-two', 'outside-circle'], array_column($events, 'slug'));
+        $this->assertSame(['restricted-nearby', 'near-one', 'near-two', 'outside-circle'], array_column($events, 'slug'));
         $this->assertFalse(str_contains($query, 'venues.longitude >= :longitude_min'));
         $this->assertFalse(str_contains($query, 'venues.longitude <= :longitude_max'));
     }

@@ -74,7 +74,7 @@ $described = static function (string $field, string $help, array $errors): strin
         <dl class="status-list mt-5">
             <div><dt>Event</dt><dd><?= e($event['title']) ?></dd></div>
             <div><dt>Date</dt><dd><?= e($event['start_display']) ?></dd></div>
-            <div><dt>Venue</dt><dd><?= e($event['venue_name'] ?? 'Venue to be announced') ?></dd></div>
+            <div><dt>Venue</dt><dd><?= e($event['venue_display'] ?? 'Venue to be announced') ?></dd></div>
             <div><dt>Total</dt><dd><strong><?= e($event['total_display']) ?></strong> <?= e($event['currency']) ?></dd></div>
         </dl>
     </aside>

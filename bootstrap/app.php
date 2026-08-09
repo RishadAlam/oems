@@ -192,6 +192,8 @@ $container->singleton(
     LocationService::class,
     static fn (Container $container): LocationService => new LocationService(
         (int) $container->get(Config::class)->get('map.location_session_ttl', 1209600),
+        null,
+        (array) $container->get(Config::class)->get('map.directions_hosts', []),
     ),
 );
 $container->singleton(
@@ -292,6 +294,7 @@ $container->singleton(
         $container->get(OrganizerRepositoryInterface::class),
         $container->get(Logger::class),
         $container->get(NotificationService::class),
+        $container->get(LocationService::class),
     ),
 );
 $container->singleton(
@@ -299,6 +302,7 @@ $container->singleton(
     static fn (Container $container): VenueService => new VenueService(
         $container->get(VenueRepositoryInterface::class),
         $container->get(Logger::class),
+        $container->get(LocationService::class),
     ),
 );
 $container->singleton(
