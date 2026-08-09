@@ -324,7 +324,26 @@ final class PublicEventControllerTest extends TestCase
 
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'Event ended'));
+        $this->assertTrue(str_contains(
+            $response->body(),
+            '"eventStatus":"https://schema.org/EventCompleted"',
+        ));
         $this->assertFalse(str_contains($response->body(), 'href="/participant/events/future-craft/register"'));
+    }
+
+    public function testShowKeepsScheduledEventStructuredDataScheduled(): void
+    {
+        $event = $this->eventFixture();
+        $this->events->events[$event['slug']] = $event;
+
+        $body = $this->controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        )->body();
+
+        $this->assertTrue(str_contains(
+            $body,
+            '"eventStatus":"https://schema.org/EventScheduled"',
+        ));
     }
 
     public function testShowRendersSemanticEventDetailsGalleryAndGuestRegistrationAction(): void

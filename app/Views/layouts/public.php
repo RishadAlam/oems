@@ -14,14 +14,7 @@
     <?php endforeach; ?>
     <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? $app['name']) ?> | <?= e($app['name']) ?></title>
-    <script>
-        (function () {
-            let saved = null;
-            try { saved = localStorage.getItem('oems-theme'); } catch (error) {}
-            const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
-        }());
-    </script>
+    <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
     <?php endif; ?>

@@ -76,6 +76,14 @@ final class ResponseTest extends TestCase
         ));
     }
 
+    public function testSecurityHeadersDoNotPermitInlineExecutableScripts(): void
+    {
+        $policy = (string) Response::html('ok')->withSecurityHeaders()->header('Content-Security-Policy');
+
+        $this->assertTrue(str_contains($policy, "script-src 'self'"));
+        $this->assertFalse(str_contains($policy, "script-src 'self' 'unsafe-inline'"));
+    }
+
     public function testBinaryResponsePreservesBytesAndUsesOnlySuppliedSafeHeaders(): void
     {
         $this->assertTrue(method_exists(Response::class, 'binary'), 'Binary responses are not implemented.');

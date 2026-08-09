@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\Core\View;
+use OEMS\Core\Validator;
 use OEMS\Tests\Support\TestCase;
 
 final class UiLayoutTest extends TestCase
@@ -106,6 +107,28 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'data-theme-icon'));
     }
 
+    public function testPublicAndAuthLayoutsBootstrapThemeWithoutInlineExecutableJavascript(): void
+    {
+        $public = $this->renderHome();
+        $auth = (new View(base_path('app/Views')))->render('auth/login', [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'flash' => [],
+            'errors' => [],
+            'old' => [],
+            'pageTitle' => 'Sign in',
+        ], 'auth');
+
+        foreach ([$public, $auth] as $html) {
+            $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js"></script>'));
+            $this->assertTrue(
+                strpos($html, '/assets/js/theme.js') < strpos($html, '/assets/css/app.css'),
+                'The synchronous local theme bootstrap must run before stylesheet rendering.',
+            );
+            $this->assertSame([], $this->inlineExecutableScripts($html));
+        }
+    }
+
     public function testPasswordVisibilityControlStartsHiddenWithAccurateState(): void
     {
         $view = new View(base_path('app/Views'));
@@ -157,6 +180,60 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-microphone-stage" aria-hidden="true"'));
     }
 
+    public function testPasswordConfirmationMismatchIsAssociatedAcrossAccountForms(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $errors = Validator::validate(
+            ['password' => 'secure-password', 'password_confirmation' => 'different-password'],
+            ['password' => 'required|string|min:8|confirmed'],
+        );
+        $forms = [
+            $view->render('auth/register', [
+                'app' => ['name' => 'OEMS'],
+                'csrfToken' => 'test-token',
+                'flash' => [],
+                'errors' => $errors,
+                'old' => [],
+                'pageTitle' => 'Create account',
+            ], 'auth'),
+            $view->render('auth/reset-password', [
+                'app' => ['name' => 'OEMS'],
+                'csrfToken' => 'test-token',
+                'flash' => [],
+                'errors' => $errors,
+                'old' => [],
+                'pageTitle' => 'Reset password',
+                'token' => 'safe-token',
+            ], 'auth'),
+            $view->render('auth/change-password', [
+                'app' => ['name' => 'OEMS'],
+                'csrfToken' => 'test-token',
+                'currentUser' => [
+                    'id' => 7,
+                    'name' => 'Test Participant',
+                    'email' => 'participant@example.test',
+                    'role_name' => 'Participant',
+                    'role_slug' => 'participant',
+                ],
+                'flash' => [],
+                'errors' => $errors,
+                'old' => [],
+                'pageTitle' => 'Change password',
+            ], 'dashboard'),
+        ];
+
+        foreach ($forms as $html) {
+            $this->assertTrue(str_contains(
+                $html,
+                'id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required aria-invalid="true" aria-describedby="password-confirmation-error"',
+            ));
+            $this->assertTrue(str_contains(
+                $html,
+                '<p id="password-confirmation-error" class="field-error" role="alert">Password confirmation does not match.</p>',
+            ));
+        }
+    }
+
     public function testErrorPagesOfferARecognizableRecoveryAction(): void
     {
         $view = new View(base_path('app/Views'));
@@ -197,5 +274,18 @@ final class UiLayoutTest extends TestCase
                 ],
             ],
         ], 'public');
+    }
+
+    private function inlineExecutableScripts(string $html): array
+    {
+        preg_match_all('/<script\b(?![^>]*\bsrc=)([^>]*)>/i', $html, $matches);
+
+        return array_values(array_filter(
+            $matches[1] ?? [],
+            static fn (string $attributes): bool => preg_match(
+                '/\btype=["\'](?:application\/ld\+json|application\/json)["\']/i',
+                $attributes,
+            ) !== 1,
+        ));
     }
 }

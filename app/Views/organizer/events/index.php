@@ -23,13 +23,13 @@ $statusLabels = [
     <p><strong><?= e($summary['total'] ?? count($events)) ?></strong> <?= (int) ($summary['total'] ?? count($events)) === 1 ? 'event' : 'events' ?></p>
     <form action="/organizer/events" method="get">
         <label for="event-status">Filter by status</label>
-        <select id="event-status" name="status" onchange="this.form.submit()">
+        <select id="event-status" name="status" data-auto-submit>
             <option value="">All statuses</option>
             <?php foreach ($statuses as $option): ?>
                 <option value="<?= e($option) ?>" <?= $status === $option ? 'selected' : '' ?>><?= e($statusLabels[$option] ?? ucfirst($option)) ?></option>
             <?php endforeach; ?>
         </select>
-        <noscript><button class="button button--quiet button--compact" type="submit">Apply</button></noscript>
+        <button class="button button--quiet button--compact" type="submit" data-auto-submit-fallback>Apply</button>
     </form>
 </div>
 

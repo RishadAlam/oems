@@ -26,7 +26,8 @@ final class Validator
                 $message = self::validateRule($field, $value, $rule, $parameters, $data);
 
                 if ($message !== null) {
-                    $errors[$field][] = $message;
+                    $errorField = $rule === 'confirmed' ? $field . '_confirmation' : $field;
+                    $errors[$errorField][] = $message;
                     break;
                 }
             }

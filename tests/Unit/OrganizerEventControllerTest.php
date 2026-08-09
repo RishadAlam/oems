@@ -120,6 +120,9 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertFalse(str_contains($index->body(), 'Foreign Event'));
         $this->assertTrue(str_contains($index->body(), 'href="/organizer/events"'));
         $this->assertTrue(str_contains($index->body(), 'href="/organizer/venues"'));
+        $this->assertTrue(str_contains($index->body(), 'data-auto-submit'));
+        $this->assertTrue(str_contains($index->body(), '>Apply</button>'));
+        $this->assertFalse(str_contains($index->body(), 'onchange='));
         $this->assertSame(200, $create->status());
         $this->assertTrue(str_contains($create->body(), 'Create event'));
         $this->assertTrue(str_contains($create->body(), 'type="datetime-local"'));

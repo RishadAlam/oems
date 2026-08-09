@@ -143,6 +143,11 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     });
 });
 
+document.querySelectorAll('[data-auto-submit]').forEach((control) => {
+    control.form?.querySelector('[data-auto-submit-fallback]')?.setAttribute('hidden', '');
+    control.addEventListener('change', () => control.form?.requestSubmit());
+});
+
 document.querySelectorAll('[data-dismiss-flash]').forEach((button) => {
     button.addEventListener('click', () => {
         button.closest('[data-flash-message]')?.remove();

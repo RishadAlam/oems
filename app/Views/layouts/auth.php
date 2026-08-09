@@ -5,14 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? 'Account') ?> | <?= e($app['name']) ?></title>
-    <script>
-        (function () {
-            let saved = null;
-            try { saved = localStorage.getItem('oems-theme'); } catch (error) {}
-            const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
-        }());
-    </script>
+    <script src="/assets/js/theme.js"></script>
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
 </head>

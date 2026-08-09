@@ -24,6 +24,16 @@ use PDO;
 
 final class DashboardLayoutTest extends TestCase
 {
+    public function testDashboardLayoutBootstrapsThemeWithoutInlineExecutableJavascript(): void
+    {
+        $html = $this->renderAdminDashboard();
+
+        $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js"></script>'));
+        $this->assertTrue(strpos($html, '/assets/js/theme.js') < strpos($html, '/assets/css/app.css'));
+        preg_match_all('/<script\b(?![^>]*\bsrc=)([^>]*)>/i', $html, $matches);
+        $this->assertSame([], $matches[0] ?? []);
+    }
+
     public function testPlacesDashboardContentInSecondDesktopGridColumn(): void
     {
         $html = $this->renderAdminDashboard();

@@ -54,6 +54,20 @@ final class ValidatorTest extends TestCase
         $this->assertSame([], $errors);
     }
 
+    public function testConfirmationMismatchIsAssignedToTheConfirmationField(): void
+    {
+        $errors = Validator::validate(
+            ['password' => 'secure-password', 'password_confirmation' => 'different-password'],
+            ['password' => 'required|string|min:8|confirmed'],
+        );
+
+        $this->assertFalse(array_key_exists('password', $errors));
+        $this->assertSame(
+            ['Password confirmation does not match.'],
+            $errors['password_confirmation'] ?? null,
+        );
+    }
+
     public function testNullableFieldsSkipNonRequiredRulesWhenEmpty(): void
     {
         $errors = Validator::validate(

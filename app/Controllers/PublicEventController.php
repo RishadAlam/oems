@@ -436,7 +436,9 @@ final class PublicEventController extends Controller
             'description' => $this->description((string) ($event['description'] ?? '')),
             'startDate' => (string) $event['start_iso'],
             'endDate' => (string) $event['end_iso'],
-            'eventStatus' => 'https://schema.org/EventScheduled',
+            'eventStatus' => ($event['status'] ?? null) === 'completed'
+                ? 'https://schema.org/EventCompleted'
+                : 'https://schema.org/EventScheduled',
             'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
             'url' => $url,
             'location' => [
