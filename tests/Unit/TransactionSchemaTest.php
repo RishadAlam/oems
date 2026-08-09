@@ -183,6 +183,15 @@ final class TransactionSchemaTest extends TestCase
         );
     }
 
+    public function testEventPrivacyFieldsAreAvailableToTransactionConsumers(): void
+    {
+        $schema = file_get_contents(base_path('database/schema.sql'));
+
+        $this->assertTrue(is_string($schema));
+        $this->assertTrue(str_contains($schema, "location_visibility ENUM('public', 'registered') NOT NULL DEFAULT 'public'"));
+        $this->assertTrue(str_contains($schema, 'arrival_notes VARCHAR(500) NULL'));
+    }
+
     private function connection(): PDO
     {
         $connection = new PDO('sqlite::memory:');

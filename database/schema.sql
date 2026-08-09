@@ -144,7 +144,12 @@ CREATE TABLE venues (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_venues_city (city),
-    CONSTRAINT fk_venues_organizer FOREIGN KEY (organizer_id) REFERENCES organizers (id) ON DELETE SET NULL
+    INDEX idx_venues_coordinates (latitude, longitude),
+    CONSTRAINT fk_venues_organizer FOREIGN KEY (organizer_id) REFERENCES organizers (id) ON DELETE SET NULL,
+    CONSTRAINT chk_venues_coordinate_pair CHECK (
+        (latitude IS NULL AND longitude IS NULL)
+        OR (latitude IS NOT NULL AND longitude IS NOT NULL)
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE events (
@@ -157,6 +162,8 @@ CREATE TABLE events (
     description LONGTEXT NOT NULL,
     banner VARCHAR(255) NULL,
     map_url VARCHAR(500) NULL,
+    location_visibility ENUM('public', 'registered') NOT NULL DEFAULT 'public',
+    arrival_notes VARCHAR(500) NULL,
     speaker VARCHAR(190) NULL,
     start_date DATETIME NOT NULL,
     end_date DATETIME NOT NULL,
@@ -186,6 +193,17 @@ CREATE TABLE events (
     CONSTRAINT chk_events_dates CHECK (end_date >= start_date),
     CONSTRAINT chk_events_registration_deadline CHECK (registration_deadline <= start_date),
     CONSTRAINT chk_events_available_seats CHECK (available_seats <= capacity)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE geocoding_cache (
+    query_hash CHAR(64) PRIMARY KEY,
+    normalized_query VARCHAR(255) NOT NULL,
+    provider VARCHAR(80) NOT NULL,
+    response_json JSON NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_geocoding_cache_expiry (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE event_gallery (

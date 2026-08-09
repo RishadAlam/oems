@@ -108,6 +108,10 @@ INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('security', 'login_attempt_limit', '5', 'integer', FALSE),
     ('security', 'login_lockout_minutes', '15', 'integer', FALSE);
 
+UPDATE events
+SET location_visibility = 'public'
+WHERE location_visibility IS NULL;
+
 INSERT INTO pages (title, slug, content, status, published_at, created_by, updated_by) VALUES
     ('About', 'about', '<p>OEMS connects people with meaningful events and helps organizers run them confidently.</p>', 'published', NOW(), 1, 1),
     ('Privacy', 'privacy', '<p>OEMS handles account and event data according to the published privacy policy.</p>', 'published', NOW(), 1, 1),

@@ -72,7 +72,7 @@ final class DemoSeedIntegrityTest extends TestCase
             $organizer = $row[0] ?? '';
             $venue = $row[2] ?? '';
             $slug = $this->literal($row[4] ?? '');
-            $status = $this->literal($row[16] ?? '');
+            $status = $this->literal($row[18] ?? '');
 
             $this->assertSame(
                 $organizer,
@@ -134,7 +134,7 @@ final class DemoSeedIntegrityTest extends TestCase
         ));
 
         $this->assertNotNull($techEvent);
-        $this->assertSame((int) $techEvent[11] - $confirmed, (int) $techEvent[12]);
+        $this->assertSame((int) $techEvent[13] - $confirmed, (int) $techEvent[14]);
     }
 
     public function testEveryDemoEventAvailableSeatCountMatchesActiveRegistrations(): void
@@ -149,11 +149,11 @@ final class DemoSeedIntegrityTest extends TestCase
 
         foreach ($this->insertRows('events') as $row) {
             $eventVariable = $this->eventVariableForSlug($this->literal($row[4] ?? ''));
-            $expectedAvailable = (int) ($row[11] ?? 0) - ($activeRegistrations[$eventVariable] ?? 0);
+            $expectedAvailable = (int) ($row[13] ?? 0) - ($activeRegistrations[$eventVariable] ?? 0);
 
             $this->assertSame(
                 $expectedAvailable,
-                (int) ($row[12] ?? 0),
+                (int) ($row[14] ?? 0),
                 'Demo event seat counts must equal capacity minus active registrations.',
             );
         }
@@ -194,7 +194,7 @@ final class DemoSeedIntegrityTest extends TestCase
     {
         $completedEvents = [];
         foreach ($this->insertRows('events') as $row) {
-            if ($this->literal($row[16] ?? '') === 'completed') {
+            if ($this->literal($row[18] ?? '') === 'completed') {
                 $completedEvents[$this->eventVariableForSlug($this->literal($row[4] ?? ''))] = true;
             }
         }
@@ -323,6 +323,14 @@ final class DemoSeedIntegrityTest extends TestCase
 
         $this->assertSame(count($paymentReferences), count(array_unique($paymentReferences)));
         $this->assertSame(count($ticketNumbers), count(array_unique($ticketNumbers)));
+    }
+
+    public function testDemoEventsSetPublicLocationVisibilityAndBoundedArrivalNotes(): void
+    {
+        foreach ($this->insertRows('events') as $row) {
+            $this->assertSame('public', $this->literal($row[7] ?? ''));
+            $this->assertTrue(strlen($this->literal($row[8] ?? '')) <= 500);
+        }
     }
 
     private function insertRows(string $table): array
