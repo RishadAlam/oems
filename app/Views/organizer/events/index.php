@@ -58,7 +58,7 @@ $statusLabels = [
                         <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><small><?= e($event['category_name'] ?? 'Uncategorized') ?><?php if (!empty($event['venue_name'])): ?> · <?= e($event['venue_name']) ?><?php endif; ?></small></td>
                         <td data-label="Schedule"><time datetime="<?= e(str_replace(' ', 'T', (string) ($event['start_date'] ?? ''))) ?>"><?= e(date('M j, Y, g:i A', strtotime((string) ($event['start_date'] ?? 'now')))) ?></time></td>
                         <td data-label="Status"><span class="status-chip status-chip--<?= e($eventStatus) ?>"><?= e($statusLabels[$eventStatus] ?? ucfirst($eventStatus)) ?></span></td>
-                        <td class="organizer-table__action"><a class="text-link" href="/organizer/events/<?= e($event['id']) ?>">View <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
+                        <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/organizer/events/<?= e($event['id']) ?>">View <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

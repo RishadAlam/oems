@@ -9,6 +9,7 @@
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
+    <script src="/assets/js/dashboard-sidebar.js" defer></script>
     <?php if (!empty($leafletEnabled)): ?><script src="/assets/vendor/leaflet/leaflet.js" defer></script><?php endif; ?>
     <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js" defer></script><?php endif; ?>
 </head>
@@ -44,7 +45,7 @@
     ?>
     <a class="skip-link" href="#dashboard-content">Skip to content</a>
     <div class="min-h-[100dvh] lg:grid lg:grid-cols-[264px_1fr]">
-        <aside id="dashboard-sidebar" class="dashboard-sidebar" data-dashboard-sidebar>
+        <aside id="dashboard-sidebar" class="dashboard-sidebar" data-dashboard-sidebar aria-label="Workspace navigation">
             <div class="flex h-[72px] items-center justify-between">
                 <?php require base_path('app/Views/components/brand.php'); ?>
                 <button class="icon-button lg:hidden" type="button" data-dashboard-close aria-controls="dashboard-sidebar" aria-label="Close navigation" title="Close navigation"><i class="ph ph-x" aria-hidden="true"></i></button>
@@ -89,7 +90,7 @@
             </div>
         </aside>
 
-        <div class="min-w-0 lg:col-start-2">
+        <div class="min-w-0 lg:col-start-2" data-dashboard-main>
             <header class="dashboard-header">
                 <button class="menu-button lg:hidden" type="button" data-dashboard-open aria-label="Open navigation" aria-controls="dashboard-sidebar" aria-expanded="false"><i class="ph ph-list" aria-hidden="true"></i><span>Menu</span></button>
                 <p class="dashboard-header__context hidden lg:flex"><i class="ph ph-buildings" aria-hidden="true"></i><span>OEMS workspace</span></p>

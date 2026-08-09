@@ -136,6 +136,7 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertSame(200, $index->status());
         $this->assertTrue(str_contains($index->body(), 'Owned Hall'));
         $this->assertFalse(str_contains($index->body(), 'Foreign Hall'));
+        $this->assertTrue(str_contains($index->body(), 'class="organizer-table__action" data-label="Action"'));
         $this->assertSame(200, $create->status());
         $this->assertTrue(str_contains($create->body(), 'Create venue'));
         $this->assertTrue(str_contains($create->body(), 'type="number"'));
@@ -163,6 +164,7 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'data-venue-map-form'));
         $this->assertTrue(str_contains($body, 'aria-live="polite"'));
         $this->assertTrue(str_contains($body, 'aria-label="Venue pin map"'));
+        $this->assertTrue(str_contains($body, 'open <strong>Advanced coordinates</strong> below'));
         $this->assertFalse(in_array(false, $positions, true));
         $numericPositions = array_map('intval', $positions);
         $sorted = $numericPositions;

@@ -49,7 +49,7 @@ $searchValue = trim(implode(', ', array_filter([
              data-default-lat="<?= e($mapConfig['default_lat'] ?? 23.8103) ?>"
              data-default-lng="<?= e($mapConfig['default_lng'] ?? 90.4125) ?>"
              data-default-zoom="<?= e($mapConfig['default_zoom'] ?? 11) ?>">
-            <p class="venue-map__fallback">If the map is unavailable, enter both coordinates below.</p>
+            <p class="venue-map__fallback">If the map is unavailable, open <strong>Advanced coordinates</strong> below and enter both coordinates.</p>
         </div>
 
         <div class="venue-map-actions">

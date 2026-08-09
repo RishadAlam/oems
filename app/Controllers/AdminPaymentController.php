@@ -21,6 +21,8 @@ use Throwable;
 final class AdminPaymentController extends Controller
 {
     private const STATUSES = ['pending', 'paid', 'failed', 'refunded', 'all'];
+    private const REVIEW_INTENT_TTL = 300;
+    private const REVIEW_INTENTS_SESSION_KEY = 'payment_review_intents';
 
     public function __construct(
         View $view,
@@ -84,6 +86,19 @@ final class AdminPaymentController extends Controller
             return $this->notFound();
         }
 
+        $administratorId = $this->auth->id();
+        if ($administratorId === null) {
+            return Response::html('Forbidden', 403);
+        }
+
+        if ($request->input('confirm_review') === '1') {
+            return $this->confirmSettlement($request, $payment, $administratorId, $target);
+        }
+
+        if (($payment['payment_status'] ?? null) !== 'pending') {
+            return $this->performSettlement($request, $paymentId, $administratorId, $target, null);
+        }
+
         $rawNote = $request->input('note');
         if ($rawNote !== null && !is_scalar($rawNote)) {
             return $this->noteError($request, $paymentId, 'Enter a note of no more than 500 characters.', '');
@@ -100,15 +115,83 @@ final class AdminPaymentController extends Controller
         }
         $note = $note === '' ? null : $note;
 
-        $administratorId = $this->auth->id();
-        if ($administratorId === null) {
-            return Response::html('Forbidden', 403);
+        $filters = $this->filters($request, true);
+        $token = bin2hex(random_bytes(32));
+        $intents = $this->activeReviewIntents();
+        $intents[hash('sha256', $token)] = [
+            'administrator_id' => $administratorId,
+            'payment_id' => $paymentId,
+            'target' => $target,
+            'note' => $note,
+            'filters' => $filters,
+            'evidence' => $this->paymentEvidenceFingerprint($payment),
+            'expires_at' => time() + self::REVIEW_INTENT_TTL,
+        ];
+        $this->session->put(self::REVIEW_INTENTS_SESSION_KEY, array_slice($intents, -5, null, true));
+
+        return $this->renderDetail($payment, $request, returnFilters: $filters, confirmation: [
+            'token' => $token,
+            'target' => $target,
+            'note' => $note,
+            'cancelUrl' => $this->destinationForFilters($paymentId, $filters),
+        ]);
+    }
+
+    private function confirmSettlement(Request $request, array $payment, int $administratorId, string $target): Response
+    {
+        $paymentId = (int) $payment['id'];
+        $rawToken = $request->input('review_intent');
+        $token = is_scalar($rawToken) ? (string) $rawToken : '';
+        $intents = $this->activeReviewIntents();
+        $intentKey = preg_match('/^[a-f0-9]{64}$/D', $token) === 1 ? hash('sha256', $token) : '';
+        $intent = $intentKey === '' ? null : ($intents[$intentKey] ?? null);
+
+        $valid = is_array($intent)
+            && (int) ($intent['administrator_id'] ?? 0) === $administratorId
+            && (int) ($intent['payment_id'] ?? 0) === $paymentId
+            && ($intent['target'] ?? null) === $target
+            && is_string($intent['evidence'] ?? null)
+            && hash_equals((string) $intent['evidence'], $this->paymentEvidenceFingerprint($payment));
+
+        if (!$valid) {
+            $response = $this->renderDetail(
+                $payment,
+                $request,
+                'This confirmation is invalid or has expired. Review the current evidence and begin again.',
+            );
+
+            return Response::html($response->body(), 409);
         }
 
+        unset($intents[$intentKey]);
+        $this->session->put(self::REVIEW_INTENTS_SESSION_KEY, $intents);
+        $filters = is_array($intent['filters'] ?? null) ? $intent['filters'] : [];
+
+        return $this->performSettlement(
+            $request,
+            $paymentId,
+            $administratorId,
+            $target,
+            is_string($intent['note'] ?? null) ? $intent['note'] : null,
+            $filters,
+        );
+    }
+
+    private function performSettlement(
+        Request $request,
+        int $paymentId,
+        int $administratorId,
+        string $target,
+        ?string $note,
+        ?array $returnFilters = null,
+    ): Response
+    {
         $result = $target === 'paid'
             ? $this->registrationService->verifyPayment($administratorId, $paymentId, $note)
             : $this->registrationService->rejectPayment($administratorId, $paymentId, $note);
-        $destination = $this->destination($request, $paymentId);
+        $destination = $returnFilters === null
+            ? $this->destination($request, $paymentId)
+            : $this->destinationForFilters($paymentId, $returnFilters);
 
         if (($result['success'] ?? false) === true) {
             return $this->redirectWith(
@@ -150,6 +233,7 @@ final class AdminPaymentController extends Controller
         Request $request,
         ?string $actionError = null,
         ?array $returnFilters = null,
+        ?array $confirmation = null,
     ): Response
     {
         return $this->render('admin/payments/show', [
@@ -158,6 +242,7 @@ final class AdminPaymentController extends Controller
             'paymentAge' => $this->age((string) ($payment['created_at'] ?? '')),
             'returnFilters' => $returnFilters ?? $this->filters($request, true),
             'actionError' => $actionError,
+            'confirmation' => $confirmation,
         ], 'dashboard');
     }
 
@@ -188,13 +273,58 @@ final class AdminPaymentController extends Controller
 
     private function destination(Request $request, int $paymentId): string
     {
+        return $this->destinationForFilters($paymentId, $this->filters($request, true));
+    }
+
+    private function destinationForFilters(int $paymentId, array $returnFilters): string
+    {
         $filters = array_filter(
-            $this->filters($request, true),
+            $returnFilters,
             static fn (mixed $value): bool => $value !== '' && $value !== null && $value !== 'pending',
         );
         $query = http_build_query($filters, '', '&', PHP_QUERY_RFC3986);
 
         return '/admin/payments/' . $paymentId . ($query === '' ? '' : '?' . $query);
+    }
+
+    private function activeReviewIntents(): array
+    {
+        $stored = $this->session->get(self::REVIEW_INTENTS_SESSION_KEY, []);
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $now = time();
+        $active = array_filter(
+            $stored,
+            static fn (mixed $intent): bool => is_array($intent) && (int) ($intent['expires_at'] ?? 0) >= $now,
+        );
+        if (count($active) !== count($stored)) {
+            $this->session->put(self::REVIEW_INTENTS_SESSION_KEY, $active);
+        }
+
+        return $active;
+    }
+
+    private function paymentEvidenceFingerprint(array $payment): string
+    {
+        $evidence = [];
+        foreach ([
+            'id',
+            'registration_id',
+            'participant_id',
+            'participant_name',
+            'event_id',
+            'event_title',
+            'amount',
+            'currency',
+            'transaction_reference',
+            'payment_status',
+        ] as $field) {
+            $evidence[$field] = is_scalar($payment[$field] ?? null) ? (string) $payment[$field] : '';
+        }
+
+        return hash('sha256', json_encode($evidence, JSON_THROW_ON_ERROR));
     }
 
     private function age(string $timestamp): string

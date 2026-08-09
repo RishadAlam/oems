@@ -96,6 +96,7 @@ final class AdminEventControllerTest extends TestCase
         $this->assertFalse(str_contains($approved->body(), 'Pending Community Lab'));
         $this->assertTrue(str_contains($unknown->body(), 'Pending Accessibility Forum'));
         $this->assertFalse(str_contains($unknown->body(), 'Approved Product Summit'));
+        $this->assertTrue(str_contains($pending->body(), 'class="organizer-table__action" data-label="Action"'));
     }
 
     public function testShowPresentsEventEvidenceBeforeSeparateExplicitActions(): void

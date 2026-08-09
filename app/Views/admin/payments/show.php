@@ -33,12 +33,35 @@ $impact = match (true) {
     </article>
 
     <aside class="dashboard-panel organizer-actions-panel" aria-labelledby="payment-actions-heading">
-        <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-gavel" aria-hidden="true"></i></span><div><h2 id="payment-actions-heading">Settlement actions</h2><p>Each action checks the current payment state again before saving.</p></div></div>
+        <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-gavel" aria-hidden="true"></i></span><div><h2 id="payment-actions-heading">Settlement actions</h2><p>Each action opens a final evidence confirmation before saving.</p></div></div>
         <?php if ($status === 'pending'): ?>
-            <div class="organizer-action-stack">
-                <form action="/admin/payments/<?= e($payment['id']) ?>/verify" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><?php foreach ($preserved as $name => $value): ?><input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>"><?php endforeach; ?><div class="field-group"><label for="verify-note">Verification note <span class="text-[var(--ink-muted)]">(optional)</span></label><textarea id="verify-note" name="note" rows="4" maxlength="500" aria-describedby="verify-note-help<?= field_error($errors, 'note') === null ? '' : ' verify-note-error' ?>"><?= old_value($old, 'note') ?></textarea><p id="verify-note-help" class="field-help">Add only settlement context. Do not include account credentials.</p><?php if ($error = field_error($errors, 'note')): ?><p id="verify-note-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div><button class="button button--primary w-full" type="submit"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Verify payment</span></button></form>
-                <form action="/admin/payments/<?= e($payment['id']) ?>/reject" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><?php foreach ($preserved as $name => $value): ?><input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>"><?php endforeach; ?><div class="field-group"><label for="reject-note">Rejection note <span class="text-[var(--ink-muted)]">(optional)</span></label><textarea id="reject-note" name="note" rows="4" maxlength="500" aria-describedby="reject-note-help<?= field_error($errors, 'note') === null ? '' : ' reject-note-error' ?>"><?= old_value($old, 'note') ?></textarea><p id="reject-note-help" class="field-help">Explain the mismatch without copying private account details.</p><?php if ($error = field_error($errors, 'note')): ?><p id="reject-note-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div><button class="button button--danger w-full" type="submit"><i class="ph ph-x-circle" aria-hidden="true"></i><span>Reject payment</span></button></form>
-            </div>
+            <?php if (is_array($confirmation ?? null)): ?>
+                <?php $confirmingPaid = ($confirmation['target'] ?? null) === 'paid'; ?>
+                <section class="organizer-action-stack" aria-labelledby="payment-confirmation-heading">
+                    <div class="form-alert" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span>This settlement decision is irreversible. Confirm only after checking the evidence again.</span></div>
+                    <div>
+                        <h3 id="payment-confirmation-heading" class="font-extrabold">Confirm payment <?= $confirmingPaid ? 'verification' : 'rejection' ?></h3>
+                        <dl class="organizer-detail-list mt-4">
+                            <div><dt>Participant</dt><dd><?= e($payment['participant_name'] ?? 'Participant') ?></dd></div>
+                            <div><dt>Event</dt><dd><?= e($payment['event_title'] ?? 'Event') ?></dd></div>
+                            <div><dt>Amount</dt><dd><?= e($payment['currency'] ?? 'BDT') ?> <?= e($payment['amount'] ?? '0.00') ?></dd></div>
+                            <div><dt>Reference</dt><dd><?= e($payment['transaction_reference'] ?? 'Not supplied') ?></dd></div>
+                            <div><dt>Action</dt><dd><?= $confirmingPaid ? 'Verify payment, confirm registration, and issue ticket' : 'Reject payment, cancel registration, and release seat' ?></dd></div>
+                            <?php if (is_string($confirmation['note'] ?? null) && $confirmation['note'] !== ''): ?><div><dt>Review note</dt><dd><?= e($confirmation['note']) ?></dd></div><?php endif; ?>
+                        </dl>
+                    </div>
+                    <form action="/admin/payments/<?= e($payment['id']) ?>/<?= $confirmingPaid ? 'verify' : 'reject' ?>" method="post">
+                        <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                        <input type="hidden" name="confirm_review" value="1">
+                        <input type="hidden" name="review_intent" value="<?= e($confirmation['token'] ?? '') ?>">
+                        <button class="button <?= $confirmingPaid ? 'button--primary' : 'button--danger' ?> w-full" type="submit"><i class="ph <?= $confirmingPaid ? 'ph-check-circle' : 'ph-x-circle' ?>" aria-hidden="true"></i><span>Confirm <?= $confirmingPaid ? 'verification' : 'rejection' ?></span></button>
+                    </form>
+                    <a class="button button--quiet w-full" href="<?= e($confirmation['cancelUrl'] ?? ('/admin/payments/' . $payment['id'])) ?>">Cancel and review again</a>
+                </section>
+            <?php else: ?><div class="organizer-action-stack">
+                <form action="/admin/payments/<?= e($payment['id']) ?>/verify" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><?php foreach ($preserved as $name => $value): ?><input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>"><?php endforeach; ?><div class="field-group"><label for="verify-note">Verification note <span class="text-[var(--ink-muted)]">(optional)</span></label><textarea id="verify-note" name="note" rows="4" maxlength="500" aria-describedby="verify-note-help<?= field_error($errors, 'note') === null ? '' : ' verify-note-error' ?>"><?= old_value($old, 'note') ?></textarea><p id="verify-note-help" class="field-help">Add only settlement context. Do not include account credentials.</p><?php if ($error = field_error($errors, 'note')): ?><p id="verify-note-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div><button class="button button--primary w-full" type="submit"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Review verification</span></button></form>
+                <form action="/admin/payments/<?= e($payment['id']) ?>/reject" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><?php foreach ($preserved as $name => $value): ?><input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>"><?php endforeach; ?><div class="field-group"><label for="reject-note">Rejection note <span class="text-[var(--ink-muted)]">(optional)</span></label><textarea id="reject-note" name="note" rows="4" maxlength="500" aria-describedby="reject-note-help<?= field_error($errors, 'note') === null ? '' : ' reject-note-error' ?>"><?= old_value($old, 'note') ?></textarea><p id="reject-note-help" class="field-help">Explain the mismatch without copying private account details.</p><?php if ($error = field_error($errors, 'note')): ?><p id="reject-note-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div><button class="button button--danger w-full" type="submit"><i class="ph ph-x-circle" aria-hidden="true"></i><span>Review rejection</span></button></form>
+            </div><?php endif; ?>
         <?php else: ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>This payment has a terminal settlement state. No new action is available.</span></p><?php endif; ?>
     </aside>
 </div>

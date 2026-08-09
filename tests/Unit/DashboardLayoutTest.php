@@ -114,10 +114,13 @@ final class DashboardLayoutTest extends TestCase
         $html = $this->renderAdminDashboard();
 
         $this->assertTrue(str_contains($html, 'id="dashboard-sidebar"'));
+        $this->assertTrue(str_contains($html, 'aria-label="Workspace navigation"'));
         $this->assertTrue(str_contains($html, 'data-dashboard-open'));
         $this->assertTrue(str_contains($html, 'aria-controls="dashboard-sidebar"'));
         $this->assertTrue(str_contains($html, 'aria-expanded="false"'));
         $this->assertTrue(str_contains($html, 'data-dashboard-close'));
+        $this->assertTrue(str_contains($html, 'data-dashboard-main'));
+        $this->assertTrue(str_contains($html, '<script src="/assets/js/dashboard-sidebar.js" defer></script>'));
     }
 
     public function testDashboardNavigationUsesDecorativeIconsWithoutChangingLinkNames(): void

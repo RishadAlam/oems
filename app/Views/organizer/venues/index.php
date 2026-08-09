@@ -16,7 +16,7 @@
             <table class="organizer-table">
                 <caption class="sr-only">Organizer venues</caption>
                 <thead><tr><th scope="col">Venue</th><th scope="col">Location</th><th scope="col">Capacity</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
-                <tbody><?php foreach ($venues as $venue): ?><tr><td data-label="Venue"><strong><?= e($venue['name']) ?></strong><small><?= e($venue['address_line'] ?? '') ?></small></td><td data-label="Location"><?= e($venue['city'] ?? '') ?>, <?= e($venue['country'] ?? '') ?></td><td data-label="Capacity"><?= $venue['capacity'] === null ? 'Not set' : e($venue['capacity']) ?></td><td class="organizer-table__action"><a class="text-link" href="/organizer/venues/<?= e($venue['id']) ?>/edit">Edit <i class="ph ph-pencil-simple" aria-hidden="true"></i></a></td></tr><?php endforeach; ?></tbody>
+                <tbody><?php foreach ($venues as $venue): ?><tr><td data-label="Venue"><strong><?= e($venue['name']) ?></strong><small><?= e($venue['address_line'] ?? '') ?></small></td><td data-label="Location"><?= e($venue['city'] ?? '') ?>, <?= e($venue['country'] ?? '') ?></td><td data-label="Capacity"><?= $venue['capacity'] === null ? 'Not set' : e($venue['capacity']) ?></td><td class="organizer-table__action" data-label="Action"><a class="text-link" href="/organizer/venues/<?= e($venue['id']) ?>/edit">Edit <i class="ph ph-pencil-simple" aria-hidden="true"></i></a></td></tr><?php endforeach; ?></tbody>
             </table>
         </div>
     <?php endif; ?>

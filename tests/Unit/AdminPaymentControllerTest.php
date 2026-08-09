@@ -188,12 +188,28 @@ final class AdminPaymentControllerTest extends TestCase
         $this->assertSame(0, $this->availableSeats(18));
     }
 
-    public function testVerifyAndRejectUseAtomicServiceFlowsAndRepeatTruthfully(): void
+    public function testVerifyAndRejectRequireIntentBoundConfirmationBeforeAtomicServiceFlows(): void
     {
-        $verified = $this->controller->verify($this->routed('POST', '/admin/payments/201/verify', '201', [
+        $verifyPreview = $this->controller->verify($this->routed('POST', '/admin/payments/201/verify', '201', [
             'note' => '  Reference matched the bank record.  ',
         ]));
 
+        $this->assertSame(200, $verifyPreview->status());
+        $this->assertSame('pending', $this->paymentStatus(201));
+        $this->assertSame('pending', $this->registrationStatus(101));
+        $this->assertSame(0, $this->ticketCount(101));
+        $this->assertTrue(str_contains($verifyPreview->body(), 'Confirm payment verification'));
+        $this->assertTrue(str_contains($verifyPreview->body(), '&lt;script&gt;alert(1)&lt;/script&gt;'));
+        $this->assertTrue(str_contains($verifyPreview->body(), 'Paid Event'));
+        $this->assertTrue(str_contains($verifyPreview->body(), 'BDT 125.50'));
+        $this->assertTrue(str_contains($verifyPreview->body(), 'REF-PENDING-OLD'));
+        $verifyIntent = $this->confirmationIntent($verifyPreview->body());
+
+        $verified = $this->controller->verify($this->routed('POST', '/admin/payments/201/verify', '201', [
+            'confirm_review' => '1',
+            'review_intent' => $verifyIntent,
+            'note' => 'attacker-controlled replacement',
+        ]));
         $this->assertSame('/admin/payments/201', $verified->header('Location'));
         $this->assertSame('paid', $this->paymentStatus(201));
         $this->assertSame('confirmed', $this->registrationStatus(101));
@@ -205,7 +221,14 @@ final class AdminPaymentControllerTest extends TestCase
         $this->assertSame('/admin/payments/201', $repeat->header('Location'));
         $this->assertSame(1, $this->ticketCount(101));
 
-        $rejected = $this->controller->reject($this->routed('POST', '/admin/payments/203/reject', '203'));
+        $rejectPreview = $this->controller->reject($this->routed('POST', '/admin/payments/203/reject', '203'));
+        $this->assertSame(200, $rejectPreview->status());
+        $this->assertSame('pending', $this->paymentStatus(203));
+        $this->assertTrue(str_contains($rejectPreview->body(), 'Confirm payment rejection'));
+        $rejected = $this->controller->reject($this->routed('POST', '/admin/payments/203/reject', '203', [
+            'confirm_review' => '1',
+            'review_intent' => $this->confirmationIntent($rejectPreview->body()),
+        ]));
         $this->assertSame('/admin/payments/203', $rejected->header('Location'));
         $this->assertSame('failed', $this->paymentStatus(203), (string) $this->session->get('_flash.error', ''));
         $this->assertSame('cancelled', $this->registrationStatus(103));
@@ -215,6 +238,39 @@ final class AdminPaymentControllerTest extends TestCase
         $repeatRejected = $this->controller->reject($this->routed('POST', '/admin/payments/203/reject', '203'));
         $this->assertSame('/admin/payments/203', $repeatRejected->header('Location'));
         $this->assertSame(1, $this->availableSeats(17));
+    }
+
+    public function testForgedReplayedOrActionSwappedConfirmationCannotMutatePaymentState(): void
+    {
+        $forged = $this->controller->verify($this->routed('POST', '/admin/payments/202/verify', '202', [
+            'confirm_review' => '1',
+            'review_intent' => str_repeat('a', 64),
+        ]));
+        $this->assertSame(409, $forged->status());
+        $this->assertSame('pending', $this->paymentStatus(202));
+
+        $preview = $this->controller->verify($this->routed('POST', '/admin/payments/202/verify', '202'));
+        $intent = $this->confirmationIntent($preview->body());
+        $swapped = $this->controller->reject($this->routed('POST', '/admin/payments/202/reject', '202', [
+            'confirm_review' => '1',
+            'review_intent' => $intent,
+        ]));
+        $this->assertSame(409, $swapped->status());
+        $this->assertSame('pending', $this->paymentStatus(202));
+
+        $confirmed = $this->controller->verify($this->routed('POST', '/admin/payments/202/verify', '202', [
+            'confirm_review' => '1',
+            'review_intent' => $intent,
+        ]));
+        $this->assertSame('/admin/payments/202', $confirmed->header('Location'));
+        $this->assertSame('paid', $this->paymentStatus(202));
+
+        $replay = $this->controller->verify($this->routed('POST', '/admin/payments/202/verify', '202', [
+            'confirm_review' => '1',
+            'review_intent' => $intent,
+        ]));
+        $this->assertSame(409, $replay->status());
+        $this->assertSame(1, $this->ticketCount(102));
     }
 
     public function testOppositeTerminalActionIsAConflictAndInvalidNotePreservesOnlySafeFields(): void
@@ -306,6 +362,14 @@ final class AdminPaymentControllerTest extends TestCase
     private function routed(string $method, string $uri, string $id, array $input = []): Request
     {
         return Request::create($method, $uri, input: $input)->withRouteParameters(['id' => $id]);
+    }
+
+    private function confirmationIntent(string $body): string
+    {
+        preg_match('/name="review_intent" value="([a-f0-9]{64})"/', $body, $matches);
+        $this->assertArrayHasKey(1, $matches, 'Confirmation response must contain an opaque server-bound intent.');
+
+        return (string) $matches[1];
     }
 
     private function createSchema(): void
