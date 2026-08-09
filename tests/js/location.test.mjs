@@ -402,6 +402,19 @@ test('tile failure keeps the canonical mobile list and reports provider attribut
     assert.equal(harness.leaflet.tileLayers[0].options.attribution, 'Map data');
 });
 
+test('terminal tile load cannot clear an earlier tile failure', () => {
+    const harness = createHarness({ mobile: true, tileOutcome: 'pending' });
+    harness.mapToggle.click();
+    const tileLayer = harness.leaflet.tileLayers[0];
+
+    tileLayer.emit('tileerror');
+    tileLayer.emit('load');
+
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.mapFallback.hidden, false);
+    assert.match(harness.status.textContent, /map tiles could not load/i);
+});
+
 test('pagehide removes the Leaflet instance', () => {
     const harness = createHarness();
     harness.mapToggle.click();

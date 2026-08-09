@@ -190,8 +190,14 @@
         tileLayer = global.L.tileLayer(config.tile_url, {
             attribution: String(config.tile_attribution || ''),
         });
-        handleTileLoad = () => setMapAvailability(true, 'Map loaded. Use the List view for complete event details.');
-        handleTileError = () => setMapAvailability(false, 'The map tiles could not load. The complete event list is still available.');
+        let tileFailed = false;
+        handleTileLoad = () => {
+            if (!tileFailed) setMapAvailability(true, 'Map loaded. Use the List view for complete event details.');
+        };
+        handleTileError = () => {
+            tileFailed = true;
+            setMapAvailability(false, 'The map tiles could not load. The complete event list is still available.');
+        };
         tileLayer.on('load', handleTileLoad);
         tileLayer.on('tileerror', handleTileError);
         tileLayer.addTo(map);
