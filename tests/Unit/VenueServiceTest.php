@@ -52,6 +52,49 @@ final class VenueServiceTest extends TestCase
         $this->assertArrayHasKey('map_url', $result['errors']);
     }
 
+    public function testVenueRejectsEitherIncompleteCoordinatePair(): void
+    {
+        foreach ([
+            ['latitude' => '23.8103', 'longitude' => ''],
+            ['latitude' => '', 'longitude' => '90.4125'],
+        ] as $coordinates) {
+            $result = $this->service->create(10, array_merge($this->validInput(), $coordinates));
+
+            $this->assertFalse($result['success']);
+            $this->assertArrayHasKey('latitude', $result['errors']);
+            $this->assertArrayHasKey('longitude', $result['errors']);
+        }
+    }
+
+    public function testVenueAcceptsNullAndBoundaryCoordinatePairsAndNormalizesSevenDecimals(): void
+    {
+        $withoutPin = $this->service->create(10, array_merge($this->validInput(), [
+            'latitude' => '',
+            'longitude' => '',
+        ]));
+        $withPin = $this->service->create(10, array_merge($this->validInput(), [
+            'latitude' => '-90',
+            'longitude' => '180',
+        ]));
+
+        $this->assertTrue($withoutPin['success']);
+        $this->assertNull($this->venues->venues[$withoutPin['venue_id']]['latitude']);
+        $this->assertNull($this->venues->venues[$withoutPin['venue_id']]['longitude']);
+        $this->assertTrue($withPin['success']);
+        $this->assertSame('-90.0000000', $this->venues->venues[$withPin['venue_id']]['latitude']);
+        $this->assertSame('180.0000000', $this->venues->venues[$withPin['venue_id']]['longitude']);
+    }
+
+    public function testVenueRejectsNonHttpsMapUrl(): void
+    {
+        $result = $this->service->create(10, array_merge($this->validInput(), [
+            'map_url' => 'http://maps.example.test/venue',
+        ]));
+
+        $this->assertFalse($result['success']);
+        $this->assertArrayHasKey('map_url', $result['errors']);
+    }
+
     public function testCreateTrimsValuesNormalizesBlanksAndCoercesCapacity(): void
     {
         $input = $this->validInput();
@@ -70,8 +113,8 @@ final class VenueServiceTest extends TestCase
         $this->assertSame('River Hall', $venue['name']);
         $this->assertSame('24 River Road', $venue['address_line']);
         $this->assertNull($venue['postal_code']);
-        $this->assertSame('-90', $venue['latitude']);
-        $this->assertSame('180', $venue['longitude']);
+        $this->assertSame('-90.0000000', $venue['latitude']);
+        $this->assertSame('180.0000000', $venue['longitude']);
         $this->assertNull($venue['map_url']);
         $this->assertSame(250, $venue['capacity']);
     }

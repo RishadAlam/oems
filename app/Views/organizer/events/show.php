@@ -27,6 +27,8 @@ $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
             <div><dt><i class="ph ph-calendar" aria-hidden="true"></i>Starts</dt><dd><time datetime="<?= e(str_replace(' ', 'T', (string) $event['start_date'])) ?>"><?= e(date('M j, Y, g:i A', strtotime((string) $event['start_date']))) ?></time></dd></div>
             <div><dt><i class="ph ph-clock" aria-hidden="true"></i>Ends</dt><dd><time datetime="<?= e(str_replace(' ', 'T', (string) $event['end_date'])) ?>"><?= e(date('M j, Y, g:i A', strtotime((string) $event['end_date']))) ?></time></dd></div>
             <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i>Venue</dt><dd><?= e($event['venue_name'] ?? 'No venue selected') ?></dd></div>
+            <div><dt><i class="ph ph-eye" aria-hidden="true"></i>Location access</dt><dd><?= ($event['location_visibility'] ?? 'public') === 'registered' ? 'Confirmed participants only' : 'Public exact location' ?></dd></div>
+            <div><dt><i class="ph ph-signpost" aria-hidden="true"></i>Arrival notes</dt><dd><?= !empty($event['arrival_notes']) ? nl2br(e($event['arrival_notes'])) : 'Not provided' ?></dd></div>
             <div><dt><i class="ph ph-users" aria-hidden="true"></i>Capacity</dt><dd><?= e($event['capacity']) ?></dd></div>
             <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Ticket price</dt><dd><?= e(\OEMS\App\Support\Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT'))) ?></dd></div>
             <div><dt><i class="ph ph-microphone-stage" aria-hidden="true"></i>Speaker</dt><dd><?= e($event['speaker'] ?? 'Not specified') ?></dd></div>

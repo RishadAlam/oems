@@ -287,6 +287,8 @@ final class EventService
             'registration_deadline' => $this->stringValue($data['registration_deadline'] ?? null),
             'capacity' => $this->stringValue($data['capacity'] ?? null),
             'ticket_price' => $this->stringValue($data['ticket_price'] ?? null),
+            'location_visibility' => $this->stringValue($data['location_visibility'] ?? 'public'),
+            'arrival_notes' => $this->stringValue($data['arrival_notes'] ?? null),
         ];
         $errors = Validator::validate($normalized, [
             'category_id' => 'required|integer|min_value:1',
@@ -300,6 +302,8 @@ final class EventService
             'registration_deadline' => 'required|datetime_local|before_or_equal:start_date',
             'capacity' => 'required|integer|min_value:1|max_value:100000',
             'ticket_price' => 'required|numeric|min_value:0|max_value:9999999.99',
+            'location_visibility' => 'required|string|in:public,registered',
+            'arrival_notes' => 'nullable|string|max:500',
         ]);
         $normalizedTicketPrice = Money::normalize($normalized['ticket_price']);
 
@@ -332,6 +336,17 @@ final class EventService
             && $venue['capacity'] !== null
             && (int) $normalized['capacity'] > (int) $venue['capacity']) {
             $errors['capacity'][] = 'Capacity may not exceed the selected venue capacity.';
+        }
+
+        if ($normalized['arrival_notes'] !== '' && $venue === null) {
+            $errors['arrival_notes'][] = 'Select a venue before adding arrival notes.';
+        }
+
+        if ($normalized['location_visibility'] === 'registered'
+            && $venue !== null
+            && (!$this->validCoordinate($venue['latitude'] ?? null, -90, 90)
+                || !$this->validCoordinate($venue['longitude'] ?? null, -180, 180))) {
+            $errors['location_visibility'][] = 'Restricted locations require a saved venue pin.';
         }
 
         $tags = $this->normalizeTags($data['tags'] ?? '');
@@ -381,6 +396,8 @@ final class EventService
             'currency' => 'BDT',
             'tags' => $tags,
             'is_featured' => (bool) ($existing['is_featured'] ?? false),
+            'location_visibility' => $normalized['location_visibility'],
+            'arrival_notes' => $normalized['arrival_notes'] === '' ? null : $normalized['arrival_notes'],
         ], []];
     }
 
@@ -573,6 +590,14 @@ final class EventService
     private function length(string $value): int
     {
         return function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+    }
+
+    private function validCoordinate(mixed $value, float $minimum, float $maximum): bool
+    {
+        return is_numeric($value)
+            && is_finite((float) $value)
+            && (float) $value >= $minimum
+            && (float) $value <= $maximum;
     }
 
     private function success(array $data = []): array

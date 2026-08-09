@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
+use OEMS\App\Contracts\GeocoderInterface;
+use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
 use OEMS\App\Controllers\OrganizerEventController;
 use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Middleware\CsrfMiddleware;
@@ -11,10 +14,13 @@ use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\VenueService;
+use OEMS\App\Services\LocationService;
+use OEMS\App\Services\VenueGeocodingService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Router;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -81,6 +87,18 @@ final class OrganizerEventControllerTest extends TestCase
             ...$dependencies,
             venues: $this->venues,
             venueService: new VenueService($this->venues),
+            geocoding: new VenueGeocodingService(
+                new class implements GeocodingCacheRepositoryInterface {
+                    public function findFresh(string $queryHash, DateTimeImmutable $now): ?array { return null; }
+                    public function upsert(string $queryHash, string $query, string $provider, array $results, DateTimeImmutable $expiresAt): void {}
+                },
+                new class implements GeocoderInterface {
+                    public function search(string $query, int $limit): array { return []; }
+                },
+                'Controller route test',
+            ),
+            locations: new LocationService(),
+            rateLimiter: new RateLimiter(sys_get_temp_dir() . '/oems-event-controller-geocode'),
         );
     }
 
@@ -156,6 +174,8 @@ final class OrganizerEventControllerTest extends TestCase
             'description' => ['Describe the event.'],
             'tags' => ['Enter fewer tags.'],
             'gallery' => ['Choose fewer images.'],
+            'location_visibility' => ['Choose who may see the location.'],
+            'arrival_notes' => ['Add a venue before arrival notes.'],
         ]);
 
         $body = $this->controller->create(Request::create('GET', '/organizer/events/create'))->body();
@@ -167,6 +187,10 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'aria-describedby="tags-help tags-error"'));
         $this->assertTrue(str_contains($body, 'id="gallery-help"'));
         $this->assertTrue(str_contains($body, 'aria-describedby="gallery-help gallery-error"'));
+        $this->assertTrue(str_contains($body, 'id="location-visibility-help"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="location-visibility-help location-visibility-error"'));
+        $this->assertTrue(str_contains($body, 'id="arrival-notes-help"'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="arrival-notes-help arrival-notes-error"'));
     }
 
     public function testIndexAcceptsOnlyKnownStatusFilters(): void
@@ -410,6 +434,8 @@ final class OrganizerEventControllerTest extends TestCase
             'capacity' => '80',
             'ticket_price' => '500',
             'tags' => 'product, design',
+            'location_visibility' => 'public',
+            'arrival_notes' => 'Use the north entrance.',
         ];
     }
 
@@ -440,6 +466,8 @@ final class OrganizerEventControllerTest extends TestCase
             'status' => $status,
             'rejection_reason' => null,
             'deleted_at' => null,
+            'location_visibility' => 'registered',
+            'arrival_notes' => 'Use the north entrance.',
         ];
     }
 }

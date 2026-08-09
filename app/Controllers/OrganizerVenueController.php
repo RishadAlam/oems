@@ -6,10 +6,13 @@ namespace OEMS\App\Controllers;
 
 use OEMS\App\Contracts\VenueRepositoryInterface;
 use OEMS\App\Services\VenueService;
+use OEMS\App\Services\LocationService;
+use OEMS\App\Services\VenueGeocodingService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Response;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -37,6 +40,9 @@ final class OrganizerVenueController extends Controller
         Config $config,
         private readonly VenueRepositoryInterface $venues,
         private readonly VenueService $venueService,
+        private readonly VenueGeocodingService $geocoding,
+        private readonly LocationService $locations,
+        private readonly RateLimiter $rateLimiter,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -60,6 +66,9 @@ final class OrganizerVenueController extends Controller
         return $this->render('organizer/venues/form', [
             'pageTitle' => 'Create venue',
             'venue' => null,
+            'leafletEnabled' => true,
+            'venueMapEnabled' => true,
+            'mapConfig' => $this->mapConfig(),
         ], 'dashboard');
     }
 
@@ -100,6 +109,9 @@ final class OrganizerVenueController extends Controller
         return $this->render('organizer/venues/form', [
             'pageTitle' => 'Edit venue',
             'venue' => $venue,
+            'leafletEnabled' => true,
+            'venueMapEnabled' => true,
+            'mapConfig' => $this->mapConfig(),
         ], 'dashboard');
     }
 
@@ -164,6 +176,63 @@ final class OrganizerVenueController extends Controller
         return $this->redirectWith('/organizer/venues', 'success', 'Venue deleted.');
     }
 
+    public function geocode(Request $request): Response
+    {
+        $userId = $this->auth->id();
+
+        if ($userId === null) {
+            return Response::redirect('/login');
+        }
+
+        $query = $request->input('query');
+        $query = is_scalar($query) ? trim((string) $query) : '';
+        $length = function_exists('mb_strlen') ? mb_strlen($query) : strlen($query);
+
+        if ($length < 3 || $length > 160) {
+            return Response::json([
+                'errors' => ['location' => ['Enter an address between 3 and 160 characters.']],
+            ], 422, ['Cache-Control' => 'private, no-store']);
+        }
+
+        $rateKey = 'organizer-venue-geocode:' . $userId . ':' . hash('sha256', $request->ip());
+
+        if (!$this->rateLimiter->consumeAttempt($rateKey)) {
+            return Response::json([
+                'errors' => ['location' => ['Too many address searches. Try again later.']],
+            ], 429, ['Cache-Control' => 'private, no-store']);
+        }
+
+        $result = $this->geocoding->search($query);
+
+        if (!$result['success']) {
+            return Response::json([
+                'errors' => $result['errors'],
+            ], 503, ['Cache-Control' => 'private, no-store']);
+        }
+
+        $results = [];
+
+        foreach (array_slice($result['results'], 0, 5) as $candidate) {
+            if (!is_array($candidate)
+                || $this->locations->directionsUrl([
+                    'latitude' => $candidate['latitude'] ?? null,
+                    'longitude' => $candidate['longitude'] ?? null,
+                ]) === null) {
+                continue;
+            }
+
+            $results[] = [
+                'label' => mb_substr((string) ($candidate['label'] ?? ''), 0, 255),
+                'latitude' => (string) $candidate['latitude'],
+                'longitude' => (string) $candidate['longitude'],
+            ];
+        }
+
+        return Response::json([
+            'results' => $results,
+        ], 200, ['Cache-Control' => 'private, no-store']);
+    }
+
     private function safeInput(Request $request): array
     {
         return array_filter(
@@ -209,5 +278,16 @@ final class OrganizerVenueController extends Controller
     private function notFound(): Response
     {
         return Response::text('Not Found', 404);
+    }
+
+    private function mapConfig(): array
+    {
+        return [
+            'tile_url' => (string) $this->config->get('map.tile_url', ''),
+            'tile_attribution' => (string) $this->config->get('map.tile_attribution', ''),
+            'default_lat' => (float) $this->config->get('map.default_lat', 23.8103),
+            'default_lng' => (float) $this->config->get('map.default_lng', 90.4125),
+            'default_zoom' => (int) $this->config->get('map.default_zoom', 11),
+        ];
     }
 }

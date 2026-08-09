@@ -32,6 +32,8 @@ final class OrganizerEventController extends Controller
         'capacity',
         'ticket_price',
         'tags',
+        'location_visibility',
+        'arrival_notes',
     ];
 
     private const STATUSES = [

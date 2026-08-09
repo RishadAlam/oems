@@ -125,8 +125,28 @@ final class VenueService
             'capacity' => 'nullable|integer|min_value:1|max_value:100000',
         ]);
 
+        $hasLatitude = $attributes['latitude'] !== null;
+        $hasLongitude = $attributes['longitude'] !== null;
+
+        if ($hasLatitude !== $hasLongitude) {
+            $message = 'Enter both latitude and longitude, or leave both blank.';
+            $errors['latitude'][] = $message;
+            $errors['longitude'][] = $message;
+        }
+
+        if ($attributes['map_url'] !== null
+            && strtolower((string) parse_url($attributes['map_url'], PHP_URL_SCHEME)) !== 'https') {
+            $errors['map_url'][] = 'The map URL must use HTTPS.';
+        }
+
         if ($errors !== []) {
             return [[], $errors];
+        }
+
+        foreach (['latitude', 'longitude'] as $coordinate) {
+            if ($attributes[$coordinate] !== null) {
+                $attributes[$coordinate] = number_format((float) $attributes[$coordinate], 7, '.', '');
+            }
         }
 
         $attributes['capacity'] = $attributes['capacity'] === null

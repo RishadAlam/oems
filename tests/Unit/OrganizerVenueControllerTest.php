@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
+use OEMS\App\Contracts\GeocoderInterface;
+use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
 use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Services\VenueService;
+use OEMS\App\Services\LocationService;
+use OEMS\App\Services\VenueGeocodingService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
 use OEMS\Core\Request;
+use OEMS\Core\RateLimiter;
 use OEMS\Core\Router;
 use OEMS\Core\Security;
 use OEMS\Core\Session;
@@ -20,6 +26,41 @@ use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\FakeVenueRepository;
 use OEMS\Tests\Support\TestCase;
 
+final class OrganizerVenueTestCache implements GeocodingCacheRepositoryInterface
+{
+    public array $items = [];
+
+    public function findFresh(string $queryHash, DateTimeImmutable $now): ?array
+    {
+        return $this->items[$queryHash] ?? null;
+    }
+
+    public function upsert(string $queryHash, string $query, string $provider, array $results, DateTimeImmutable $expiresAt): void
+    {
+        $this->items[$queryHash] = ['results' => $results];
+    }
+}
+
+final class OrganizerVenueTestGeocoder implements GeocoderInterface
+{
+    public bool $fails = false;
+
+    public array $results = [[
+        'label' => 'Bashundhara, Dhaka, Bangladesh',
+        'latitude' => '23.8151001',
+        'longitude' => '90.4255001',
+    ]];
+
+    public function search(string $query, int $limit): array
+    {
+        if ($this->fails) {
+            throw new \RuntimeException('Provider failed with a private address.');
+        }
+
+        return array_slice($this->results, 0, $limit);
+    }
+}
+
 final class OrganizerVenueControllerTest extends TestCase
 {
     private Session $session;
@@ -27,6 +68,10 @@ final class OrganizerVenueControllerTest extends TestCase
     private FakeVenueRepository $venues;
 
     private OrganizerVenueController $controller;
+
+    private OrganizerVenueTestGeocoder $geocoder;
+
+    private string $rateDirectory;
 
     protected function setUp(): void
     {
@@ -45,6 +90,8 @@ final class OrganizerVenueControllerTest extends TestCase
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
         $this->venues = new FakeVenueRepository();
+        $this->geocoder = new OrganizerVenueTestGeocoder();
+        $this->rateDirectory = sys_get_temp_dir() . '/oems-venue-geocode-' . bin2hex(random_bytes(6));
         $this->venues->venues[1] = array_merge($this->venues->venues[1], $this->venueInput());
         $this->controller = new OrganizerVenueController(
             new View(base_path('app/Views')),
@@ -54,6 +101,14 @@ final class OrganizerVenueControllerTest extends TestCase
             new Config(['name' => 'OEMS']),
             $this->venues,
             new VenueService($this->venues),
+            new VenueGeocodingService(
+                new OrganizerVenueTestCache(),
+                $this->geocoder,
+                'Test geocoder',
+                throttlePath: $this->rateDirectory . '/provider.lock',
+            ),
+            new LocationService(),
+            new RateLimiter($this->rateDirectory, 5, 900),
         );
     }
 
@@ -61,6 +116,15 @@ final class OrganizerVenueControllerTest extends TestCase
     {
         $_SESSION = [];
         unset($_SERVER['REQUEST_URI']);
+
+        if (is_dir($this->rateDirectory)) {
+            foreach (scandir($this->rateDirectory) ?: [] as $entry) {
+                if (!in_array($entry, ['.', '..'], true)) {
+                    unlink($this->rateDirectory . '/' . $entry);
+                }
+            }
+            rmdir($this->rateDirectory);
+        }
     }
 
     public function testOrganizerCanRenderOwnedVenueIndexCreateAndEditPages(): void
@@ -77,6 +141,33 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertTrue(str_contains($create->body(), 'type="number"'));
         $this->assertSame(200, $edit->status());
         $this->assertTrue(str_contains($edit->body(), 'Edit venue'));
+    }
+
+    public function testVenueFormLoadsLocalMapAssetsAndPresentsMapLedControlsInOrder(): void
+    {
+        $body = $this->controller->create(Request::create('GET', '/organizer/venues/create'))->body();
+        $positions = array_map(static fn (string $needle): int|false => strpos($body, $needle), [
+            'name="address_line"',
+            'data-venue-find',
+            'data-venue-results',
+            'aria-label="Venue pin map"',
+            'data-venue-use-location',
+            '<summary>Advanced coordinates</summary>',
+            'name="map_url"',
+            'name="capacity"',
+        ]);
+
+        $this->assertTrue(str_contains($body, '/assets/vendor/leaflet/leaflet.css'));
+        $this->assertTrue(str_contains($body, '/assets/vendor/leaflet/leaflet.js'));
+        $this->assertTrue(str_contains($body, '/assets/js/venue-map.js'));
+        $this->assertTrue(str_contains($body, 'data-venue-map-form'));
+        $this->assertTrue(str_contains($body, 'aria-live="polite"'));
+        $this->assertTrue(str_contains($body, 'aria-label="Venue pin map"'));
+        $this->assertFalse(in_array(false, $positions, true));
+        $numericPositions = array_map('intval', $positions);
+        $sorted = $numericPositions;
+        sort($sorted);
+        $this->assertSame($sorted, $numericPositions);
     }
 
     public function testEditKeepsSaveInTheEditFormAndDeletionInADistinctLaterForm(): void
@@ -193,7 +284,7 @@ final class OrganizerVenueControllerTest extends TestCase
 
     public function testEveryVenuePostRouteRequiresOrganizerRoleAndCsrf(): void
     {
-        foreach (['/organizer/venues', '/organizer/venues/1', '/organizer/venues/1/delete'] as $uri) {
+        foreach (['/organizer/venues/geocode', '/organizer/venues', '/organizer/venues/1', '/organizer/venues/1/delete'] as $uri) {
             $participant = $this->routerForRole('participant');
             $blockedRole = $participant['router']->dispatch(Request::create('POST', $uri, input: [
                 '_token' => $participant['security']->csrfToken(),
@@ -208,11 +299,82 @@ final class OrganizerVenueControllerTest extends TestCase
         }
     }
 
+    public function testOrganizerAddressSearchReturnsBoundedPrivateJson(): void
+    {
+        $this->geocoder->results = array_map(static fn (int $index): array => [
+            'label' => "Venue <{$index}>",
+            'latitude' => (string) (23 + ($index / 100)),
+            'longitude' => (string) (90 + ($index / 100)),
+        ], range(1, 7));
+
+        $response = $this->controller->geocode(Request::create(
+            'POST',
+            '/organizer/venues/geocode',
+            input: ['query' => 'Bashundhara Dhaka'],
+            server: ['REMOTE_ADDR' => '203.0.113.10'],
+        ));
+        $payload = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->status());
+        $this->assertSame('private, no-store', $response->header('Cache-Control'));
+        $this->assertSame(5, count($payload['results']));
+        $this->assertSame(['label', 'latitude', 'longitude'], array_keys($payload['results'][0]));
+        $this->assertSame('Venue <1>', $payload['results'][0]['label']);
+    }
+
+    public function testAddressSearchMapsValidationProviderAndRateLimitFailures(): void
+    {
+        $invalid = $this->controller->geocode(Request::create('POST', '/organizer/venues/geocode', input: [
+            'query' => 'x',
+        ], server: ['REMOTE_ADDR' => '203.0.113.11']));
+        $this->geocoder->fails = true;
+        $provider = $this->controller->geocode(Request::create('POST', '/organizer/venues/geocode', input: [
+            'query' => 'Provider failure venue',
+        ], server: ['REMOTE_ADDR' => '203.0.113.12']));
+        $this->geocoder->fails = false;
+
+        $this->assertSame(422, $invalid->status());
+        $this->assertSame(503, $provider->status());
+        $this->assertFalse(str_contains($provider->body(), 'private address'));
+
+        $last = null;
+        for ($attempt = 1; $attempt <= 6; $attempt++) {
+            $last = $this->controller->geocode(Request::create('POST', '/organizer/venues/geocode', input: [
+                'query' => 'Bashundhara Dhaka',
+            ], server: ['REMOTE_ADDR' => '203.0.113.13']));
+        }
+
+        $this->assertSame(429, $last?->status());
+        $this->assertSame('private, no-store', $last?->header('Cache-Control'));
+    }
+
+    public function testAddressSearchRouteEnforcesGuestRoleCsrfAndMethodBoundaries(): void
+    {
+        $guest = $this->routerForRole('guest');
+        $guestResponse = $guest['router']->dispatch(Request::create('POST', '/organizer/venues/geocode'));
+        $participant = $this->routerForRole('participant');
+        $participantResponse = $participant['router']->dispatch(Request::create('POST', '/organizer/venues/geocode', input: [
+            '_token' => $participant['security']->csrfToken(),
+        ]));
+        $organizer = $this->routerForRole('organizer');
+        $csrfResponse = $organizer['router']->dispatch(Request::create('POST', '/organizer/venues/geocode', input: [
+            '_token' => 'invalid',
+        ]));
+        $methodResponse = $organizer['router']->dispatch(Request::create('GET', '/organizer/venues/geocode'));
+
+        $this->assertSame('/login', $guestResponse->header('Location'));
+        $this->assertSame(403, $participantResponse->status());
+        $this->assertSame(419, $csrfResponse->status());
+        $this->assertSame(405, $methodResponse->status());
+    }
+
     private function routerForRole(string $role): array
     {
         $_SESSION = [];
         $session = new Session(false);
-        $session->put('auth.user_id', 10);
+        if ($role !== 'guest') {
+            $session->put('auth.user_id', 10);
+        }
         $security = new Security($session);
         $users = new FakeUserRepository();
         $users->users[10] = [

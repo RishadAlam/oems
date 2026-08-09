@@ -55,6 +55,27 @@ $described = static function (string $key) use ($errors): string {
         </div>
     </section>
 
+    <section class="organizer-form__section" aria-labelledby="event-location-heading">
+        <div class="organizer-form__heading"><span><i class="ph ph-map-pin-line" aria-hidden="true"></i></span><div><h2 id="event-location-heading">Location access</h2><p>Choose who can see exact venue details and add concise arrival guidance.</p></div></div>
+        <div class="grid gap-5 sm:grid-cols-2">
+            <div class="field-group">
+                <label for="location_visibility">Exact location visibility</label>
+                <select id="location_visibility" name="location_visibility"<?= $described('location_visibility') ?>>
+                    <option value="public" <?= ($selected('location_visibility') ?: 'public') === 'public' ? 'selected' : '' ?>>Public exact location</option>
+                    <option value="registered" <?= $selected('location_visibility') === 'registered' ? 'selected' : '' ?>>Confirmed participants only</option>
+                </select>
+                <p id="location-visibility-help" class="field-help">Restricted mode hides the exact address, pin, directions, and arrival notes until registration is confirmed.</p>
+                <?php if ($error = field_error($errors, 'location_visibility')): ?><p id="location-visibility-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+            </div>
+            <div class="field-group">
+                <label for="arrival_notes">Arrival notes <span class="field-label-note">Optional</span></label>
+                <textarea id="arrival_notes" name="arrival_notes" rows="4" maxlength="500"<?= $described('arrival_notes') ?>><?= $eventValue('arrival_notes') ?></textarea>
+                <p id="arrival-notes-help" class="field-help">Add an entrance, floor, landmark, or accessibility instruction. A venue is required.</p>
+                <?php if ($error = field_error($errors, 'arrival_notes')): ?><p id="arrival-notes-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+            </div>
+        </div>
+    </section>
+
     <section class="organizer-form__section" aria-labelledby="event-schedule-heading">
         <div class="organizer-form__heading"><span><i class="ph ph-clock" aria-hidden="true"></i></span><div><h2 id="event-schedule-heading">Schedule and capacity</h2><p>Set local dates, seat limits, and the ticket price in BDT.</p></div></div>
         <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

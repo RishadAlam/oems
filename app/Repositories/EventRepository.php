@@ -350,10 +350,10 @@ final class EventRepository implements EventRepositoryInterface
     {
         $statement = $this->connection->prepare(
             'INSERT INTO events
-                (organizer_id, category_id, venue_id, title, slug, description, banner, map_url, speaker,
+                (organizer_id, category_id, venue_id, title, slug, description, banner, map_url, location_visibility, arrival_notes, speaker,
                  start_date, end_date, registration_deadline, capacity, available_seats, ticket_price, currency,
                  tags, status, is_featured, created_at, updated_at)
-             SELECT organizers.id, :category_id, :venue_id, :title, :slug, :description, :banner, :map_url, :speaker,
+             SELECT organizers.id, :category_id, :venue_id, :title, :slug, :description, :banner, :map_url, :location_visibility, :arrival_notes, :speaker,
                     :start_date, :end_date, :registration_deadline, :capacity, :available_seats, :ticket_price, :currency,
                     :tags, \'draft\', :is_featured, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
              FROM organizers
@@ -394,6 +394,8 @@ final class EventRepository implements EventRepositoryInterface
                  description = :description,
                  banner = :banner,
                  map_url = :map_url,
+                 location_visibility = :location_visibility,
+                 arrival_notes = :arrival_notes,
                  speaker = :speaker,
                  start_date = :start_date,
                  end_date = :end_date,
@@ -908,6 +910,8 @@ final class EventRepository implements EventRepositoryInterface
             'description' => $attributes['description'],
             'banner' => $attributes['banner'] ?? null,
             'map_url' => $attributes['map_url'] ?? null,
+            'location_visibility' => $attributes['location_visibility'] ?? 'public',
+            'arrival_notes' => $attributes['arrival_notes'] ?? null,
             'speaker' => $attributes['speaker'] ?? null,
             'start_date' => $attributes['start_date'],
             'end_date' => $attributes['end_date'],

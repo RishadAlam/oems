@@ -14,7 +14,10 @@
         }());
     </script>
     <link rel="stylesheet" href="/assets/css/app.css">
+    <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
     <script src="/assets/js/app.js" defer></script>
+    <?php if (!empty($leafletEnabled)): ?><script src="/assets/vendor/leaflet/leaflet.js" defer></script><?php endif; ?>
+    <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js" defer></script><?php endif; ?>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface-soft)] text-[var(--ink)] antialiased">
     <?php

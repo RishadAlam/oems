@@ -45,7 +45,10 @@ final class VenueRepositoryTest extends TestCase
                 map_url TEXT NULL,
                 capacity INTEGER NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                CHECK ((latitude IS NULL AND longitude IS NULL) OR (latitude IS NOT NULL AND longitude IS NOT NULL)),
+                CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90)),
+                CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180))
             )',
         );
         $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, venue_id INTEGER NULL, deleted_at TEXT NULL)');
@@ -91,6 +94,28 @@ final class VenueRepositoryTest extends TestCase
         $this->assertNotNull($id);
         $this->assertSame('New venue', $repository->findOwned(10, $id)['name']);
         $this->assertNull($repository->createForUser(999, $this->venueAttributes('No owner')));
+    }
+
+    public function testDatabaseRejectsIncompleteAndOutOfRangeCoordinates(): void
+    {
+        $repository = new VenueRepository($this->connection);
+
+        foreach ([
+            ['latitude' => 23.8103, 'longitude' => null],
+            ['latitude' => null, 'longitude' => 90.4125],
+            ['latitude' => 90.0000001, 'longitude' => 90.4125],
+            ['latitude' => 23.8103, 'longitude' => -180.0000001],
+        ] as $coordinates) {
+            $thrown = false;
+
+            try {
+                $repository->createForUser(10, array_merge($this->venueAttributes('Invalid pin'), $coordinates));
+            } catch (\PDOException) {
+                $thrown = true;
+            }
+
+            $this->assertTrue($thrown);
+        }
     }
 
     public function testVenueUpdateCannotCrossOrganizerOwnership(): void

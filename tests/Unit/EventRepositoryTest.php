@@ -203,6 +203,25 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(count($updateBindings[1]), count(array_unique($updateBindings[1])));
     }
 
+    public function testEventCreateAndUpdatePersistLocationPrivacyFields(): void
+    {
+        $attributes = array_merge($this->eventAttributes('private-location'), [
+            'location_visibility' => 'registered',
+            'arrival_notes' => 'Use the north entrance.',
+        ]);
+        $eventId = $this->repository->createForUser(10, $attributes);
+
+        $this->assertNotNull($eventId);
+        $this->assertSame('registered', $this->eventValue((int) $eventId, 'location_visibility'));
+        $this->assertSame('Use the north entrance.', $this->eventValue((int) $eventId, 'arrival_notes'));
+
+        $attributes['location_visibility'] = 'public';
+        $attributes['arrival_notes'] = null;
+        $this->assertTrue($this->repository->updateOwned(10, (int) $eventId, $attributes));
+        $this->assertSame('public', $this->eventValue((int) $eventId, 'location_visibility'));
+        $this->assertNull($this->eventValue((int) $eventId, 'arrival_notes'));
+    }
+
     public function testPublicDateFiltersImplementTodayWeekMonthAndUpcomingFallback(): void
     {
         $today = array_column($this->repository->publicSearch(['date' => 'today']), 'slug');
@@ -777,6 +796,8 @@ final class EventRepositoryTest extends TestCase
             'currency' => 'BDT',
             'tags' => ['php', 'testing'],
             'is_featured' => false,
+            'location_visibility' => 'public',
+            'arrival_notes' => null,
         ];
     }
 

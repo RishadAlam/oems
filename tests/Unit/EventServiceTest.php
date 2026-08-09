@@ -86,6 +86,61 @@ final class EventServiceTest extends TestCase
         $this->assertSame('location', $created['slug']);
     }
 
+    public function testEventPersistsRestrictedLocationAndArrivalNotes(): void
+    {
+        $this->venues->venues[1]['latitude'] = '23.8103000';
+        $this->venues->venues[1]['longitude'] = '90.4125000';
+
+        $result = $this->service->createDraft(10, $this->validInput([
+            'location_visibility' => 'registered',
+            'arrival_notes' => '  Use the north entrance beside the library.  ',
+        ]), null, []);
+
+        $this->assertTrue($result['success']);
+        $event = $this->events->events[$result['event_id']];
+        $this->assertSame('registered', $event['location_visibility']);
+        $this->assertSame('Use the north entrance beside the library.', $event['arrival_notes']);
+    }
+
+    public function testEventRejectsInvalidLocationPrivacyCombinations(): void
+    {
+        $unknown = $this->service->createDraft(10, $this->validInput([
+            'location_visibility' => 'secret',
+        ]), null, []);
+        $tooLong = $this->service->createDraft(10, $this->validInput([
+            'arrival_notes' => str_repeat('x', 501),
+        ]), null, []);
+        $withoutVenue = $this->service->createDraft(10, $this->validInput([
+            'venue_id' => '',
+            'arrival_notes' => 'Meet beside the lift.',
+        ]), null, []);
+        $restrictedFailures = [];
+        foreach ([
+            ['latitude' => null, 'longitude' => null],
+            ['latitude' => '23.8103000', 'longitude' => null],
+            ['latitude' => null, 'longitude' => '90.4125000'],
+        ] as $coordinates) {
+            $this->venues->venues[1] = array_merge($this->venues->venues[1], $coordinates);
+            $restrictedFailures[] = $this->service->createDraft(10, $this->validInput([
+                'location_visibility' => 'registered',
+            ]), null, []);
+        }
+        $this->venues->venues[1]['latitude'] = null;
+        $this->venues->venues[1]['longitude'] = null;
+        $publicWithoutPin = $this->service->createDraft(10, $this->validInput([
+            'location_visibility' => 'public',
+            'arrival_notes' => '',
+        ]), null, []);
+
+        $this->assertArrayHasKey('location_visibility', $unknown['errors']);
+        $this->assertArrayHasKey('arrival_notes', $tooLong['errors']);
+        $this->assertArrayHasKey('arrival_notes', $withoutVenue['errors']);
+        foreach ($restrictedFailures as $restrictedWithoutPin) {
+            $this->assertArrayHasKey('location_visibility', $restrictedWithoutPin['errors']);
+        }
+        $this->assertTrue($publicWithoutPin['success']);
+    }
+
     public function testCreateDraftRejectsAnInactiveCategory(): void
     {
         $result = $this->service->createDraft(10, $this->validInput(['category_id' => '2']), null, []);
@@ -497,6 +552,8 @@ final class EventServiceTest extends TestCase
             'capacity' => '80',
             'ticket_price' => '0',
             'tags' => 'php, community',
+            'location_visibility' => 'public',
+            'arrival_notes' => '',
         ], $overrides);
     }
 
@@ -524,6 +581,8 @@ final class EventServiceTest extends TestCase
             'status' => $status,
             'rejection_reason' => null,
             'is_featured' => false,
+            'location_visibility' => 'public',
+            'arrival_notes' => null,
             'deleted_at' => null,
         ], $overrides);
     }

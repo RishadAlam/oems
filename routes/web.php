@@ -81,6 +81,7 @@ return static function (Router $router): void {
     $router->post('/organizer/events/{id}/check-in', [OrganizerCheckInController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.check-in.store');
     $router->get('/organizer/venues', [OrganizerVenueController::class, 'index'], ['role:organizer'], 'organizer.venues.index');
     $router->get('/organizer/venues/create', [OrganizerVenueController::class, 'create'], ['role:organizer'], 'organizer.venues.create');
+    $router->post('/organizer/venues/geocode', [OrganizerVenueController::class, 'geocode'], ['role:organizer', 'csrf'], 'organizer.venues.geocode');
     $router->post('/organizer/venues', [OrganizerVenueController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.venues.store');
     $router->get('/organizer/venues/{id}/edit', [OrganizerVenueController::class, 'edit'], ['role:organizer'], 'organizer.venues.edit');
     $router->post('/organizer/venues/{id}', [OrganizerVenueController::class, 'update'], ['role:organizer', 'csrf'], 'organizer.venues.update');
