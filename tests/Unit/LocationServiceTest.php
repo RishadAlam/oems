@@ -81,6 +81,33 @@ final class LocationServiceTest extends TestCase
         $this->assertSame('180.000000', $bounds['longitude_max']);
     }
 
+    public function testBoundsRepresentEastwardAndWestwardAntimeridianWrapsWithoutExcludingNearbyLongitudes(): void
+    {
+        $service = new LocationService();
+
+        $eastward = $service->bounds(['latitude' => '0', 'longitude' => '179.9', 'radius' => 25]);
+        $westward = $service->bounds(['latitude' => '0', 'longitude' => '-179.9', 'radius' => 25]);
+
+        $this->assertSame('179.675170', $eastward['longitude_min']);
+        $this->assertSame('-179.875170', $eastward['longitude_max']);
+        $this->assertTrue($eastward['longitude_wraps']);
+        $this->assertSame('179.875170', $westward['longitude_min']);
+        $this->assertSame('-179.675170', $westward['longitude_max']);
+        $this->assertTrue($westward['longitude_wraps']);
+    }
+
+    public function testBoundsUseAllLongitudesWhenTheLatitudeRangeReachesAPole(): void
+    {
+        $service = new LocationService();
+        $bounds = $service->bounds(['latitude' => '89.9', 'longitude' => '30', 'radius' => 25]);
+
+        $this->assertSame('89.675170', $bounds['latitude_min']);
+        $this->assertSame('90.000000', $bounds['latitude_max']);
+        $this->assertSame('-180.000000', $bounds['longitude_min']);
+        $this->assertSame('180.000000', $bounds['longitude_max']);
+        $this->assertFalse($bounds['longitude_wraps']);
+    }
+
     public function testRestrictedDistanceUsesCoarseBand(): void
     {
         $service = new LocationService();

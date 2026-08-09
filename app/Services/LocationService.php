@@ -78,6 +78,13 @@ final class LocationService
             : 25;
     }
 
+    /**
+     * Returns longitude_min/longitude_max as a normal inclusive interval unless
+     * longitude_wraps is true. A wrapped interval means longitude >= min OR
+     * longitude <= max. At either pole, the interval always covers all longitudes.
+     *
+     * @return array{latitude_min: string, latitude_max: string, longitude_min: string, longitude_max: string, longitude_wraps: bool}
+     */
     public function bounds(array $preference): array
     {
         [$latitude, $longitude] = $this->coordinates($preference['latitude'] ?? null, $preference['longitude'] ?? null);
@@ -85,15 +92,28 @@ final class LocationService
         $latitudeDelta = rad2deg($radius / self::EARTH_RADIUS_KM);
         $latitudeMin = max(-90.0, $latitude - $latitudeDelta);
         $latitudeMax = min(90.0, $latitude + $latitudeDelta);
+        $allLongitudes = $latitudeMin <= -90.0 || $latitudeMax >= 90.0;
         $cosine = cos(deg2rad($latitude));
 
-        if (abs($cosine) < 0.000000000001) {
+        if ($allLongitudes || abs($cosine) < 0.000000000001) {
             $longitudeMin = -180.0;
             $longitudeMax = 180.0;
+            $longitudeWraps = false;
         } else {
             $longitudeDelta = rad2deg($radius / (self::EARTH_RADIUS_KM * $cosine));
-            $longitudeMin = max(-180.0, $longitude - $longitudeDelta);
-            $longitudeMax = min(180.0, $longitude + $longitudeDelta);
+            $longitudeMin = $longitude - $longitudeDelta;
+            $longitudeMax = $longitude + $longitudeDelta;
+            $longitudeWraps = false;
+
+            if ($longitudeMin < -180.0) {
+                $longitudeMin += 360.0;
+                $longitudeWraps = true;
+            }
+
+            if ($longitudeMax > 180.0) {
+                $longitudeMax -= 360.0;
+                $longitudeWraps = true;
+            }
         }
 
         return [
@@ -101,6 +121,7 @@ final class LocationService
             'latitude_max' => number_format($latitudeMax, 6, '.', ''),
             'longitude_min' => number_format($longitudeMin, 6, '.', ''),
             'longitude_max' => number_format($longitudeMax, 6, '.', ''),
+            'longitude_wraps' => $longitudeWraps,
         ];
     }
 
