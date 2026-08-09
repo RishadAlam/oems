@@ -212,7 +212,34 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, 'aria-label="Issued tickets: 2"'));
         $this->assertTrue(str_contains($participant, 'aria-label="Checked in: 1"'));
         $this->assertTrue(str_contains($participant, 'aria-label="Submitted reviews: 4"'));
-        $this->assertFalse(str_contains($participant, 'Unread updates'));
+        $this->assertTrue(str_contains($participant, 'unread updates'));
+    }
+
+    public function testParticipantDashboardRendersScopedUpcomingActivityFavoritesReviewActionsAndNotifications(): void
+    {
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant', [
+            'workspace' => [
+                'upcoming' => [[
+                    'id' => 12,
+                    'event_title' => 'Scoped future summit',
+                    'event_slug' => 'scoped-future-summit',
+                    'event_start_date' => '2026-09-01 10:00:00',
+                    'registration_status' => 'confirmed',
+                    'payment_status' => 'paid',
+                ]],
+                'favorite_count' => 3,
+                'review_actions' => 2,
+            ],
+            'unreadNotifications' => 4,
+        ]);
+
+        $this->assertTrue(str_contains($participant, 'Scoped future summit'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/registrations/12"'));
+        $this->assertTrue(str_contains($participant, '3 saved events'));
+        $this->assertTrue(str_contains($participant, '2 reviews ready'));
+        $this->assertTrue(str_contains($participant, '4 unread updates'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/notifications"'));
+        $this->assertTrue(str_contains($participant, 'aria-label="4 unread notifications"'));
     }
 
     public function testParticipantNavigationIncludesRegistrationsAndTicketsOnlyForParticipants(): void
@@ -382,7 +409,10 @@ final class DashboardLayoutTest extends TestCase
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
         $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL)');
-        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT \'\', slug TEXT NOT NULL DEFAULT \'\', start_date TEXT NOT NULL DEFAULT \'2099-01-01 00:00:00\', end_date TEXT NOT NULL DEFAULT \'2099-01-01 02:00:00\', status TEXT NOT NULL DEFAULT \'published\', deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, event_id INTEGER NOT NULL, status TEXT NOT NULL, registration_number TEXT NOT NULL DEFAULT \'\')');
+        $connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL)');
+        $connection->exec('CREATE TABLE favorites (user_id INTEGER NOT NULL, event_id INTEGER NOT NULL)');
         $connection->exec('CREATE TABLE reviews (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT NOT NULL, organizer_reply TEXT NULL)');
 
         return [

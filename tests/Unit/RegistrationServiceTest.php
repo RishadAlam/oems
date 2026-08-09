@@ -8,6 +8,7 @@ use OEMS\App\Repositories\PaymentRepository;
 use OEMS\App\Repositories\RegistrationRepository;
 use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\NotificationService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
 use OEMS\App\Services\TransactionMailer;
@@ -15,6 +16,7 @@ use OEMS\Core\Config;
 use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeEmailLogRepository;
 use OEMS\Tests\Support\FakeMailTransport;
+use OEMS\Tests\Support\FakeNotificationRepository;
 use OEMS\Tests\Support\FakePaymentRepository;
 use OEMS\Tests\Support\FakeRegistrationRepository;
 use OEMS\Tests\Support\FakeTicketRepository;
@@ -567,7 +569,42 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame([], glob($this->ticketRoot . '/*') ?: []);
     }
 
-    private function service(PDO $connection): RegistrationService
+    public function testNotificationFailuresDoNotRollBackCommittedParticipantTransactions(): void
+    {
+        $notifications = new FakeNotificationRepository();
+        $notifications->throwOnCreate = true;
+        $service = $this->service($this->connection, new NotificationService($notifications, new Logger($this->logPath)));
+
+        $result = $service->register(1, 10);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('confirmed', $result['registration']['registration_status']);
+        $this->assertSame(2, $this->countRows('registrations'));
+        $this->assertSame(1, $this->countRows('tickets'));
+    }
+
+    public function testDispatchesRegistrationPaymentTicketAndCancellationUpdatesAfterCommit(): void
+    {
+        $repository = new FakeNotificationRepository();
+        $service = $this->service($this->connection, new NotificationService($repository, new Logger($this->logPath)));
+
+        $free = $service->register(1, 10);
+        $paid = $service->register(1, 11, ['transaction_reference' => 'NOTICE-PAID-001', 'channel' => 'bank']);
+        $verified = $service->verifyPayment(9, (int) $paid['payment']['id']);
+        $cancelled = $service->cancel(1, (int) $free['registration']['id'], 'Schedule conflict');
+
+        $this->assertTrue($free['success']);
+        $this->assertTrue($paid['success']);
+        $this->assertTrue($verified['success']);
+        $this->assertTrue($cancelled['success']);
+        $this->assertSame(
+            ['registration_confirmed', 'ticket_issued', 'payment_pending', 'payment_verified', 'ticket_issued', 'registration_cancelled'],
+            array_column($repository->notifications, 'type'),
+        );
+        $this->assertSame('/participant/tickets/' . (int) $verified['ticket']['id'], $repository->notifications[5]['action_url']);
+    }
+
+    private function service(PDO $connection, ?NotificationService $notifications = null): RegistrationService
     {
         $registrations = new RegistrationRepository($connection);
         $payments = new PaymentRepository($connection);
@@ -589,6 +626,7 @@ final class RegistrationServiceTest extends TestCase
             $ticketService,
             $mailer,
             new Logger($this->logPath),
+            $notifications,
         );
     }
 

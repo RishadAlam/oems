@@ -17,6 +17,7 @@ final class ReviewService
         private readonly UserRepositoryInterface $users,
         private readonly ReviewRepositoryInterface $reviews,
         private readonly ?Logger $logger = null,
+        private readonly ?NotificationService $notifications = null,
     ) {
     }
 
@@ -86,8 +87,6 @@ final class ReviewService
             }
 
             $this->connection->commit();
-
-            return $this->success(['review' => $review]);
         } catch (Throwable $exception) {
             if ($this->connection->inTransaction()) {
                 $this->connection->rollBack();
@@ -97,6 +96,17 @@ final class ReviewService
 
             return $this->failure(['review' => ['The review could not be saved.']]);
         }
+
+        $this->notifyParticipant(
+            $actorId,
+            'review_submitted',
+            'Review submitted',
+            'Your review was submitted for moderation.',
+            '/participant/reviews',
+            ['review_id' => (int) $review['id'], 'event_id' => $eventId],
+        );
+
+        return $this->success(['review' => $review]);
     }
 
     public function organizerReviews(int $actorId): array
@@ -147,6 +157,15 @@ final class ReviewService
             return $this->failure(['review' => ['Review not found.']], 'not_found');
         }
 
+        $this->notifyParticipant(
+            (int) $review['user_id'],
+            'review_reply',
+            'Organizer replied to your review',
+            'The organizer replied to your review.',
+            '/participant/reviews',
+            ['review_id' => (int) $review['id'], 'event_id' => (int) $review['event_id']],
+        );
+
         return $this->success([
             'review' => $review,
             'notification' => [
@@ -183,8 +202,22 @@ final class ReviewService
         }
 
         try {
+            $before = $this->reviews->findForAdmin($reviewId);
             $review = $this->reviews->moderate($actorId, $reviewId, $status);
             if ($review !== null) {
+                if (($before['status'] ?? null) !== ($review['status'] ?? null)) {
+                    $this->notifyParticipant(
+                        (int) $review['user_id'],
+                        $status === 'published' ? 'review_published' : 'review_hidden',
+                        $status === 'published' ? 'Review published' : 'Review hidden',
+                        $status === 'published'
+                            ? 'Your review is now visible on the event page.'
+                            : 'Your review is no longer visible on the event page.',
+                        '/participant/reviews',
+                        ['review_id' => (int) $review['id'], 'event_id' => (int) $review['event_id']],
+                    );
+                }
+
                 return $this->success(['review' => $review]);
             }
 
@@ -232,6 +265,17 @@ final class ReviewService
             && trim((string) ($user['email_verified_at'] ?? '')) !== ''
                 ? $user
                 : null;
+    }
+
+    private function notifyParticipant(
+        int $participantId,
+        string $type,
+        string $title,
+        string $message,
+        string $actionUrl,
+        array $data,
+    ): void {
+        $this->notifications?->notify($participantId, $type, $title, $message, $actionUrl, $data);
     }
 
     private function logFailure(

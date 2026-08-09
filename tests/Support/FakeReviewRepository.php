@@ -8,6 +8,7 @@ use OEMS\App\Contracts\ReviewRepositoryInterface;
 
 final class FakeReviewRepository implements ReviewRepositoryInterface
 {
+    public bool $throwOnFindForAdmin = false;
     public array $events = [];
 
     public array $reviews = [];
@@ -135,6 +136,10 @@ final class FakeReviewRepository implements ReviewRepositoryInterface
 
     public function findForAdmin(int $reviewId): ?array
     {
+        if ($this->throwOnFindForAdmin) {
+            throw new \RuntimeException('Review lookup should be contained.');
+        }
+
         return $this->reviews[$reviewId] ?? null;
     }
 

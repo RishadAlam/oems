@@ -30,6 +30,7 @@ final class RegistrationService
         private readonly TicketService $tickets,
         private readonly TransactionMailer $mailer,
         private readonly ?Logger $logger = null,
+        private readonly ?NotificationService $notifications = null,
     ) {
     }
 
@@ -170,6 +171,27 @@ final class RegistrationService
 
         if (is_array($issuance)) {
             $this->tickets->cleanupReplaced($issuance);
+        }
+
+        if ($isFree) {
+            $this->notifyParticipant(
+                $actorId,
+                'registration_confirmed',
+                'Registration confirmed',
+                'Your registration has been confirmed.',
+                '/participant/registrations/' . (int) $registration['id'],
+                ['registration_id' => (int) $registration['id']],
+            );
+            $this->notifyTicketIssued($actorId, $issuance['ticket'] ?? null);
+        } else {
+            $this->notifyParticipant(
+                $actorId,
+                'payment_pending',
+                'Payment received',
+                'Your payment reference was submitted for review.',
+                '/participant/registrations/' . (int) $registration['id'],
+                ['registration_id' => (int) $registration['id'], 'payment_id' => (int) $payment['id']],
+            );
         }
 
         $deliveryStatus = $isFree
@@ -315,6 +337,16 @@ final class RegistrationService
 
         $this->tickets->cleanupReplaced($issuance);
         $participant = $this->paymentParticipant($payment);
+        $participantId = (int) ($participant['id'] ?? $payment['participant_id'] ?? 0);
+        $this->notifyParticipant(
+            $participantId,
+            'payment_verified',
+            'Payment verified',
+            'Your payment was verified and your registration is confirmed.',
+            '/participant/registrations/' . (int) $registration['id'],
+            ['registration_id' => (int) $registration['id'], 'payment_id' => (int) $payment['id']],
+        );
+        $this->notifyTicketIssued($participantId, $issuance['ticket']);
         $deliveryStatus = $this->deliveryStatus([
             $this->mailer->sendPaid($participant, $registration),
             $this->mailer->sendTicket($participant, $registration, $issuance['ticket']),
@@ -441,6 +473,14 @@ final class RegistrationService
         }
 
         $participant = $this->paymentParticipant($payment);
+        $this->notifyParticipant(
+            (int) ($participant['id'] ?? $payment['participant_id'] ?? 0),
+            'payment_rejected',
+            'Payment rejected',
+            'Your payment could not be verified and the registration was cancelled.',
+            '/participant/registrations/' . (int) $registration['id'],
+            ['registration_id' => (int) $registration['id'], 'payment_id' => (int) $payment['id']],
+        );
 
         return $this->success([
             'registration' => $registration,
@@ -564,6 +604,15 @@ final class RegistrationService
             return $this->failure(['registration' => ['The registration could not be cancelled.']]);
         }
 
+        $this->notifyParticipant(
+            $actorId,
+            'registration_cancelled',
+            'Registration cancelled',
+            'Your registration has been cancelled.',
+            '/participant/registrations/' . (int) $registration['id'],
+            ['registration_id' => (int) $registration['id']],
+        );
+
         return $this->success([
             'registration' => $registration,
             'payment' => $payment,
@@ -656,6 +705,34 @@ final class RegistrationService
             'code' => $code,
             'reason' => $reason,
         ];
+    }
+
+    private function notifyTicketIssued(int $participantId, ?array $ticket): void
+    {
+        $ticketId = (int) ($ticket['id'] ?? 0);
+        if ($ticketId <= 0) {
+            return;
+        }
+
+        $this->notifyParticipant(
+            $participantId,
+            'ticket_issued',
+            'Ticket ready',
+            'Your event ticket is ready to view.',
+            '/participant/tickets/' . $ticketId,
+            ['ticket_id' => $ticketId, 'registration_id' => (int) ($ticket['registration_id'] ?? 0)],
+        );
+    }
+
+    private function notifyParticipant(
+        int $participantId,
+        string $type,
+        string $title,
+        string $message,
+        string $actionUrl,
+        array $data,
+    ): void {
+        $this->notifications?->notify($participantId, $type, $title, $message, $actionUrl, $data);
     }
 
     private function truthfulRegistrationResult(array $registration): array

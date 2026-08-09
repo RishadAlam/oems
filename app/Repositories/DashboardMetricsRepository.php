@@ -42,6 +42,60 @@ final class DashboardMetricsRepository
         ];
     }
 
+    public function participantWorkspace(int $participantId): array
+    {
+        $upcoming = $this->connection->prepare(
+            "SELECT registrations.id,
+                    registrations.status AS registration_status,
+                    registrations.registration_number,
+                    events.title AS event_title,
+                    events.slug AS event_slug,
+                    events.start_date AS event_start_date,
+                    COALESCE(payments.status, 'not_required') AS payment_status
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id
+             LEFT JOIN payments ON payments.id = (
+                 SELECT MAX(latest_payments.id)
+                 FROM payments AS latest_payments
+                 WHERE latest_payments.registration_id = registrations.id
+             )
+             WHERE registrations.user_id = :participant_user_id
+               AND registrations.status IN ('pending', 'confirmed')
+               AND events.start_date > CURRENT_TIMESTAMP
+               AND events.deleted_at IS NULL
+               AND users.deleted_at IS NULL
+             ORDER BY events.start_date ASC, registrations.id ASC
+             LIMIT 3",
+        );
+        $upcoming->execute(['participant_user_id' => $participantId]);
+        $items = $upcoming->fetchAll();
+
+        $favorites = $this->connection->prepare('SELECT COUNT(*) FROM favorites WHERE user_id = :participant_user_id');
+        $favorites->execute(['participant_user_id' => $participantId]);
+
+        $reviewActions = $this->connection->prepare(
+            "SELECT COUNT(*)
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id
+             LEFT JOIN reviews ON reviews.event_id = registrations.event_id AND reviews.user_id = registrations.user_id
+             WHERE registrations.user_id = :participant_user_id
+               AND registrations.status = 'confirmed'
+               AND (events.status = 'completed' OR events.end_date <= CURRENT_TIMESTAMP)
+               AND events.deleted_at IS NULL
+               AND users.deleted_at IS NULL
+               AND reviews.id IS NULL",
+        );
+        $reviewActions->execute(['participant_user_id' => $participantId]);
+
+        return [
+            'upcoming' => is_array($items) ? $items : [],
+            'favorite_count' => (int) $favorites->fetchColumn(),
+            'review_actions' => (int) $reviewActions->fetchColumn(),
+        ];
+    }
+
     public function reviewsForOrganizer(int $organizerUserId): array
     {
         $statement = $this->connection->prepare(

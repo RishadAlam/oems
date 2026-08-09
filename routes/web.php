@@ -16,6 +16,7 @@ use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Controllers\OrganizerReviewController;
 use OEMS\App\Controllers\ParticipantRegistrationController;
 use OEMS\App\Controllers\ParticipantFavoriteController;
+use OEMS\App\Controllers\ParticipantNotificationController;
 use OEMS\App\Controllers\ParticipantTicketController;
 use OEMS\App\Controllers\ParticipantReviewController;
 use OEMS\App\Controllers\ProfileController;
@@ -45,6 +46,9 @@ return static function (Router $router): void {
     $router->get('/participant/favorites', [ParticipantFavoriteController::class, 'index'], ['role:participant'], 'participant.favorites.index');
     $router->post('/participant/favorites/{id}', [ParticipantFavoriteController::class, 'store'], ['role:participant', 'csrf'], 'participant.favorites.store');
     $router->post('/participant/favorites/{id}/remove', [ParticipantFavoriteController::class, 'destroy'], ['role:participant', 'csrf'], 'participant.favorites.destroy');
+    $router->get('/participant/notifications', [ParticipantNotificationController::class, 'index'], ['role:participant'], 'participant.notifications.index');
+    $router->post('/participant/notifications/read-all', [ParticipantNotificationController::class, 'markAllRead'], ['role:participant', 'csrf'], 'participant.notifications.read-all');
+    $router->post('/participant/notifications/{id}/read', [ParticipantNotificationController::class, 'markRead'], ['role:participant', 'csrf'], 'participant.notifications.read');
     $router->get('/participant/events/{slug}/register', [ParticipantRegistrationController::class, 'create'], ['role:participant'], 'participant.registrations.create');
     $router->post('/participant/events/{slug}/register', [ParticipantRegistrationController::class, 'store'], ['role:participant', 'csrf'], 'participant.registrations.store');
     $router->get('/participant/registrations', [ParticipantRegistrationController::class, 'index'], ['role:participant'], 'participant.registrations.index');

@@ -73,4 +73,36 @@ final class DashboardMetricsRepositoryTest extends TestCase
             $repository->reviewsForParticipant(999),
         );
     }
+
+    public function testParticipantWorkspaceUsesScopedUpcomingFavoritesAndReviewActionQueries(): void
+    {
+        $connection = new PDO('sqlite::memory:');
+        $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, end_date TEXT NOT NULL, status TEXT NOT NULL, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, event_id INTEGER NOT NULL, status TEXT NOT NULL, registration_number TEXT NOT NULL)');
+        $connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL)');
+        $connection->exec('CREATE TABLE favorites (user_id INTEGER NOT NULL, event_id INTEGER NOT NULL)');
+        $connection->exec('CREATE TABLE reviews (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, event_id INTEGER NOT NULL, status TEXT NOT NULL, organizer_reply TEXT NULL)');
+        $connection->exec("INSERT INTO users (id, deleted_at) VALUES (7, NULL), (8, NULL)");
+        $connection->exec("INSERT INTO events (id, title, slug, start_date, end_date, status, deleted_at) VALUES
+            (11, 'Owned future event', 'owned-future', datetime('now', '+5 days'), datetime('now', '+5 days', '+2 hours'), 'published', NULL),
+            (12, 'Owned completed event', 'owned-completed', datetime('now', '-5 days'), datetime('now', '-5 days', '+2 hours'), 'published', NULL),
+            (13, 'Foreign future event', 'foreign-future', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), 'published', NULL),
+            (14, 'Owned ongoing event', 'owned-ongoing', datetime('now', '-2 hours'), datetime('now', '+2 hours'), 'published', NULL)");
+        $connection->exec("INSERT INTO registrations (id, user_id, event_id, status, registration_number) VALUES
+            (21, 7, 11, 'confirmed', 'REG-OWNED'), (22, 7, 12, 'confirmed', 'REG-REVIEW'), (23, 8, 13, 'confirmed', 'REG-FOREIGN'), (24, 7, 14, 'confirmed', 'REG-ONGOING')");
+        $connection->exec("INSERT INTO payments (registration_id, status) VALUES (21, 'paid'), (21, 'pending'), (22, 'paid'), (23, 'paid')");
+        $connection->exec('INSERT INTO favorites (user_id, event_id) VALUES (7, 11), (7, 12), (8, 13)');
+        $connection->exec("INSERT INTO reviews (id, user_id, event_id, status, organizer_reply) VALUES (1, 8, 13, 'published', NULL)");
+
+        $workspace = (new DashboardMetricsRepository($connection))->participantWorkspace(7);
+
+        $this->assertSame(2, $workspace['favorite_count']);
+        $this->assertSame(1, $workspace['review_actions']);
+        $this->assertSame(1, count($workspace['upcoming']));
+        $this->assertSame('Owned future event', $workspace['upcoming'][0]['event_title']);
+        $this->assertSame('pending', $workspace['upcoming'][0]['payment_status']);
+    }
 }

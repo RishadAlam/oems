@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\ReviewService;
+use OEMS\App\Services\NotificationService;
 use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeReviewRepository;
+use OEMS\Tests\Support\FakeNotificationRepository;
 use OEMS\Tests\Support\FakeUserRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
@@ -179,6 +181,43 @@ final class ReviewServiceTest extends TestCase
         $this->assertTrue(str_contains($log, 'RuntimeException'));
         $this->assertFalse(str_contains($log, 'Database payload must not escape'));
         $this->assertFalse(str_contains($log, 'database failure should stay private'));
+    }
+
+    public function testReviewSubmissionModerationAndReplyDeliverParticipantUpdates(): void
+    {
+        $notifications = new FakeNotificationRepository();
+        $service = new ReviewService(
+            $this->connection,
+            $this->users,
+            $this->reviews,
+            new Logger($this->logPath),
+            new NotificationService($notifications, new Logger($this->logPath)),
+        );
+
+        $submitted = $service->submit(7, 41, 5, 'A detailed review that is ready for moderation.');
+        $published = $service->moderate(9, (int) $submitted['review']['id'], 'published');
+        $this->reviews->reviews[(int) $submitted['review']['id']]['organizer_user_id'] = 8;
+        $replied = $service->reply(8, (int) $submitted['review']['id'], 'Thank you for sharing this feedback.');
+
+        $this->assertTrue($submitted['success']);
+        $this->assertTrue($published['success']);
+        $this->assertTrue($replied['success']);
+        $this->assertSame(['review_submitted', 'review_published', 'review_reply'], array_column($notifications->notifications, 'type'));
+        $this->assertSame(7, $notifications->notifications[3]['user_id']);
+        $this->assertSame('/participant/reviews', $notifications->notifications[3]['action_url']);
+    }
+
+    public function testModerationLookupFailuresStayInsideTheSanitizedFailureBoundary(): void
+    {
+        $this->reviews->throwOnFindForAdmin = true;
+
+        $result = $this->service()->moderate(9, 15, 'published');
+        $log = is_file($this->logPath) ? (string) file_get_contents($this->logPath) : '';
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(['review' => ['The review could not be moderated.']], $result['errors']);
+        $this->assertTrue(str_contains($log, 'review_moderation'));
+        $this->assertFalse(str_contains($log, 'Review lookup should be contained.'));
     }
 
     private function service(): ReviewService
