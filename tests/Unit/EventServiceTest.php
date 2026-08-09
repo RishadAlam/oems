@@ -77,13 +77,13 @@ final class EventServiceTest extends TestCase
         $this->assertSame('BDT', $created['currency']);
     }
 
-    public function testCreateDraftReservesThePublicLocationEndpointSlug(): void
+    public function testCreateDraftAllowsTheLocationSlugUsedByPublishedEvents(): void
     {
         $result = $this->service->createDraft(10, $this->validInput(['title' => 'Location']), null, []);
         $created = $this->events->events[(int) $result['event_id']];
 
         $this->assertTrue($result['success']);
-        $this->assertSame('location-2', $created['slug']);
+        $this->assertSame('location', $created['slug']);
     }
 
     public function testCreateDraftRejectsAnInactiveCategory(): void

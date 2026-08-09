@@ -15,8 +15,6 @@ use Throwable;
 
 final class EventService
 {
-    private const RESERVED_SLUGS = ['location'];
-
     public function __construct(
         private readonly EventRepositoryInterface $events,
         private readonly CategoryRepositoryInterface $categories,
@@ -490,7 +488,7 @@ final class EventService
         $slug = $base;
         $suffix = 2;
 
-        while (in_array($slug, self::RESERVED_SLUGS, true) || $this->events->slugExists($slug, $exceptId)) {
+        while ($this->events->slugExists($slug, $exceptId)) {
             $slug = $base . '-' . $suffix;
             $suffix++;
         }

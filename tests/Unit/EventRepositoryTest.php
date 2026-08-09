@@ -120,13 +120,24 @@ final class EventRepositoryTest extends TestCase
             'radius' => 25,
             'sort' => 'distance',
         ]);
-        $this->assertSame(['near-one', 'near-two'], array_column($events, 'slug'));
-        $this->assertTrue((float) $events[0]['distance_km'] < (float) $events[1]['distance_km']);
-        $this->assertSame('12 Lake Road', $events[0]['venue_address_line']);
-        $this->assertSame('1205', $events[0]['venue_postal_code']);
-        $this->assertSame('10', (string) $events[0]['organizer_user_id']);
-        $this->assertSame('public', $events[0]['location_visibility']);
-        $this->assertSame('Enter through the east gate.', $events[0]['arrival_notes']);
+        $this->assertSame(
+            ['tie-earlier', 'tie-lower-id', 'tie-higher-id', 'near-one', 'near-two'],
+            array_column($events, 'slug'),
+        );
+        $this->assertTrue((float) $events[3]['distance_km'] < (float) $events[4]['distance_km']);
+        $nearOne = array_values(array_filter($events, static fn (array $event): bool => $event['slug'] === 'near-one'))[0];
+        $this->assertSame('12 Lake Road', $nearOne['venue_address_line']);
+        $this->assertSame('1205', $nearOne['venue_postal_code']);
+        $this->assertSame('10', (string) $nearOne['organizer_user_id']);
+        $this->assertSame('public', $nearOne['location_visibility']);
+        $this->assertSame('Enter through the east gate.', $nearOne['arrival_notes']);
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        preg_match_all('/:(\w+)/', $query, $bindings);
+        $this->assertTrue(str_contains($query, 'venues.latitude >= :latitude_min AND venues.latitude <= :latitude_max'));
+        $this->assertTrue(str_contains($query, 'venues.longitude >= :longitude_min AND venues.longitude <= :longitude_max'));
+        $this->assertTrue(str_contains($query, 'venues.latitude IS NOT NULL'));
+        $this->assertTrue(str_contains($query, 'venues.longitude IS NOT NULL'));
+        $this->assertSame(count($bindings[1]), count(array_unique($bindings[1])));
     }
 
     public function testNearbySearchUsesWrappedLongitudeBoundsAndUniquePreparedBindings(): void
@@ -725,18 +736,25 @@ final class EventRepositoryTest extends TestCase
             (11, 1, 'Near one venue', '12 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.810, 90.413, 'https://maps.example.test/near-one'),
             (12, 1, 'Near two venue', '13 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.900, 90.413, 'https://maps.example.test/near-two'),
             (13, 1, 'Outside venue', '14 Lake Road', 'Dhaka', 'Bangladesh', '1205', 24.030, 90.650, 'https://maps.example.test/outside'),
-            (14, 1, 'Missing coordinate venue', '15 Lake Road', 'Dhaka', 'Bangladesh', '1205', NULL, NULL, NULL)");
+            (14, 1, 'Missing coordinate venue', '15 Lake Road', 'Dhaka', 'Bangladesh', '1205', NULL, NULL, NULL),
+            (15, 1, 'Earlier tie venue', '16 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.810, 90.413, NULL),
+            (16, 1, 'Same-time tie venue', '17 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.810, 90.413, NULL)");
         $this->connection->exec("INSERT INTO events
             (organizer_id, category_id, venue_id, title, slug, description, start_date, end_date, registration_deadline, capacity, available_seats, ticket_price, currency, tags, status, location_visibility, arrival_notes, created_at, updated_at, deleted_at)
             VALUES
-            (1, 1, 11, 'Near one', 'near-one', 'Near event.', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), datetime('now', '+1 day'), 10, 10, 0, 'BDT', '[]', 'published', 'public', 'Enter through the east gate.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
-            (1, 1, 12, 'Near two', 'near-two', 'Near event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 11, 'Near one', 'near-one', 'Near event.', datetime('now', '+6 days'), datetime('now', '+6 days', '+2 hours'), datetime('now', '+5 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', 'Enter through the east gate.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 12, 'Near two', 'near-two', 'Near event.', datetime('now', '+1 day'), datetime('now', '+1 day', '+2 hours'), datetime('now', '+12 hours'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 15, 'Earlier distance tie', 'tie-earlier', 'Earlier distance tie.', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), datetime('now', '+1 day'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 16, 'Lower ID distance tie', 'tie-lower-id', 'Lower ID distance tie.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 16, 'Higher ID distance tie', 'tie-higher-id', 'Higher ID distance tie.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
             (1, 1, 13, 'Outside circle', 'outside-circle', 'Outside exact radius.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
             (1, 1, 14, 'Missing coordinates', 'missing-coordinates', 'Missing coordinates.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
             (1, 4, 11, 'Inactive category', 'inactive-category', 'Inactive category.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
             (1, 1, 11, 'Deleted nearby', 'deleted-nearby', 'Deleted event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
             (1, 1, 11, 'Completed nearby', 'completed-nearby', 'Completed event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'completed', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
-            (1, 1, 11, 'Restricted nearby', 'restricted-nearby', 'Restricted event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'registered', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)");
+            (1, 1, 11, 'Restricted nearby', 'restricted-nearby', 'Restricted event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'registered', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 11, 'Past nearby', 'past-nearby', 'Past nearby event.', datetime('now', '-2 days'), datetime('now', '-2 days', '+2 hours'), datetime('now', '-3 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 11, 'Draft nearby', 'draft-nearby', 'Draft nearby event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'draft', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)");
     }
 
     private function eventAttributes(string $slug = 'new-event', string $title = 'New Event'): array

@@ -71,8 +71,6 @@ final class Router
 
     public function dispatch(Request $request): Response
     {
-        $pathMatched = false;
-        $allowedMethods = [];
         $matches = [];
 
         foreach ($this->routes as $route) {
@@ -87,22 +85,29 @@ final class Router
             return Response::text('Not Found', 404);
         }
 
-        $specificity = min(array_map(
-            static fn (array $match): int => substr_count($match['route']['path'], '{'),
+        $methodMatches = array_values(array_filter(
             $matches,
+            static fn (array $match): bool => $match['route']['method'] === $request->method(),
         ));
 
-        foreach ($matches as $match) {
+        if ($methodMatches === []) {
+            $allowedMethods = array_values(array_unique(array_map(
+                static fn (array $match): string => $match['route']['method'],
+                $matches,
+            )));
+
+            return Response::text('Method Not Allowed', 405, ['Allow' => implode(', ', $allowedMethods)]);
+        }
+
+        $specificity = min(array_map(
+            static fn (array $match): int => substr_count($match['route']['path'], '{'),
+            $methodMatches,
+        ));
+
+        foreach ($methodMatches as $match) {
             $route = $match['route'];
 
             if (substr_count($route['path'], '{') !== $specificity) {
-                continue;
-            }
-
-            $pathMatched = true;
-            $allowedMethods[] = $route['method'];
-
-            if ($route['method'] !== $request->method()) {
                 continue;
             }
 
@@ -132,12 +137,6 @@ final class Router
             );
 
             return $pipeline($routedRequest);
-        }
-
-        if ($pathMatched) {
-            $allowedMethods = array_values(array_unique($allowedMethods));
-
-            return Response::text('Method Not Allowed', 405, ['Allow' => implode(', ', $allowedMethods)]);
         }
 
         return Response::text('Not Found', 404);
