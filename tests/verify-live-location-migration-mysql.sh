@@ -2,7 +2,7 @@
 
 # Opt-in native MySQL verification. It imports the populated 90cb666 baseline
 # into a unique disposable database, runs the migration twice, and removes only
-# that generated database on every exit path.
+# a database it created on every exit path.
 set -eu
 
 if [ "${OEMS_MIGRATION_TEST_MYSQL:-}" != "1" ]; then
@@ -14,14 +14,32 @@ mysql_host="${OEMS_MIGRATION_TEST_HOST:-127.0.0.1}"
 mysql_port="${OEMS_MIGRATION_TEST_PORT:-3306}"
 mysql_user="${OEMS_MIGRATION_TEST_USER:-root}"
 mysql_password="${OEMS_MIGRATION_TEST_PASSWORD:-}"
-database="oems_live_location_verify_$$_$(date +%s)"
+database="${OEMS_MIGRATION_TEST_DATABASE:-oems_live_location_verify_$$_$(date +%s)}"
+database_owned=false
+
+case "$database" in
+    oems_live_location_*) ;;
+    *)
+        echo 'The native verifier only accepts disposable oems_live_location_* database names.' >&2
+        exit 2
+        ;;
+esac
+
+case "$database" in
+    *[!a-z0-9_]*|'')
+        echo 'The native verifier database name may contain only lowercase letters, digits, and underscores.' >&2
+        exit 2
+        ;;
+esac
 
 mysql_run() {
     MYSQL_PWD="$mysql_password" mysql --protocol=TCP --host="$mysql_host" --port="$mysql_port" --user="$mysql_user" "$@"
 }
 
 cleanup() {
-    mysql_run --execute="DROP DATABASE IF EXISTS \`$database\`" >/dev/null 2>&1 || true
+    if [ "$database_owned" = true ]; then
+        mysql_run --execute="DROP DATABASE IF EXISTS \`$database\`" >/dev/null 2>&1 || true
+    fi
 }
 
 trap cleanup 0 1 2 3 15
@@ -38,6 +56,7 @@ expect() {
 }
 
 mysql_run --execute="CREATE DATABASE \`$database\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+database_owned=true
 git show 90cb666:database/schema.sql | mysql_run "$database" >/dev/null
 git show 90cb666:database/seed.sql | mysql_run "$database" >/dev/null
 git show 90cb666:database/demo_seed.sql | mysql_run "$database" >/dev/null
