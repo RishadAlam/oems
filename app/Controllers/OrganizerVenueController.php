@@ -223,8 +223,8 @@ final class OrganizerVenueController extends Controller
 
             $results[] = [
                 'label' => mb_substr((string) ($candidate['label'] ?? ''), 0, 255),
-                'latitude' => (string) $candidate['latitude'],
-                'longitude' => (string) $candidate['longitude'],
+                'latitude' => number_format((float) $candidate['latitude'], 7, '.', ''),
+                'longitude' => number_format((float) $candidate['longitude'], 7, '.', ''),
             ];
         }
 

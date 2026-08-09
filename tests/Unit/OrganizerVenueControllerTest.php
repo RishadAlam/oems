@@ -170,6 +170,17 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertSame($sorted, $numericPositions);
     }
 
+    public function testVenueFormLoadsLeafletStylesBeforeApplicationOverrides(): void
+    {
+        $body = $this->controller->create(Request::create('GET', '/organizer/venues/create'))->body();
+        $leafletPosition = strpos($body, 'href="/assets/vendor/leaflet/leaflet.css"');
+        $applicationPosition = strpos($body, 'href="/assets/css/app.css"');
+
+        $this->assertNotSame(false, $leafletPosition);
+        $this->assertNotSame(false, $applicationPosition);
+        $this->assertTrue($leafletPosition < $applicationPosition);
+    }
+
     public function testEditKeepsSaveInTheEditFormAndDeletionInADistinctLaterForm(): void
     {
         $body = $this->controller->edit($this->routed('GET', '/organizer/venues/1/edit', '1'))->body();
@@ -320,6 +331,29 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertSame(5, count($payload['results']));
         $this->assertSame(['label', 'latitude', 'longitude'], array_keys($payload['results'][0]));
         $this->assertSame('Venue <1>', $payload['results'][0]['label']);
+    }
+
+    public function testOrganizerAddressSearchNormalizesAdversarialNumericCoordinates(): void
+    {
+        $this->geocoder->results = [[
+            'label' => 'Long precision venue',
+            'latitude' => '23.80000000000000000000000000000000000000001',
+            'longitude' => '90.40000000000000000000000000000000000000001',
+        ]];
+
+        $response = $this->controller->geocode(Request::create(
+            'POST',
+            '/organizer/venues/geocode',
+            input: ['query' => 'Long precision venue'],
+            server: ['REMOTE_ADDR' => '203.0.113.14'],
+        ));
+        $payload = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $response->status());
+        $this->assertSame('23.8000000', $payload['results'][0]['latitude']);
+        $this->assertSame('90.4000000', $payload['results'][0]['longitude']);
+        $this->assertSame(10, strlen($payload['results'][0]['latitude']));
+        $this->assertSame(10, strlen($payload['results'][0]['longitude']));
     }
 
     public function testAddressSearchMapsValidationProviderAndRateLimitFailures(): void

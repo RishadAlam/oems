@@ -16,19 +16,27 @@ class ElementStub {
         this.value = value;
     }
 
-    addEventListener(type, callback) { this.listeners.set(type, callback); }
+    addEventListener(type, callback) {
+        if (!this.listeners.has(type)) this.listeners.set(type, new Set());
+        this.listeners.get(type).add(callback);
+    }
     removeEventListener(type, callback) {
-        if (this.listeners.get(type) === callback) this.listeners.delete(type);
+        this.listeners.get(type)?.delete(callback);
     }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = [...children]; }
-    click() { this.listeners.get('click')?.({ preventDefault() {}, currentTarget: this }); }
+    click() {
+        for (const callback of this.listeners.get('click') ?? []) {
+            callback({ preventDefault() {}, currentTarget: this });
+        }
+    }
     setAttribute(name, value) { this[name] = String(value); }
 }
 
 function leafletHarness() {
     const maps = [];
     const markers = [];
+    const tileLayers = [];
     const L = {
         map(element) {
             const map = {
@@ -61,9 +69,19 @@ function leafletHarness() {
             markers.push(marker);
             return marker;
         },
-        tileLayer() { return { addTo() { return this; } }; },
+        tileLayer() {
+            const layer = {
+                events: new Map(),
+                addTo() { return this; },
+                emit(type, payload) { this.events.get(type)?.(payload); },
+                on(type, callback) { this.events.set(type, callback); return this; },
+                off(type, callback) { if (this.events.get(type) === callback) this.events.delete(type); return this; },
+            };
+            tileLayers.push(layer);
+            return layer;
+        },
     };
-    return { L, maps, markers };
+    return { L, maps, markers, tileLayers };
 }
 
 function createHarness({
@@ -72,6 +90,7 @@ function createHarness({
     longitude = '',
     geolocationError = null,
     fetchResults = [],
+    tileUrl = 'https://tiles.example.test/{z}/{x}/{y}.png',
 } = {}) {
     const form = new ElementStub();
     form.dataset.geocodeUrl = '/organizer/venues/geocode';
@@ -79,7 +98,7 @@ function createHarness({
     const map = container ? new ElementStub() : null;
     const fallback = new ElementStub();
     if (map) Object.assign(map.dataset, {
-        tileUrl: 'https://tiles.example.test/{z}/{x}/{y}.png',
+        tileUrl,
         tileAttribution: 'Map data',
         defaultLat: '23.8103',
         defaultLng: '90.4125',
@@ -132,9 +151,12 @@ function createHarness({
             requests.push({ url, options });
             return { ok: true, status: 200, json: async () => ({ results: fetchResults }) };
         },
-        addEventListener(type, callback) { windowListeners.set(type, callback); },
+        addEventListener(type, callback) {
+            if (!windowListeners.has(type)) windowListeners.set(type, new Set());
+            windowListeners.get(type).add(callback);
+        },
         removeEventListener(type, callback) {
-            if (windowListeners.get(type) === callback) windowListeners.delete(type);
+            windowListeners.get(type)?.delete(callback);
         },
         URLSearchParams,
         L: leaflet.L,
@@ -157,7 +179,12 @@ function createHarness({
         search,
         status,
         useLocation,
-        pagehide: () => windowListeners.get('pagehide')?.(),
+        pagehide: (persisted = false) => {
+            for (const callback of windowListeners.get('pagehide') ?? []) callback({ persisted });
+        },
+        pageshow: (persisted = false) => {
+            for (const callback of windowListeners.get('pageshow') ?? []) callback({ persisted });
+        },
         clickFind: async () => { find.click(); await new Promise((resolve) => setImmediate(resolve)); },
     };
 }
@@ -170,6 +197,8 @@ test('initializes only with a map container and uses configured or retained coor
         point: [23.8103, 90.4125], zoom: 11,
     });
     assert.equal(empty.leaflet.markers.length, 0);
+    assert.equal(empty.fallback.hidden, false);
+    empty.leaflet.tileLayers[0].emit('load');
     assert.equal(empty.fallback.hidden, true);
 
     const retained = createHarness({ latitude: '23.7465000', longitude: '90.3760000' });
@@ -230,4 +259,37 @@ test('pagehide cleans up map and marker resources', () => {
     harness.pagehide();
     assert.equal(harness.leaflet.maps[0].removed, true);
     assert.equal(harness.leaflet.markers[0].removed, true);
+});
+
+test('persisted page restoration recreates one functional map without duplicate controls', async () => {
+    const harness = createHarness();
+    harness.pagehide(true);
+    harness.pageshow(true);
+
+    assert.equal(harness.leaflet.maps.length, 2);
+    harness.leaflet.maps[1].emit('click', { latlng: { lat: 23.81, lng: 90.41 } });
+    assert.equal(harness.latitude.value, '23.8100000');
+    assert.equal(harness.longitude.value, '90.4100000');
+
+    await harness.clickFind();
+    assert.equal(harness.requests.length, 1);
+});
+
+test('empty tile configuration keeps an inline coordinate fallback visible', () => {
+    const harness = createHarness({ tileUrl: '' });
+
+    assert.equal(harness.leaflet.tileLayers.length, 0);
+    assert.equal(harness.fallback.hidden, false);
+    assert.match(harness.status.textContent, /map tiles are unavailable/i);
+});
+
+test('tile provider failure restores the inline fallback and announces recovery guidance', () => {
+    const harness = createHarness();
+    assert.equal(harness.fallback.hidden, false);
+    harness.leaflet.tileLayers[0].emit('load');
+    assert.equal(harness.fallback.hidden, true);
+
+    harness.leaflet.tileLayers[0].emit('tileerror');
+    assert.equal(harness.fallback.hidden, false);
+    assert.match(harness.status.textContent, /map tiles are unavailable/i);
 });

@@ -13,8 +13,8 @@
             document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
         }());
     </script>
-    <link rel="stylesheet" href="/assets/css/app.css">
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
+    <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
     <?php if (!empty($leafletEnabled)): ?><script src="/assets/vendor/leaflet/leaflet.js" defer></script><?php endif; ?>
     <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js" defer></script><?php endif; ?>
