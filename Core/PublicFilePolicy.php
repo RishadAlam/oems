@@ -22,13 +22,22 @@ final class PublicFilePolicy
             return false;
         }
 
-        if ($path === '/uploads/tickets'
-            || str_starts_with($path, '/uploads/tickets/')) {
+        $foldedPath = strtolower($path);
+        if ($foldedPath === '/uploads/tickets'
+            || str_starts_with($foldedPath, '/uploads/tickets/')) {
             return false;
         }
 
         $root = realpath($documentRoot);
         $target = $root === false ? false : realpath($root . $path);
+        $legacyTicketRoot = $root === false ? false : realpath($root . '/uploads/tickets');
+
+        if ($target !== false
+            && $legacyTicketRoot !== false
+            && ($target === $legacyTicketRoot
+                || str_starts_with($target, $legacyTicketRoot . DIRECTORY_SEPARATOR))) {
+            return false;
+        }
 
         return $path !== '/'
             && $target !== false
