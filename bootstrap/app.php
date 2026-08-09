@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 use OEMS\App\Contracts\EmailLogRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
+use OEMS\App\Contracts\GeocoderInterface;
+use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
+use OEMS\App\Contracts\HttpClientInterface;
 use OEMS\App\Contracts\MailTransportInterface;
 use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\NotificationRepositoryInterface;
@@ -25,6 +28,7 @@ use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\FavoriteRepository;
+use OEMS\App\Repositories\GeocodingCacheRepository;
 use OEMS\App\Repositories\OrganizerRepository;
 use OEMS\App\Repositories\NotificationRepository;
 use OEMS\App\Repositories\PaymentRepository;
@@ -43,12 +47,15 @@ use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\NotificationService;
+use OEMS\App\Services\NominatimGeocoder;
 use OEMS\App\Services\RegistrationService;
 use OEMS\App\Services\ReviewService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
 use OEMS\App\Services\TransactionMailer;
 use OEMS\App\Services\VenueService;
+use OEMS\App\Services\VenueGeocodingService;
+use OEMS\App\Support\StreamHttpClient;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
 use OEMS\Core\Config;
@@ -105,6 +112,37 @@ $container->singleton(Session::class, static fn (): Session => new Session(true,
     'name' => $appConfig['session_name'],
 ]));
 $container->singleton(Database::class, static fn (): Database => new Database($databaseConfig));
+$container->singleton(
+    HttpClientInterface::class,
+    static fn (Container $container): StreamHttpClient => new StreamHttpClient(
+        (string) $container->get(Config::class)->get('map.user_agent', 'OEMS/1.0'),
+    ),
+);
+$container->singleton(
+    GeocoderInterface::class,
+    static fn (Container $container): NominatimGeocoder => new NominatimGeocoder(
+        $container->get(HttpClientInterface::class),
+        (string) $container->get(Config::class)->get('map.geocoder_url', 'https://nominatim.openstreetmap.org/search'),
+        (string) $container->get(Config::class)->get('map.user_agent', 'OEMS/1.0'),
+        (string) $container->get(Config::class)->get('map.contact_email', ''),
+    ),
+);
+$container->singleton(
+    GeocodingCacheRepositoryInterface::class,
+    static fn (Container $container): GeocodingCacheRepository => new GeocodingCacheRepository(
+        $container->get(Database::class)->connection(),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    VenueGeocodingService::class,
+    static fn (Container $container): VenueGeocodingService => new VenueGeocodingService(
+        $container->get(GeocodingCacheRepositoryInterface::class),
+        $container->get(GeocoderInterface::class),
+        (string) $container->get(Config::class)->get('map.provider_name', 'OpenStreetMap Nominatim'),
+        $container->get(Logger::class),
+    ),
+);
 $container->singleton(
     DashboardMetricsRepository::class,
     static fn (Container $container): DashboardMetricsRepository => new DashboardMetricsRepository(

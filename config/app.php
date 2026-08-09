@@ -23,4 +23,16 @@ return [
             env('MAIL_FROM_ADDRESS', 'no-reply@oems.local'),
         ),
     ],
+    'map' => [
+        'tile_url' => env('MAP_TILE_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'tile_attribution' => env('MAP_TILE_ATTRIBUTION', '&copy; OpenStreetMap contributors'),
+        'default_lat' => (float) env('MAP_DEFAULT_LAT', 23.8103),
+        'default_lng' => (float) env('MAP_DEFAULT_LNG', 90.4125),
+        'default_zoom' => (int) env('MAP_DEFAULT_ZOOM', 11),
+        'geocoder_url' => env('MAP_GEOCODER_URL', 'https://nominatim.openstreetmap.org/search'),
+        'provider_name' => env('MAP_PROVIDER_NAME', 'OpenStreetMap Nominatim'),
+        'user_agent' => env('MAP_USER_AGENT', 'OEMS/1.0'),
+        'contact_email' => env('MAP_CONTACT_EMAIL', ''),
+        'location_session_ttl' => (int) env('LOCATION_SESSION_TTL', 1209600),
+    ],
 ];
