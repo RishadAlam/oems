@@ -19,17 +19,22 @@ final class TicketArtifactService
 
     private const DISPLAY_VALUE_LIMIT = 120;
 
-    private string $publicPath;
+    private string $storedPath;
 
     public function __construct(
         private readonly string $uploadRoot,
-        string $publicPath = 'uploads/tickets',
+        string $storedPath = 'uploads/tickets',
         private readonly string $checkInUrl = '/organizer/check-in',
+        ?string $legacyPublicRoot = null,
     ) {
-        $this->publicPath = trim($publicPath, '/');
+        $this->storedPath = trim($storedPath, '/');
 
-        if ($this->publicPath === '' || str_contains($this->publicPath, "\0")) {
-            throw new RuntimeException('The ticket public path is invalid.');
+        if ($this->storedPath === '' || str_contains($this->storedPath, "\0")) {
+            throw new RuntimeException('The stored ticket path is invalid.');
+        }
+
+        if ($legacyPublicRoot !== null) {
+            $this->migrateLegacyArtifacts($legacyPublicRoot);
         }
     }
 
@@ -68,9 +73,9 @@ final class TicketArtifactService
         ];
     }
 
-    public function resolvePublicPath(string $path): ?string
+    public function resolvePath(string $path): ?string
     {
-        $filename = $this->filenameFromPublicPath($path);
+        $filename = $this->filenameFromStoredPath($path);
 
         if ($filename === null) {
             return null;
@@ -99,7 +104,7 @@ final class TicketArtifactService
             return true;
         }
 
-        $filename = $this->filenameFromPublicPath($path);
+        $filename = $this->filenameFromStoredPath($path);
         $root = $this->existingUploadRoot();
 
         if ($filename === null || $root === null) {
@@ -210,12 +215,12 @@ final class TicketArtifactService
 
     private function relativePath(string $filename): string
     {
-        return $this->publicPath . '/' . $filename;
+        return $this->storedPath . '/' . $filename;
     }
 
-    private function filenameFromPublicPath(string $path): ?string
+    private function filenameFromStoredPath(string $path): ?string
     {
-        $prefix = $this->publicPath . '/';
+        $prefix = $this->storedPath . '/';
 
         if (!str_starts_with($path, $prefix)) {
             return null;
@@ -230,6 +235,61 @@ final class TicketArtifactService
         }
 
         return $filename;
+    }
+
+    public function migrateLegacyArtifacts(string $legacyPublicRoot): int
+    {
+        if (is_link($legacyPublicRoot)) {
+            throw new RuntimeException('The legacy ticket directory may not be a symlink.');
+        }
+
+        $legacyRoot = realpath($legacyPublicRoot);
+        if ($legacyRoot === false || !is_dir($legacyRoot)) {
+            return 0;
+        }
+
+        $root = $this->resolvedUploadRoot();
+        $migrated = 0;
+
+        foreach (scandir($legacyRoot) ?: [] as $filename) {
+            if (in_array($filename, ['.', '..', '.gitkeep'], true)) {
+                continue;
+            }
+
+            $source = $legacyRoot . DIRECTORY_SEPARATOR . $filename;
+            if (basename($filename) !== $filename || is_link($source) || !is_file($source)) {
+                throw new RuntimeException('The legacy ticket directory contains an unsafe entry.');
+            }
+
+            $destination = $root . DIRECTORY_SEPARATOR . $filename;
+            if (file_exists($destination) || is_link($destination)) {
+                if (!is_file($destination) || hash_file('sha256', $source) !== hash_file('sha256', $destination)) {
+                    throw new RuntimeException('A legacy ticket artifact conflicts with private storage.');
+                }
+
+                if (!@unlink($source)) {
+                    throw new RuntimeException('A duplicate legacy ticket artifact could not be removed.');
+                }
+
+                $migrated++;
+                continue;
+            }
+
+            if (!@rename($source, $destination)) {
+                $temporary = $destination . '.migrating-' . bin2hex(random_bytes(8));
+                if (!@copy($source, $temporary)
+                    || hash_file('sha256', $source) !== hash_file('sha256', $temporary)
+                    || !@rename($temporary, $destination)
+                    || !@unlink($source)) {
+                    @unlink($temporary);
+                    throw new RuntimeException('A legacy ticket artifact could not be migrated safely.');
+                }
+            }
+
+            $migrated++;
+        }
+
+        return $migrated;
     }
 
     private function resolvedUploadRoot(): string

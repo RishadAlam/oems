@@ -79,7 +79,7 @@ final class ParticipantTicketController extends Controller
             return $this->notFound();
         }
 
-        $resolved = $this->artifacts->resolvePublicPath($path);
+        $resolved = $this->artifacts->resolvePath($path);
         if ($resolved === null) {
             return $this->notFound();
         }
@@ -133,7 +133,7 @@ final class ParticipantTicketController extends Controller
     {
         return is_string($path)
             && trim($path) !== ''
-            && $this->artifacts->resolvePublicPath($path) !== null;
+            && $this->artifacts->resolvePath($path) !== null;
     }
 
     private function positiveId(mixed $value): ?int

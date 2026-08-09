@@ -13,6 +13,10 @@ return [
     'session_name' => env('SESSION_NAME', 'OEMS_SESSION'),
     'remember_cookie' => env('REMEMBER_COOKIE', 'OEMS_REMEMBER'),
     'secure_cookies' => (bool) env('COOKIE_SECURE', str_starts_with(strtolower($appUrl), 'https://')),
+    'trusted_proxies' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('TRUSTED_PROXIES', '')),
+    ))),
     'mail' => [
         'host' => env('MAIL_HOST', 'localhost'),
         'port' => (int) env('MAIL_PORT', 2525),

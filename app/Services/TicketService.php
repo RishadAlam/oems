@@ -259,7 +259,7 @@ final class TicketService
         $ticket = $this->tickets->findForParticipant($participantId, $ticketId);
         $path = $ticket[$column] ?? null;
 
-        return is_string($path) ? $this->artifacts->resolvePublicPath($path) : null;
+        return is_string($path) ? $this->artifacts->resolvePath($path) : null;
     }
 
     public function forRegistration(int $registrationId): ?array

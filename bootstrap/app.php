@@ -263,9 +263,10 @@ $container->singleton(
 $container->singleton(
     TicketArtifactService::class,
     static fn (Container $container): TicketArtifactService => new TicketArtifactService(
-        $basePath . '/public/uploads/tickets',
+        $basePath . '/storage/tickets',
         'uploads/tickets',
         (string) $container->get(Config::class)->get('url', 'http://localhost:8000') . '/organizer/check-in',
+        $basePath . '/public/uploads/tickets',
     ),
 );
 $container->singleton(

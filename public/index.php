@@ -14,7 +14,7 @@ $app = require dirname(__DIR__) . '/bootstrap/app.php';
 $router = $app['router'];
 $registerRoutes = require dirname(__DIR__) . '/routes/web.php';
 $registerRoutes($router);
-$request = Request::fromGlobals();
+$request = Request::fromGlobals((array) ($app['config']['trusted_proxies'] ?? []));
 header_remove('X-Powered-By');
 
 try {

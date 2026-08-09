@@ -17,7 +17,7 @@ final class TicketArtifactServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->temporaryDirectory = sys_get_temp_dir() . '/oems-ticket-artifacts-' . bin2hex(random_bytes(6));
-        $this->uploadRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        $this->uploadRoot = $this->temporaryDirectory . '/storage/tickets';
         mkdir($this->uploadRoot, 0775, true);
     }
 
@@ -52,8 +52,8 @@ final class TicketArtifactServiceTest extends TestCase
         $this->assertTrue(preg_match('/\Auploads\/tickets\/qr-[a-f0-9]{32}\.png\z/', $first['qr_path']) === 1);
         $this->assertTrue(preg_match('/\Auploads\/tickets\/ticket-[a-f0-9]{32}\.pdf\z/', $first['pdf_path']) === 1);
 
-        $qrPath = $this->service()->resolvePublicPath($first['qr_path']);
-        $pdfPath = $this->service()->resolvePublicPath($first['pdf_path']);
+        $qrPath = $this->service()->resolvePath($first['qr_path']);
+        $pdfPath = $this->service()->resolvePath($first['pdf_path']);
 
         $this->assertNotNull($qrPath);
         $this->assertNotNull($pdfPath);
@@ -73,7 +73,7 @@ final class TicketArtifactServiceTest extends TestCase
             'participant_email' => 'participant@example.test',
         ]);
 
-        $pdfPath = $this->service()->resolvePublicPath($artifact['pdf_path']);
+        $pdfPath = $this->service()->resolvePath($artifact['pdf_path']);
         $this->assertNotNull($pdfPath);
         $pdf = (string) file_get_contents($pdfPath);
 
@@ -89,27 +89,48 @@ final class TicketArtifactServiceTest extends TestCase
         $service = $this->service();
         $artifact = $service->generate($this->displayData());
         $outside = $this->temporaryDirectory . '/public/uploads/outside.txt';
+        mkdir(dirname($outside), 0775, true);
         file_put_contents($outside, 'keep');
         $escapedSymlink = $this->uploadRoot . '/qr-escape.png';
         symlink($outside, $escapedSymlink);
 
-        $qrPath = $service->resolvePublicPath($artifact['qr_path']);
+        $qrPath = $service->resolvePath($artifact['qr_path']);
 
         $this->assertNotNull($qrPath);
         $this->assertTrue(str_starts_with($qrPath, realpath($this->uploadRoot) . DIRECTORY_SEPARATOR));
-        $this->assertNull($service->resolvePublicPath('uploads/tickets/../outside.txt'));
-        $this->assertNull($service->resolvePublicPath('uploads/outside.txt'));
-        $this->assertNull($service->resolvePublicPath('uploads/tickets/qr-escape.png'));
+        $this->assertNull($service->resolvePath('uploads/tickets/../outside.txt'));
+        $this->assertNull($service->resolvePath('uploads/outside.txt'));
+        $this->assertNull($service->resolvePath('uploads/tickets/qr-escape.png'));
 
         $service->delete($artifact['qr_path']);
         $service->delete($artifact['pdf_path']);
         $service->delete('uploads/tickets/qr-escape.png');
         $service->delete('uploads/tickets/../outside.txt');
 
-        $this->assertNull($service->resolvePublicPath($artifact['qr_path']));
-        $this->assertNull($service->resolvePublicPath($artifact['pdf_path']));
+        $this->assertNull($service->resolvePath($artifact['qr_path']));
+        $this->assertNull($service->resolvePath($artifact['pdf_path']));
         $this->assertTrue(is_file($outside));
         $this->assertSame('keep', file_get_contents($outside));
+    }
+
+    public function testMigratesLegacyPublicArtifactsWithoutChangingStoredDatabasePaths(): void
+    {
+        $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        mkdir($legacyRoot, 0775, true);
+        file_put_contents($legacyRoot . '/legacy.pdf', '%PDF-legacy');
+        file_put_contents($legacyRoot . '/legacy.png', "\x89PNG\r\nlegacy");
+
+        $service = new TicketArtifactService(
+            $this->uploadRoot,
+            'uploads/tickets',
+            'https://oems.test/organizer/check-in',
+            $legacyRoot,
+        );
+
+        $this->assertFalse(is_file($legacyRoot . '/legacy.pdf'));
+        $this->assertFalse(is_file($legacyRoot . '/legacy.png'));
+        $this->assertSame('%PDF-legacy', file_get_contents((string) $service->resolvePath('uploads/tickets/legacy.pdf')));
+        $this->assertSame("\x89PNG\r\nlegacy", file_get_contents((string) $service->resolvePath('uploads/tickets/legacy.png')));
     }
 
     private function service(): TicketArtifactService

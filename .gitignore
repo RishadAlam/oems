@@ -8,11 +8,13 @@
 /.superpowers/
 /storage/logs/*.log
 /storage/cache/*
+/storage/tickets/*
 /public/uploads/*
 /public/uploads/tickets/*
 /public/tickets/*
 !/storage/logs/.gitkeep
 !/storage/cache/.gitkeep
+!/storage/tickets/.gitkeep
 !/public/uploads/.gitkeep
 !/public/uploads/tickets/
 !/public/uploads/tickets/.gitkeep

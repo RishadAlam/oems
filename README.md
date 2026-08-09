@@ -4,7 +4,7 @@ OEMS is a custom PHP MVC online event management platform for public discovery, 
 
 ## Requirements
 
-- PHP 8.2 or newer with PDO MySQL, mbstring, and OpenSSL
+- PHP 8.2 or newer with PDO MySQL, GD, mbstring, and OpenSSL
 - MySQL 8.0 or newer
 - Composer 2
 - Node.js 20 or newer
@@ -70,7 +70,11 @@ Registration and password-reset messages are sent through the configured SMTP tr
 
 In production, set `APP_URL` to the externally reachable HTTPS origin so account email links open the correct secure site. Browser location access also requires HTTPS outside `localhost`; it will not work on an ordinary remote HTTP origin.
 
+When TLS terminates at a reverse proxy, set `COOKIE_SECURE=true`. Configure `TRUSTED_PROXIES` with only the proxy IPs or CIDRs controlled by the deployment; OEMS ignores `Forwarded` and `X-Forwarded-For` from every other peer. The proxy must replace, rather than append to client-supplied forwarding headers, overwrite `Host` with the expected public hostname, and reject unexpected hostnames. Enable HSTS at the HTTPS edge only after the hostname and certificate are production-ready. The built-in rate limiter uses files under `storage/cache/rate-limits` and is intended for a single application node; multi-node deployments need a shared atomic limiter before serving production traffic.
+
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
+
+The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), and `public/uploads/events` (public event images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
 
 ## Database upgrades
 
@@ -87,8 +91,14 @@ For an existing populated database created from baseline `5857358`, use this exa
    mysql -u root -p oems < database/migrations/2026-08-09-live-location.sql
    ```
 
-4. Deploy the new PHP code and restart the application processes.
-5. Run the health and acceptance checks. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
+4. Deploy the new PHP code while application traffic remains stopped or drained.
+5. Migrate ticket files created by older releases out of the public document root. The command is repeatable and never overwrites a conflicting private file.
+
+   ```bash
+   php scripts/migrate-ticket-artifacts.php
+   ```
+
+6. Restart the application processes, then run the health and acceptance checks before restoring traffic. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
 
 The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. Both migrations use `information_schema` guards and can be run again after a partially applied MySQL DDL deployment without replacing existing rows.
 
@@ -208,11 +218,11 @@ Only non-deleted `published` events appear in public discovery.
 
 ### Ticket storage
 
-- Issued QR images and PDF tickets are stored under `public/uploads/tickets` with random filenames.
-- The database stores relative `qr_path` and `pdf_path` values. It stores only the QR payload hash, never the raw one-time token.
-- Participant download routes enforce registration ownership before returning an asset.
+- Issued QR images and PDF tickets are stored outside the document root under `storage/tickets` with random filenames.
+- The database retains relative `uploads/tickets/...` values as private artifact locators for compatibility. These values are never public URLs. It stores only the QR payload hash, never the raw one-time token.
+- Participant download routes enforce registration ownership and return private, no-store responses. The built-in router and Apache rules never serve `/uploads/tickets/...` as static files.
 - Ticket cancellation invalidates entry. A successful check-in records attendance and moves a valid ticket to checked in.
-- Ensure the PHP process can create and write `public/uploads/tickets` in local and production environments. Do not commit generated ticket files.
+- For upgrades that have artifacts under `public/uploads/tickets`, run `php scripts/migrate-ticket-artifacts.php` before accepting traffic and confirm the legacy directory contains no ticket files afterward.
 - A decoder round-trip test is intentionally deferred: the installed `endroid/qr-code` API is an encoder, and the project has no installed QR decoder or `zbar` binary. Adding ZXing, ZBar, or another decoder would introduce a new runtime dependency solely for this test. The current suite verifies the generated PNG signature and MIME type; add round-trip decoding when a maintained lightweight decoder becomes an application dependency.
 
 ### Full acceptance journey
@@ -258,6 +268,7 @@ composer check:syntax
 composer validate --strict
 composer audit
 npm run build:css
+npm run test:assets
 npm run build:assets
 node --check public/assets/js/location.js
 node --check public/assets/js/venue-map.js

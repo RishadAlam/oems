@@ -4,6 +4,7 @@
     "scripts": {
         "build:assets": "node ./scripts/copy-fonts.mjs",
         "build:css": "npm run build:assets && tailwindcss -i ./resources/css/app.css -o ./public/assets/css/app.css --minify",
+        "test:assets": "node ./tests/js/assets.test.mjs",
         "watch:css": "tailwindcss -i ./resources/css/app.css -o ./public/assets/css/app.css --watch"
     },
     "devDependencies": {
