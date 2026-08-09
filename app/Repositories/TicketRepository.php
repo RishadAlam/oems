@@ -193,9 +193,12 @@ final class TicketRepository implements TicketRepositoryInterface
                    FROM registrations
                    INNER JOIN events ON events.id = registrations.event_id
                    INNER JOIN organizers ON organizers.id = events.organizer_id
+                   INNER JOIN users ON users.id = registrations.user_id
                    WHERE registrations.id = tickets.registration_id
                      AND registrations.status = 'confirmed'
                      AND events.status <> 'cancelled'
+                     AND events.deleted_at IS NULL
+                     AND users.deleted_at IS NULL
                      AND organizers.user_id = :organizer_user_id
                      " . ($eventId === null ? '' : ' AND events.id = :attendance_event_id') . "
                )",
@@ -300,7 +303,8 @@ final class TicketRepository implements TicketRepositoryInterface
     private function organizerTicketSelect(): string
     {
         return $this->ticketSelect()
-            . ' INNER JOIN organizers ON organizers.id = events.organizer_id';
+            . ' INNER JOIN organizers ON organizers.id = events.organizer_id
+                INNER JOIN users ON users.id = registrations.user_id';
     }
 
     private function findForOrganizer(
@@ -324,7 +328,9 @@ final class TicketRepository implements TicketRepositoryInterface
             . " WHERE organizers.user_id = :organizer_user_id
                   AND {$lookupColumn} = :lookup_value
                   AND registrations.status = 'confirmed'
-                  AND tickets.status IN ('valid', 'used')"
+                  AND tickets.status IN ('valid', 'used')
+                  AND events.deleted_at IS NULL
+                  AND users.deleted_at IS NULL"
             . ($eventId === null ? '' : ' AND events.id = :organizer_event_id')
             . "
                 LIMIT 1",
@@ -371,10 +377,13 @@ final class TicketRepository implements TicketRepositoryInterface
              INNER JOIN registrations ON registrations.id = attendance.registration_id
              INNER JOIN events ON events.id = registrations.event_id
              INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users ON users.id = registrations.user_id
              WHERE attendance.ticket_id = :ticket_id
                AND organizers.user_id = :organizer_user_id
                AND registrations.status = 'confirmed'
-               AND tickets.status IN ('valid', 'used')"
+               AND tickets.status IN ('valid', 'used')
+               AND events.deleted_at IS NULL
+               AND users.deleted_at IS NULL"
             . ($eventId === null ? '' : ' AND events.id = :attendance_event_id')
             . "
              LIMIT 1" . $lockingClause,
@@ -402,11 +411,14 @@ final class TicketRepository implements TicketRepositoryInterface
              INNER JOIN registrations ON registrations.id = tickets.registration_id
              INNER JOIN events ON events.id = registrations.event_id
              INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users ON users.id = registrations.user_id
              WHERE tickets.id = :ticket_id
                AND organizers.user_id = :organizer_user_id
                AND tickets.status = 'valid'
                AND registrations.status = 'confirmed'
-               AND events.status <> 'cancelled'"
+               AND events.status <> 'cancelled'
+               AND events.deleted_at IS NULL
+               AND users.deleted_at IS NULL"
             . ($eventId === null ? '' : ' AND events.id = :attendance_event_id')
             . "
              LIMIT 1" . $lockingClause,

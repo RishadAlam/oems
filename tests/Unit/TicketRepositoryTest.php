@@ -118,6 +118,17 @@ final class TicketRepositoryTest extends TestCase
         $this->assertSame(0, $this->attendanceCount());
     }
 
+    public function testCheckInRejectsTicketsForDeletedParticipantsAndEvents(): void
+    {
+        $this->assertNull($this->repository->findForOrganizerByNumber(100, 'OEMS-TICKET-205'));
+        $this->assertNull($this->repository->findForOrganizerByNumber(100, 'OEMS-TICKET-206'));
+        $this->assertNull($this->repository->recordAttendance(100, 205, 100, '127.0.0.1'));
+        $this->assertNull($this->repository->recordAttendance(100, 206, 100, '127.0.0.1'));
+        $this->assertSame('valid', $this->ticketStatus(205));
+        $this->assertSame('valid', $this->ticketStatus(206));
+        $this->assertSame(0, $this->attendanceCount());
+    }
+
     public function testDuplicateCheckInReturnsTheOriginalAttendanceWithoutAnotherInsert(): void
     {
         $first = $this->repository->recordAttendance(100, 201, 100, '127.0.0.1');
