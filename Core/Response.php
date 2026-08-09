@@ -23,12 +23,20 @@ final class Response
 
     public static function html(string $body, int $status = 200, array $headers = []): self
     {
-        return new self($body, $status, array_merge(['Content-Type' => 'text/html; charset=UTF-8'], $headers));
+        return new self(
+            $body,
+            $status,
+            self::validatedHeaders(array_merge(['Content-Type' => 'text/html; charset=UTF-8'], $headers)),
+        );
     }
 
     public static function text(string $body, int $status = 200, array $headers = []): self
     {
-        return new self($body, $status, array_merge(['Content-Type' => 'text/plain; charset=UTF-8'], $headers));
+        return new self(
+            $body,
+            $status,
+            self::validatedHeaders(array_merge(['Content-Type' => 'text/plain; charset=UTF-8'], $headers)),
+        );
     }
 
     /** @throws JsonException */
@@ -37,18 +45,18 @@ final class Response
         return new self(
             json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             $status,
-            array_merge(['Content-Type' => 'application/json; charset=UTF-8'], $headers),
+            self::validatedHeaders(array_merge(['Content-Type' => 'application/json; charset=UTF-8'], $headers)),
         );
     }
 
     public static function redirect(string $location, int $status = 302, array $headers = []): self
     {
-        return new self('', $status, array_merge(['Location' => $location], $headers));
+        return new self('', $status, self::validatedHeaders(array_merge(['Location' => $location], $headers)));
     }
 
     public static function binary(string $body, int $status = 200, array $headers = []): self
     {
-        return new self($body, $status, $headers);
+        return new self($body, $status, self::validatedHeaders($headers));
     }
 
     public static function file(string $path, int $status = 200, array $headers = []): self
@@ -62,12 +70,18 @@ final class Response
             $headers['Content-Length'] = (string) $size;
         }
 
-        return new self('', $status, $headers, $path);
+        return new self('', $status, self::validatedHeaders($headers), $path);
     }
 
     public static function stream(callable $callback, int $status = 200, array $headers = []): self
     {
-        return new self('', $status, $headers, null, \Closure::fromCallable($callback));
+        return new self(
+            '',
+            $status,
+            self::validatedHeaders($headers),
+            null,
+            \Closure::fromCallable($callback),
+        );
     }
 
     public function body(): string
@@ -98,15 +112,7 @@ final class Response
 
     public function withHeader(string $name, string $value): self
     {
-        $name = trim($name);
-        $value = trim($value);
-
-        if ($name === ''
-            || preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/', $name) !== 1
-            || str_contains($value, "\r")
-            || str_contains($value, "\n")) {
-            throw new InvalidArgumentException('Invalid response header.');
-        }
+        [$name, $value] = self::validatedHeader($name, $value);
 
         $headers = [];
         foreach ($this->headers as $key => $existingValue) {
@@ -123,6 +129,26 @@ final class Response
             $this->filePath,
             $this->streamCallback,
         );
+    }
+
+    public function withSecurityHeaders(): self
+    {
+        $headers = [
+            'Content-Security-Policy' => "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'",
+            'Permissions-Policy' => 'geolocation=(self)',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'DENY',
+        ];
+        $response = $this;
+
+        foreach ($headers as $name => $value) {
+            if ($response->header($name) === null) {
+                $response = $response->withHeader($name, $value);
+            }
+        }
+
+        return $response;
     }
 
     public function send(): void
@@ -182,5 +208,35 @@ final class Response
         }
 
         return false;
+    }
+
+    private static function validatedHeaders(array $headers): array
+    {
+        $validated = [];
+
+        foreach ($headers as $name => $value) {
+            if (!is_string($name) || !is_scalar($value)) {
+                throw new InvalidArgumentException('Invalid response header.');
+            }
+
+            [$safeName, $safeValue] = self::validatedHeader($name, (string) $value);
+            $validated[$safeName] = $safeValue;
+        }
+
+        return $validated;
+    }
+
+    private static function validatedHeader(string $name, string $value): array
+    {
+        $name = trim($name);
+        $value = trim($value);
+
+        if ($name === ''
+            || preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/', $name) !== 1
+            || preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
+            throw new InvalidArgumentException('Invalid response header.');
+        }
+
+        return [$name, $value];
     }
 }

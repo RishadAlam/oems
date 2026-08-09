@@ -56,6 +56,15 @@ final class Auth
             return null;
         }
 
+        $sessionSignature = $this->session->get('auth.password_signature');
+
+        if (is_string($sessionSignature)
+            && !hash_equals($sessionSignature, hash('sha256', (string) ($user['password'] ?? '')))) {
+            $this->session->forget('auth');
+
+            return null;
+        }
+
         $this->session->put('auth.role', (string) $user['role_slug']);
         $this->cachedUser = $user;
 
@@ -69,4 +78,3 @@ final class Auth
         return $user !== null && in_array((string) $user['role_slug'], $roles, true);
     }
 }
-

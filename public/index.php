@@ -14,6 +14,7 @@ $router = $app['router'];
 $registerRoutes = require dirname(__DIR__) . '/routes/web.php';
 $registerRoutes($router);
 $request = Request::fromGlobals();
+header_remove('X-Powered-By');
 
 try {
     $auth = $app['container']->get(Auth::class);
@@ -29,7 +30,7 @@ try {
     }
 
     $router->dispatch($request)
-        ->withHeader('Permissions-Policy', 'geolocation=(self)')
+        ->withSecurityHeaders()
         ->send();
 } catch (Throwable $exception) {
     $app['container']->get(Logger::class)->error('Unhandled application exception.', [
@@ -42,6 +43,6 @@ try {
         ? '<h1>Application error</h1><pre>' . e($exception->getMessage()) . '</pre>'
         : '<h1>Something went wrong</h1><p>Please try again shortly.</p>';
     Response::html($body, 500)
-        ->withHeader('Permissions-Policy', 'geolocation=(self)')
+        ->withSecurityHeaders()
         ->send();
 }

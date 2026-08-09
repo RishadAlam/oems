@@ -19,6 +19,7 @@ final class ImageUploadService
         private readonly string $publicPath = '/uploads/events',
         private readonly int $maxBytes = 5 * 1024 * 1024,
         private readonly bool $requireHttpUpload = true,
+        private readonly int $maxPixels = 16_000_000,
     ) {
     }
 
@@ -75,6 +76,13 @@ final class ImageUploadService
             || ($dimensions[1] ?? 0) < 1
             || ($dimensions['mime'] ?? null) !== $mime) {
             return $this->result(false, null, 'The uploaded file is not a valid image.');
+        }
+
+        $width = (int) $dimensions[0];
+        $height = (int) $dimensions[1];
+
+        if ($height > 0 && $width > intdiv($this->maxPixels, $height)) {
+            return $this->result(false, null, 'The image dimensions are too large.');
         }
 
         if (!$this->ensureUploadRoot()) {

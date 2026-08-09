@@ -44,6 +44,11 @@ final class PhpMailerTransport implements MailTransportInterface
                 $mailer->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             } elseif ($encryption === 'ssl') {
                 $mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            } elseif ($encryption === 'none') {
+                $mailer->SMTPAutoTLS = false;
+                $mailer->SMTPSecure = '';
+            } else {
+                throw new RuntimeException('Unsupported SMTP encryption setting.');
             }
 
             $mailer->setFrom(

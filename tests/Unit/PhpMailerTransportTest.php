@@ -62,6 +62,31 @@ final class PhpMailerTransportTest extends TestCase
         }
     }
 
+    public function testRejectsUnsupportedEncryptionInsteadOfSilentlyUsingPlainSmtp(): void
+    {
+        $config = $this->config()->all();
+        $config['mail']['encryption'] = 'typo';
+        $transport = new PhpMailerTransport(
+            new Config($config),
+            static fn (): PHPMailer => new StubPhpMailer(),
+        );
+        $message = null;
+
+        try {
+            $transport->send(new EmailMessage(
+                'recipient@example.test',
+                'Recipient Name',
+                'Account subject',
+                '<p>HTML body</p>',
+                'Text body',
+            ));
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        $this->assertSame('Unsupported SMTP encryption setting.', $message);
+    }
+
     private function config(): Config
     {
         return new Config([

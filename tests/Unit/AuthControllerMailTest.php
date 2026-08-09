@@ -178,14 +178,64 @@ final class AuthControllerMailTest extends TestCase
         }
     }
 
+    public function testSuccessfulLoginRotatesThePreAuthenticationCsrfToken(): void
+    {
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Token Rotation Participant',
+            'email' => 'token-rotation@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 09:00:00',
+        ]);
+        [$controller] = $this->controller($users);
+        $security = new Security(new Session(false));
+        $preAuthenticationToken = $security->csrfToken();
+
+        $controller->login(Request::create('POST', '/login', input: [
+            'email' => 'token-rotation@example.test',
+            'password' => 'DemoPass!2026',
+        ]));
+
+        $this->assertFalse($security->verifyCsrf($preAuthenticationToken));
+        $this->assertNotSame($preAuthenticationToken, $security->csrfToken());
+    }
+
+    public function testRememberCookieCanBeForcedSecureBehindTlsTermination(): void
+    {
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Secure Cookie Participant',
+            'email' => 'secure-cookie@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 09:00:00',
+        ]);
+        [$controller] = $this->controller($users, config: ['secure_cookies' => true]);
+
+        $response = $controller->login(Request::create('POST', '/login', input: [
+            'email' => 'secure-cookie@example.test',
+            'password' => 'DemoPass!2026',
+            'remember' => '1',
+        ]));
+
+        $cookie = (string) $response->header('Set-Cookie');
+        $this->assertTrue(str_contains($cookie, '; Secure'));
+        $this->assertTrue(str_contains($cookie, '; HttpOnly'));
+        $this->assertTrue(str_contains($cookie, '; SameSite=Lax'));
+    }
+
     private function controller(
         ?FakeUserRepository $users = null,
         ?RateLimiter $rateLimiter = null,
+        array $config = [],
     ): array
     {
         $users ??= new FakeUserRepository();
         $session = new Session(false);
-        $config = new Config([
+        $config = new Config(array_merge([
             'name' => 'OEMS',
             'url' => 'http://localhost:8000',
             'debug' => true,
@@ -195,7 +245,7 @@ final class AuthControllerMailTest extends TestCase
                 'from_address' => 'no-reply@example.test',
                 'from_name' => 'OEMS',
             ],
-        ]);
+        ], $config));
         $transport = new FakeMailTransport('<mailtrap-message-id>');
         $accountMailer = new AccountMailer($transport, new FakeEmailLogRepository(), $config);
         $auth = new Auth($session, $users);

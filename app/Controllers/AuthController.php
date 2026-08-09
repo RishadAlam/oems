@@ -96,7 +96,7 @@ final class AuthController extends Controller
             ]);
         }
 
-        $result = $this->authService->register($data);
+        $result = $this->authService->register($data, $request->ip());
 
         if (!$result['success']) {
             return $this->redirectWithErrors('/register', $result['errors'], [
@@ -261,7 +261,8 @@ final class AuthController extends Controller
             'SameSite=Lax',
         ];
 
-        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        if ((bool) $this->config->get('secure_cookies', false)
+            || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')) {
             $parts[] = 'Secure';
         }
 

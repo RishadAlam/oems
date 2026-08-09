@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use InvalidArgumentException;
 use OEMS\Core\Response;
 use OEMS\Tests\Support\TestCase;
 
@@ -16,6 +17,50 @@ final class ResponseTest extends TestCase
         $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
         $this->assertSame('geolocation=(self)', $response->header('Permissions-Policy'));
         $this->assertSame('ok', $response->body());
+    }
+
+    public function testResponseFactoriesRejectHeaderValueInjection(): void
+    {
+        $message = null;
+
+        try {
+            Response::redirect("/dashboard\r\nX-Injected: true");
+        } catch (InvalidArgumentException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        $this->assertSame('Invalid response header.', $message);
+    }
+
+    public function testResponseFactoriesRejectNonPrintingHeaderControls(): void
+    {
+        $message = null;
+
+        try {
+            Response::text('ok', headers: ['X-Trace' => "safe\0hidden"]);
+        } catch (InvalidArgumentException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        $this->assertSame('Invalid response header.', $message);
+    }
+
+    public function testSecurityHeadersHardenHtmlWithoutBlockingLocalAssetsOrHttpsMapTiles(): void
+    {
+        $response = Response::html('ok')->withSecurityHeaders();
+
+        $this->assertSame('nosniff', $response->header('X-Content-Type-Options'));
+        $this->assertSame('DENY', $response->header('X-Frame-Options'));
+        $this->assertSame('strict-origin-when-cross-origin', $response->header('Referrer-Policy'));
+        $this->assertSame('geolocation=(self)', $response->header('Permissions-Policy'));
+        $this->assertTrue(str_contains(
+            (string) $response->header('Content-Security-Policy'),
+            "img-src 'self' data: https:",
+        ));
+        $this->assertTrue(str_contains(
+            (string) $response->header('Content-Security-Policy'),
+            "frame-ancestors 'none'",
+        ));
     }
 
     public function testBinaryResponsePreservesBytesAndUsesOnlySuppliedSafeHeaders(): void

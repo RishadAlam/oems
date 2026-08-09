@@ -36,12 +36,7 @@ final class Logger
             throw new RuntimeException("Unable to create log directory {$directory}.");
         }
 
-        $safeContext = array_diff_key($context, array_flip([
-            'password',
-            'password_confirmation',
-            'token',
-            'remember_token',
-        ]));
+        $safeContext = $this->redact($context);
         $record = sprintf(
             "[%s] %s: %s %s\n",
             (new DateTimeImmutable())->format(DATE_ATOM),
@@ -54,5 +49,33 @@ final class Logger
             throw new RuntimeException("Unable to write log file {$this->path}.");
         }
     }
-}
 
+    private function redact(array $context): array
+    {
+        $sensitiveKeys = [
+            'api_key',
+            'authorization',
+            'cookie',
+            'password',
+            'password_confirmation',
+            'remember_token',
+            'reset_token',
+            'secret',
+            'set-cookie',
+            'token',
+            'validator',
+        ];
+        $safe = [];
+
+        foreach ($context as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), $sensitiveKeys, true)) {
+                $safe[$key] = '[redacted]';
+                continue;
+            }
+
+            $safe[$key] = is_array($value) ? $this->redact($value) : $value;
+        }
+
+        return $safe;
+    }
+}

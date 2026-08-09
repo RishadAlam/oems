@@ -111,6 +111,7 @@ $container->instance(
 );
 $container->singleton(Session::class, static fn (): Session => new Session(true, [
     'name' => $appConfig['session_name'],
+    'secure' => $appConfig['secure_cookies'],
 ]));
 $container->singleton(Database::class, static fn (): Database => new Database($databaseConfig));
 $container->singleton(

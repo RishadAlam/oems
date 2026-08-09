@@ -113,6 +113,24 @@ final class ImageUploadServiceTest extends TestCase
         $this->assertTrue(is_file($source));
     }
 
+    public function testRejectsAnImageWhoseDecodedDimensionsExceedThePixelLimit(): void
+    {
+        $source = $this->generatedPng('large-dimensions.png', 1000, 1000);
+        $service = new ImageUploadService(
+            $this->uploadRoot,
+            '/uploads/events',
+            5 * 1024 * 1024,
+            false,
+            100_000,
+        );
+
+        $result = $service->store($this->upload($source, 'large-dimensions.png', filesize($source)));
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('The image dimensions are too large.', $result['error']);
+        $this->assertTrue(is_file($source));
+    }
+
     public function testDeleteCannotEscapeTheConfiguredUploadRoot(): void
     {
         $outside = $this->temporaryDirectory . '/public/uploads/outside.jpg';
@@ -134,6 +152,25 @@ final class ImageUploadServiceTest extends TestCase
     private function generatedJpeg(string $filename): string
     {
         return TestImage::writeJpeg($this->temporaryDirectory . '/' . $filename);
+    }
+
+    private function generatedPng(string $filename, int $width, int $height): string
+    {
+        $chunk = static function (string $type, string $data): string {
+            return pack('N', strlen($data))
+                . $type
+                . $data
+                . pack('H*', hash('crc32b', $type . $data));
+        };
+        $row = "\0" . str_repeat("\0", $width * 4);
+        $path = $this->temporaryDirectory . '/' . $filename;
+        $bytes = "\x89PNG\r\n\x1a\n"
+            . $chunk('IHDR', pack('NNCCCCC', $width, $height, 8, 6, 0, 0, 0))
+            . $chunk('IDAT', gzcompress(str_repeat($row, $height), 9))
+            . $chunk('IEND', '');
+        file_put_contents($path, $bytes);
+
+        return $path;
     }
 
     private function upload(string $path, string $name, int|false $size): array

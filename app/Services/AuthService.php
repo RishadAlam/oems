@@ -21,13 +21,23 @@ final class AuthService
     ) {
     }
 
-    public function register(array $attributes): array
+    public function register(array $attributes, string $ipAddress = '127.0.0.1'): array
     {
         $name = trim((string) ($attributes['name'] ?? ''));
         $email = strtolower(trim((string) ($attributes['email'] ?? '')));
         $password = (string) ($attributes['password'] ?? '');
         $roleSlug = (string) ($attributes['role'] ?? 'participant');
         $errors = [];
+
+        if ($this->rateLimiter !== null
+            && !$this->rateLimiter->consumeAttempt('registration:ip:' . $ipAddress)) {
+            return [
+                'success' => false,
+                'errors' => [
+                    'email' => ['Too many account creation attempts. Try again in a few minutes.'],
+                ],
+            ];
+        }
 
         if (!in_array($roleSlug, self::ALLOWED_REGISTRATION_ROLES, true)) {
             $errors['role'][] = 'Choose a participant or organizer account.';
@@ -108,9 +118,7 @@ final class AuthService
 
         $this->rateLimiter?->clear($rateLimitKey);
 
-        $this->session->regenerate();
-        $this->session->put('auth.user_id', (int) $user['id']);
-        $this->session->put('auth.role', (string) $user['role_slug']);
+        $this->establishAuthenticatedSession($user);
         $this->users->updateLastLogin((int) $user['id']);
 
         $rememberCookie = null;
@@ -227,8 +235,11 @@ final class AuthService
             return false;
         }
 
-        $this->users->updatePassword($userId, password_hash($newPassword, PASSWORD_DEFAULT));
+        $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $this->users->updatePassword($userId, $passwordHash);
         $this->users->deleteRememberSessionsForUser($userId);
+        $user['password'] = $passwordHash;
+        $this->establishAuthenticatedSession($user);
 
         return true;
     }
@@ -260,9 +271,7 @@ final class AuthService
             return false;
         }
 
-        $this->session->regenerate();
-        $this->session->put('auth.user_id', (int) $user['id']);
-        $this->session->put('auth.role', (string) $user['role_slug']);
+        $this->establishAuthenticatedSession($user);
 
         return true;
     }
@@ -278,5 +287,14 @@ final class AuthService
         }
 
         $this->session->invalidate();
+    }
+
+    private function establishAuthenticatedSession(array $user): void
+    {
+        $this->session->regenerate();
+        $this->session->forget('security.csrf_token');
+        $this->session->put('auth.user_id', (int) $user['id']);
+        $this->session->put('auth.role', (string) $user['role_slug']);
+        $this->session->put('auth.password_signature', hash('sha256', (string) ($user['password'] ?? '')));
     }
 }

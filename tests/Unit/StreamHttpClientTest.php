@@ -10,6 +10,23 @@ use RuntimeException;
 
 final class StreamHttpClientTest extends TestCase
 {
+    public function testRejectsNonHttpStreamSchemesBeforeReadingLocalFiles(): void
+    {
+        $path = sys_get_temp_dir() . '/oems-http-client-secret-' . bin2hex(random_bytes(6));
+        file_put_contents($path, 'local-only-secret');
+        $message = null;
+
+        try {
+            (new StreamHttpClient('OEMS Test/1.0'))->get('file://' . $path, [], 2);
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        } finally {
+            unlink($path);
+        }
+
+        $this->assertSame('Only HTTP and HTTPS URLs are supported.', $message);
+    }
+
     public function testRedirectResponseIsNotFollowedAndKeepsItsOwnStatusAndBody(): void
     {
         $this->withServer(function (int $port): void {

@@ -26,6 +26,13 @@ final class StreamHttpClient implements HttpClientInterface
 
     public function get(string $url, array $headers, int $timeoutSeconds): array
     {
+        $parts = parse_url($url);
+        $scheme = is_array($parts) ? strtolower((string) ($parts['scheme'] ?? '')) : '';
+
+        if (!in_array($scheme, ['http', 'https'], true) || !is_string($parts['host'] ?? null)) {
+            throw new RuntimeException('Only HTTP and HTTPS URLs are supported.');
+        }
+
         $timeoutSeconds = max(1, $timeoutSeconds);
         $deadline = ($this->clock)() + $timeoutSeconds;
         $headers = array_merge([
