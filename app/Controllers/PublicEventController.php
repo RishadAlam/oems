@@ -11,6 +11,7 @@ use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\ReviewRepositoryInterface;
+use OEMS\App\Services\LocationService;
 use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -29,6 +30,8 @@ final class PublicEventController extends Controller
 
     private const SORT_FILTERS = ['soonest', 'latest', 'price_low', 'price_high'];
 
+    private const RADII = [5, 10, 25, 50, 100];
+
     public function __construct(
         View $view,
         Session $session,
@@ -40,6 +43,7 @@ final class PublicEventController extends Controller
         private readonly RegistrationRepositoryInterface $registrations,
         private readonly ?FavoriteRepositoryInterface $favorites = null,
         private readonly ?ReviewRepositoryInterface $reviews = null,
+        private readonly ?LocationService $locations = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -48,7 +52,19 @@ final class PublicEventController extends Controller
     {
         $categories = $this->categories->active();
         $cities = $this->events->publicCities();
-        $filters = $this->filters($request, $categories, $cities);
+        $location = $this->locations?->fromSession($this->session->get('event_location'));
+
+        if ($this->locations !== null && $location === null && $this->session->has('event_location')) {
+            $this->session->forget('event_location');
+        }
+
+        $filters = $this->filters($request, $categories, $cities, $location !== null);
+
+        if ($location !== null) {
+            $location['radius'] = $this->locations->radius($request->query('radius', $location['radius']));
+            $filters = array_merge($filters, $location, $this->locations->bounds($location));
+        }
+
         $matches = $this->events->publicSearch($filters);
         $favoriteStates = $this->favoriteStates($matches);
         $events = array_map(
@@ -72,6 +88,16 @@ final class PublicEventController extends Controller
             'categories' => $categories,
             'cities' => $cities,
             'filters' => $filters,
+            'location' => $location,
+            'radii' => self::RADII,
+            'mapConfig' => [
+                'tile_url' => (string) $this->config->get('map.tile_url', ''),
+                'tile_attribution' => (string) $this->config->get('map.tile_attribution', ''),
+                'default_lat' => (float) $this->config->get('map.default_lat', 23.8103),
+                'default_lng' => (float) $this->config->get('map.default_lng', 90.4125),
+                'default_zoom' => (int) $this->config->get('map.default_zoom', 11),
+            ],
+            'distanceSortAvailable' => $location !== null,
         ]);
     }
 
@@ -200,7 +226,7 @@ final class PublicEventController extends Controller
         ];
     }
 
-    private function filters(Request $request, array $categories, array $cities): array
+    private function filters(Request $request, array $categories, array $cities, bool $distanceSortAvailable = false): array
     {
         $categoryOptions = [];
         foreach ($categories as $category) {
@@ -224,13 +250,15 @@ final class PublicEventController extends Controller
         $price = mb_strtolower(trim($this->stringValue($request->query('price'))));
         $sort = mb_strtolower(trim($this->stringValue($request->query('sort', 'soonest'))));
 
+        $sorts = $distanceSortAvailable ? [...self::SORT_FILTERS, 'distance'] : self::SORT_FILTERS;
+
         return [
             'search' => trim($this->stringValue($request->query('search'))),
             'category' => $categoryOptions[$category] ?? '',
             'city' => $cityOptions[mb_strtolower($city)] ?? '',
             'date' => in_array($date, self::DATE_FILTERS, true) ? $date : 'upcoming',
             'price' => in_array($price, self::PRICE_FILTERS, true) ? $price : '',
-            'sort' => in_array($sort, self::SORT_FILTERS, true) ? $sort : 'soonest',
+            'sort' => in_array($sort, $sorts, true) ? $sort : 'soonest',
         ];
     }
 
@@ -245,6 +273,7 @@ final class PublicEventController extends Controller
             trim((string) ($event['venue_country'] ?? '')),
         ], static fn (string $value): bool => $value !== ''));
         $isFree = Money::isFree($event['ticket_price'] ?? null);
+        $distanceExact = ($event['location_visibility'] ?? 'public') === 'public';
 
         return array_merge($event, [
             'start_iso' => $start->format(DATE_ATOM),
@@ -259,6 +288,7 @@ final class PublicEventController extends Controller
                 ? 'Free'
                 : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
             'is_free' => $isFree,
+            'distance_label' => $this->locations?->distanceLabel($event['distance_km'] ?? null, $distanceExact),
             'banner_display' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'banner_alt' => 'Banner for ' . (string) $event['title'],
             'favorite' => [

@@ -260,7 +260,7 @@ final class AdminEventControllerTest extends TestCase
     {
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
-        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, city TEXT NOT NULL, country TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NOT NULL, country TEXT NOT NULL, postal_code TEXT NULL, latitude REAL NULL, longitude REAL NULL, map_url TEXT NULL)');
         $this->connection->exec(
             'CREATE TABLE events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

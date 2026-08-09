@@ -122,9 +122,52 @@ final class EventRepository implements EventRepositoryInterface
             $clauses[] = 'events.ticket_price > 0';
         }
 
+        $nearby = $this->nearbyParameters($filters);
+
+        if ($nearby !== null) {
+            $clauses[] = "events.location_visibility = 'public'";
+            $clauses[] = 'venues.latitude IS NOT NULL';
+            $clauses[] = 'venues.longitude IS NOT NULL';
+            $clauses[] = 'venues.latitude >= :latitude_min AND venues.latitude <= :latitude_max';
+            $nearbyParameters = $nearby['parameters'];
+
+            if ($nearby['all_longitudes']) {
+                unset($nearbyParameters['longitude_min'], $nearbyParameters['longitude_max']);
+            }
+
+            $parameters = array_merge($parameters, $nearbyParameters);
+
+            if ($nearby['longitude_wraps']) {
+                $clauses[] = '(venues.longitude >= :longitude_min OR venues.longitude <= :longitude_max)';
+            } elseif (!$nearby['all_longitudes']) {
+                $clauses[] = 'venues.longitude >= :longitude_min AND venues.longitude <= :longitude_max';
+            }
+        }
+
         $sort = self::SORTS[(string) ($filters['sort'] ?? '')] ?? self::SORTS['soonest'];
+
+        if ($nearby !== null && ($filters['sort'] ?? '') === 'distance') {
+            $sort = 'distance_km ASC, start_date ASC, id ASC';
+        } else {
+            $sort = str_replace('events.', '', $sort);
+        }
+
+        $select = $this->eventSelect($nearby === null ? null : $this->distanceExpression());
+
+        if ($nearby !== null) {
+            $statement = $this->connection->prepare(
+                'SELECT * FROM (' . $select
+                . ' WHERE ' . implode(' AND ', $clauses)
+                . ') AS nearby_events WHERE distance_km <= (:distance_radius + 0)'
+                . ' ORDER BY ' . $sort,
+            );
+            $statement->execute($parameters);
+
+            return $this->decodeEvents($statement->fetchAll());
+        }
+
         $statement = $this->connection->prepare(
-            $this->eventSelect()
+            $select
             . ' WHERE ' . implode(' AND ', $clauses)
             . ' ORDER BY ' . $sort,
         );
@@ -765,15 +808,84 @@ final class EventRepository implements EventRepositoryInterface
         return $delete->rowCount() === 1 ? $path : null;
     }
 
-    private function eventSelect(): string
+    private function eventSelect(?string $distanceExpression = null): string
     {
         return 'SELECT events.*, categories.name AS category_name, categories.slug AS category_slug,
-                       venues.name AS venue_name, venues.city AS venue_city, venues.country AS venue_country,
-                       organizers.organization_name
+                       venues.name AS venue_name, venues.address_line AS venue_address_line,
+                       venues.city AS venue_city, venues.country AS venue_country,
+                       venues.postal_code AS venue_postal_code, venues.latitude AS venue_latitude,
+                       venues.longitude AS venue_longitude, venues.map_url AS venue_map_url,
+                       organizers.organization_name, organizers.user_id AS organizer_user_id,
+                       ' . ($distanceExpression ?? 'NULL') . ' AS distance_km
                 FROM events
                 INNER JOIN categories ON categories.id = events.category_id
                 LEFT JOIN venues ON venues.id = events.venue_id
                 INNER JOIN organizers ON organizers.id = events.organizer_id';
+    }
+
+    /**
+     * @return array{parameters: array<string, float|int>, longitude_wraps: bool, all_longitudes: bool}|null
+     */
+    private function nearbyParameters(array $filters): ?array
+    {
+        $keys = [
+            'latitude',
+            'longitude',
+            'latitude_min',
+            'latitude_max',
+            'longitude_min',
+            'longitude_max',
+        ];
+
+        foreach ($keys as $key) {
+            if (!isset($filters[$key]) || !is_numeric($filters[$key]) || !is_finite((float) $filters[$key])) {
+                return null;
+            }
+        }
+
+        $latitude = (float) $filters['latitude'];
+        $longitude = (float) $filters['longitude'];
+        $latitudeMin = (float) $filters['latitude_min'];
+        $latitudeMax = (float) $filters['latitude_max'];
+        $longitudeMin = (float) $filters['longitude_min'];
+        $longitudeMax = (float) $filters['longitude_max'];
+
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180
+            || $latitudeMin < -90 || $latitudeMax > 90 || $latitudeMin > $latitudeMax
+            || $longitudeMin < -180 || $longitudeMin > 180 || $longitudeMax < -180 || $longitudeMax > 180) {
+            return null;
+        }
+
+        $radius = is_numeric($filters['radius'] ?? null) ? (int) $filters['radius'] : 25;
+        $radius = in_array($radius, [5, 10, 25, 50, 100], true) ? $radius : 25;
+        $longitudeWraps = ($filters['longitude_wraps'] ?? false) === true;
+
+        return [
+            'parameters' => [
+                'latitude_min' => $latitudeMin,
+                'latitude_max' => $latitudeMax,
+                'longitude_min' => $longitudeMin,
+                'longitude_max' => $longitudeMax,
+                'distance_latitude' => $latitude,
+                'origin_latitude' => $latitude,
+                'distance_longitude' => $longitude,
+                'distance_radius' => $radius,
+            ],
+            'longitude_wraps' => $longitudeWraps,
+            'all_longitudes' => !$longitudeWraps && $longitudeMin <= -180.0 && $longitudeMax >= 180.0,
+        ];
+    }
+
+    private function distanceExpression(): string
+    {
+        return '6371.0088 * 2 * ASIN(
+            SQRT(
+                POWER(SIN(RADIANS(venues.latitude - :distance_latitude) / 2), 2)
+                + COS(RADIANS(:origin_latitude))
+                * COS(RADIANS(venues.latitude))
+                * POWER(SIN(RADIANS(venues.longitude - :distance_longitude) / 2), 2)
+            )
+        )';
     }
 
     private function eventParameters(int $userId, array $attributes): array

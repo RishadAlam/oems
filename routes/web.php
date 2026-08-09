@@ -21,11 +21,14 @@ use OEMS\App\Controllers\ParticipantTicketController;
 use OEMS\App\Controllers\ParticipantReviewController;
 use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Controllers\PublicEventController;
+use OEMS\App\Controllers\PublicLocationController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
     $router->get('/', [HomeController::class, 'index'], name: 'home');
     $router->get('/events', [PublicEventController::class, 'index'], name: 'events.index');
+    $router->post('/events/location', [PublicLocationController::class, 'store'], ['csrf'], 'events.location.store');
+    $router->post('/events/location/clear', [PublicLocationController::class, 'clear'], ['csrf'], 'events.location.clear');
     $router->get('/events/{slug}', [PublicEventController::class, 'show'], name: 'events.show');
 
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest'], 'login');

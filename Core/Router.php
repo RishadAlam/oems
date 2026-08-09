@@ -73,9 +73,29 @@ final class Router
     {
         $pathMatched = false;
         $allowedMethods = [];
+        $matches = [];
 
         foreach ($this->routes as $route) {
-            if (preg_match($route['pattern'], $request->path(), $matches) !== 1) {
+            if (preg_match($route['pattern'], $request->path(), $routeMatches) !== 1) {
+                continue;
+            }
+
+            $matches[] = ['route' => $route, 'parameters' => $routeMatches];
+        }
+
+        if ($matches === []) {
+            return Response::text('Not Found', 404);
+        }
+
+        $specificity = min(array_map(
+            static fn (array $match): int => substr_count($match['route']['path'], '{'),
+            $matches,
+        ));
+
+        foreach ($matches as $match) {
+            $route = $match['route'];
+
+            if (substr_count($route['path'], '{') !== $specificity) {
                 continue;
             }
 
@@ -87,7 +107,7 @@ final class Router
             }
 
             $parameters = array_filter(
-                $matches,
+                $match['parameters'],
                 static fn (string|int $key): bool => is_string($key),
                 ARRAY_FILTER_USE_KEY,
             );

@@ -46,6 +46,7 @@ use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\LocationService;
 use OEMS\App\Services\NotificationService;
 use OEMS\App\Services\NominatimGeocoder;
 use OEMS\App\Services\RegistrationService;
@@ -185,6 +186,12 @@ $container->singleton(
     EventRepositoryInterface::class,
     static fn (Container $container): EventRepository => new EventRepository(
         $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    LocationService::class,
+    static fn (Container $container): LocationService => new LocationService(
+        (int) $container->get(Config::class)->get('map.location_session_ttl', 1209600),
     ),
 );
 $container->singleton(

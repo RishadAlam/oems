@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Controllers\PublicEventController;
+use OEMS\App\Services\LocationService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Request;
@@ -167,6 +168,67 @@ final class PublicEventControllerTest extends TestCase
             'price' => '',
             'sort' => 'soonest',
         ], $this->events->filters);
+    }
+
+    public function testIndexMergesValidSessionLocationBoundsAndDistanceSort(): void
+    {
+        $session = new Session(false);
+        $session->put('event_location', [
+            'latitude' => '23.810',
+            'longitude' => '90.413',
+            'radius' => 25,
+            'label' => 'Current area',
+            'source' => 'device',
+            'expires_at' => 1_900_000_000,
+        ]);
+        $locations = new LocationService(1209600, static fn (): int => 1_800_000_000);
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, new FakeUserRepository()),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+            null,
+            null,
+            $locations,
+        );
+
+        $controller->index(Request::create('GET', '/events', ['radius' => '10', 'sort' => 'distance']));
+
+        $this->assertArrayHasKey('latitude', $this->events->filters);
+        $this->assertSame('23.810', $this->events->filters['latitude']);
+        $this->assertSame('90.413', $this->events->filters['longitude']);
+        $this->assertSame(10, $this->events->filters['radius']);
+        $this->assertSame('distance', $this->events->filters['sort']);
+        $this->assertArrayHasKey('longitude_wraps', $this->events->filters);
+    }
+
+    public function testIndexClearsInvalidSessionLocationAndRejectsDistanceSort(): void
+    {
+        $session = new Session(false);
+        $session->put('event_location', ['latitude' => '91', 'longitude' => '90.413', 'expires_at' => 1_900_000_000]);
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, new FakeUserRepository()),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+            null,
+            null,
+            new LocationService(1209600, static fn (): int => 1_800_000_000),
+        );
+
+        $controller->index(Request::create('GET', '/events', ['sort' => 'distance']));
+
+        $this->assertNull($session->get('event_location'));
+        $this->assertSame('soonest', $this->events->filters['sort']);
+        $this->assertFalse(array_key_exists('latitude', $this->events->filters));
     }
 
     public function testShowReturnsBranded404ForUnpublishedOrDeletedEvents(): void

@@ -105,6 +105,77 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(count($matches[1]), count(array_unique($matches[1])));
     }
 
+    public function testNearbySearchFiltersAndOrdersByDistanceWithoutLifecycleLeaks(): void
+    {
+        $this->seedNearbyEvents();
+
+        $events = $this->repository->publicSearch([
+            'latitude' => '23.810',
+            'longitude' => '90.413',
+            'latitude_min' => '23.585',
+            'latitude_max' => '24.035',
+            'longitude_min' => '90.168',
+            'longitude_max' => '90.658',
+            'longitude_wraps' => false,
+            'radius' => 25,
+            'sort' => 'distance',
+        ]);
+        $this->assertSame(['near-one', 'near-two'], array_column($events, 'slug'));
+        $this->assertTrue((float) $events[0]['distance_km'] < (float) $events[1]['distance_km']);
+        $this->assertSame('12 Lake Road', $events[0]['venue_address_line']);
+        $this->assertSame('1205', $events[0]['venue_postal_code']);
+        $this->assertSame('10', (string) $events[0]['organizer_user_id']);
+        $this->assertSame('public', $events[0]['location_visibility']);
+        $this->assertSame('Enter through the east gate.', $events[0]['arrival_notes']);
+    }
+
+    public function testNearbySearchUsesWrappedLongitudeBoundsAndUniquePreparedBindings(): void
+    {
+        $this->seedNearbyEvents();
+        $this->connection->exec("UPDATE venues SET latitude = 0, longitude = CASE id WHEN 11 THEN 179.9 WHEN 12 THEN -179.9 ELSE 0 END WHERE id IN (11, 12, 13)");
+
+        $events = $this->repository->publicSearch([
+            'latitude' => '0',
+            'longitude' => '180',
+            'latitude_min' => '-1.000000',
+            'latitude_max' => '1.000000',
+            'longitude_min' => '179.500000',
+            'longitude_max' => '-179.500000',
+            'longitude_wraps' => true,
+            'radius' => 100,
+            'sort' => 'distance',
+        ]);
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+        preg_match_all('/:(\w+)/', $query, $bindings);
+
+        $this->assertSame(['near-one', 'near-two'], array_column($events, 'slug'));
+        $this->assertTrue(str_contains($query, 'venues.longitude >= :longitude_min OR venues.longitude <= :longitude_max'));
+        $this->assertSame(count($bindings[1]), count(array_unique($bindings[1])));
+    }
+
+    public function testNearbySearchAvoidsLongitudePredicateForPoleReachingBounds(): void
+    {
+        $this->seedNearbyEvents();
+        $this->connection->exec("UPDATE venues SET latitude = 89.5, longitude = CASE id WHEN 11 THEN 0 WHEN 12 THEN 90 ELSE -90 END WHERE id IN (11, 12, 13)");
+
+        $events = $this->repository->publicSearch([
+            'latitude' => '89.500',
+            'longitude' => '0.000',
+            'latitude_min' => '88.600000',
+            'latitude_max' => '90.000000',
+            'longitude_min' => '-180.000000',
+            'longitude_max' => '180.000000',
+            'longitude_wraps' => false,
+            'radius' => 100,
+            'sort' => 'distance',
+        ]);
+        $query = $this->connection->preparedQueries[array_key_last($this->connection->preparedQueries)];
+
+        $this->assertSame(['near-one', 'near-two', 'outside-circle'], array_column($events, 'slug'));
+        $this->assertFalse(str_contains($query, 'venues.longitude >= :longitude_min'));
+        $this->assertFalse(str_contains($query, 'venues.longitude <= :longitude_max'));
+    }
+
     public function testEventWritesUseUniqueBindingsUnderNativePrepareContract(): void
     {
         $this->connection->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
@@ -580,7 +651,7 @@ final class EventRepositoryTest extends TestCase
         $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL DEFAULT "pending")');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
-        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, city TEXT NOT NULL, country TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NOT NULL, country TEXT NOT NULL, postal_code TEXT NULL, latitude REAL NULL, longitude REAL NULL, map_url TEXT NULL)');
         $this->connection->exec(
             'CREATE TABLE events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -592,6 +663,8 @@ final class EventRepositoryTest extends TestCase
                 description TEXT NOT NULL,
                 banner TEXT NULL,
                 map_url TEXT NULL,
+                location_visibility TEXT NOT NULL DEFAULT "public",
+                arrival_notes TEXT NULL,
                 speaker TEXT NULL,
                 start_date TEXT NOT NULL,
                 end_date TEXT NOT NULL,
@@ -642,6 +715,28 @@ final class EventRepositoryTest extends TestCase
         );
         $this->connection->exec("UPDATE events SET approved_by = 55, approved_at = '2026-01-03 10:00:00', published_at = '2026-01-04 10:00:00' WHERE id = 503");
         $this->connection->exec("INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order, created_at) VALUES (501, 'summit-stage.jpg', 'Stage', 2, CURRENT_TIMESTAMP), (501, 'summit-cover.jpg', 'Cover', 1, CURRENT_TIMESTAMP), (502, 'draft-only.jpg', 'Draft', 1, CURRENT_TIMESTAMP), (505, 'deleted-only.jpg', 'Deleted', 1, CURRENT_TIMESTAMP)");
+    }
+
+    private function seedNearbyEvents(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'draft'");
+        $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (4, 'Inactive', 'inactive', 0)");
+        $this->connection->exec("INSERT INTO venues (id, organizer_id, name, address_line, city, country, postal_code, latitude, longitude, map_url) VALUES
+            (11, 1, 'Near one venue', '12 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.810, 90.413, 'https://maps.example.test/near-one'),
+            (12, 1, 'Near two venue', '13 Lake Road', 'Dhaka', 'Bangladesh', '1205', 23.900, 90.413, 'https://maps.example.test/near-two'),
+            (13, 1, 'Outside venue', '14 Lake Road', 'Dhaka', 'Bangladesh', '1205', 24.030, 90.650, 'https://maps.example.test/outside'),
+            (14, 1, 'Missing coordinate venue', '15 Lake Road', 'Dhaka', 'Bangladesh', '1205', NULL, NULL, NULL)");
+        $this->connection->exec("INSERT INTO events
+            (organizer_id, category_id, venue_id, title, slug, description, start_date, end_date, registration_deadline, capacity, available_seats, ticket_price, currency, tags, status, location_visibility, arrival_notes, created_at, updated_at, deleted_at)
+            VALUES
+            (1, 1, 11, 'Near one', 'near-one', 'Near event.', datetime('now', '+2 days'), datetime('now', '+2 days', '+2 hours'), datetime('now', '+1 day'), 10, 10, 0, 'BDT', '[]', 'published', 'public', 'Enter through the east gate.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 12, 'Near two', 'near-two', 'Near event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 13, 'Outside circle', 'outside-circle', 'Outside exact radius.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 14, 'Missing coordinates', 'missing-coordinates', 'Missing coordinates.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 4, 11, 'Inactive category', 'inactive-category', 'Inactive category.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 11, 'Deleted nearby', 'deleted-nearby', 'Deleted event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+            (1, 1, 11, 'Completed nearby', 'completed-nearby', 'Completed event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'completed', 'public', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL),
+            (1, 1, 11, 'Restricted nearby', 'restricted-nearby', 'Restricted event.', datetime('now', '+3 days'), datetime('now', '+3 days', '+2 hours'), datetime('now', '+2 days'), 10, 10, 0, 'BDT', '[]', 'published', 'registered', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, NULL)");
     }
 
     private function eventAttributes(string $slug = 'new-event', string $title = 'New Event'): array
