@@ -24,7 +24,7 @@ final class ParticipantReviewController extends Controller
         Auth $auth,
         Config $config,
         private readonly ReviewService $reviewService,
-        private readonly ?RateLimiter $limiter = null,
+        private readonly RateLimiter $limiter,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -71,7 +71,7 @@ final class ParticipantReviewController extends Controller
 
         $userId = (int) ($this->auth->id() ?? 0);
         $limitKey = 'participant-review:' . $userId . ':' . $eventId . ':' . hash('sha256', $request->ip());
-        if ($this->limiter !== null && !$this->limiter->consumeAttempt($limitKey)) {
+        if (!$this->limiter->consumeAttempt($limitKey)) {
             $this->session->flash('errors', [
                 'review' => ['Too many review attempts. Wait before trying again.'],
             ]);

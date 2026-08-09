@@ -69,6 +69,7 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
     public function updateWithGalleryOwned(int $userId, int $eventId, array $attributes, ?array $images): ?array { return null; }
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool { return false; }
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool { return false; }
+    public function participantIdsForEventCancellation(int $eventId): array { return []; }
     public function publishOwned(int $userId, int $eventId, array $context): bool { return false; }
     public function forAdmin(?string $status): array { return []; }
     public function countPendingForAdmin(): int { return 0; }
@@ -227,8 +228,8 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'craft'));
         $this->assertTrue(str_contains($body, '120 total places'));
         $this->assertTrue(str_contains($body, 'Register and pay'));
-        $this->assertTrue(str_contains($body, 'href="/login"'));
-        $this->assertTrue(str_contains($body, 'class="favorite-guest-link" href="/login" aria-label="Sign in to save Future Craft"'));
+        $this->assertTrue(str_contains($body, 'href="/login?return_to=%2Fevents%2Ffuture-craft"'));
+        $this->assertTrue(str_contains($body, 'class="favorite-guest-link" href="/login?return_to=%2Fevents%2Ffuture-craft" aria-label="Sign in to save Future Craft"'));
         $this->assertTrue(str_contains($body, '<i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span>'));
         $this->assertFalse(str_contains($body, 'Week 3'));
     }
@@ -269,7 +270,7 @@ final class PublicEventControllerTest extends TestCase
                 $this->assertTrue(str_contains($body, $description));
             }
             $this->assertFalse(str_contains($body, 'href="/participant/events/' . $slug . '/register"'));
-            $this->assertSame(4, substr_count($body, 'href="/login"'));
+            $this->assertSame(3, substr_count($body, 'href="/login"'));
         }
     }
 

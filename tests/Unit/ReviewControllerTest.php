@@ -34,11 +34,14 @@ final class ReviewControllerTest extends TestCase
 
     private Security $security;
 
+    private string $limitRoot;
+
     protected function setUp(): void
     {
         $_SESSION = [];
         $this->session = new Session(false);
         $this->security = new Security($this->session);
+        $this->limitRoot = sys_get_temp_dir() . '/oems-review-controller-limit-' . bin2hex(random_bytes(6));
         $this->users = new FakeUserRepository();
         $this->users->users = [
             7 => $this->user(7, 3, 'Participant Owner'),
@@ -76,6 +79,12 @@ final class ReviewControllerTest extends TestCase
     {
         $_SESSION = [];
         unset($_SERVER['REQUEST_URI']);
+        foreach (glob($this->limitRoot . '/*') ?: [] as $path) {
+            unlink($path);
+        }
+        if (is_dir($this->limitRoot)) {
+            rmdir($this->limitRoot);
+        }
     }
 
     public function testParticipantListAndFormEscapeValuesAndUseAccessibleRatingControls(): void
@@ -268,7 +277,11 @@ final class ReviewControllerTest extends TestCase
 
     private function participantController(?RateLimiter $limiter = null): ParticipantReviewController
     {
-        $controller = $this->controllerFor(ParticipantReviewController::class, 7, $limiter);
+        $controller = $this->controllerFor(
+            ParticipantReviewController::class,
+            7,
+            $limiter ?? new RateLimiter($this->limitRoot, 1000, 900),
+        );
         $this->assertTrue($controller instanceof ParticipantReviewController, 'Participant review controller is missing.');
 
         return $controller;
@@ -309,7 +322,10 @@ final class ReviewControllerTest extends TestCase
             new Config(['name' => 'OEMS', 'timezone' => 'Asia/Dhaka']),
             $service,
         ];
-        if ($class === ParticipantReviewController::class && $limiter !== null) {
+        if ($class === ParticipantReviewController::class) {
+            if ($limiter === null) {
+                throw new \LogicException('Participant review controller tests require a rate limiter.');
+            }
             $arguments[] = $limiter;
         }
 

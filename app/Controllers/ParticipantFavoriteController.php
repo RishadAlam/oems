@@ -7,6 +7,7 @@ namespace OEMS\App\Controllers;
 use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
+use OEMS\App\Support\Money;
 use OEMS\App\Services\FavoriteService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -110,11 +111,11 @@ final class ParticipantFavoriteController extends Controller
     private function presentFavorite(array $favorite): array
     {
         $start = trim((string) ($favorite['start_date'] ?? ''));
-        $price = (float) ($favorite['ticket_price'] ?? 0);
+        $isFree = Money::isFree($favorite['ticket_price'] ?? null);
 
         return array_merge($favorite, [
             'start_display' => $start === '' ? 'Schedule unavailable' : (new DateTimeImmutable($start, $this->timezone()))->format('M j, Y, g:i A'),
-            'price_display' => $price <= 0 ? 'Free' : $this->currency($price, (string) ($favorite['currency'] ?? 'BDT')),
+            'price_display' => $isFree ? 'Free' : Money::format($favorite['ticket_price'] ?? null, (string) ($favorite['currency'] ?? 'BDT')),
             'image' => (string) (($favorite['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
         ]);
     }
@@ -124,14 +125,4 @@ final class ParticipantFavoriteController extends Controller
         return new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka'));
     }
 
-    private function currency(float $amount, string $currency): string
-    {
-        $formatted = number_format($amount, floor($amount) === $amount ? 0 : 2);
-
-        return match (strtoupper($currency)) {
-            'BDT' => '৳' . $formatted,
-            'USD' => '$' . $formatted,
-            default => $formatted . ' ' . strtoupper($currency),
-        };
-    }
 }

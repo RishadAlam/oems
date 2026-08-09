@@ -202,6 +202,7 @@ final class RegistrationRepositoryTest extends TestCase
     {
         $event = $this->repository->findOrganizerEvent(100, 10);
         $foreign = $this->repository->findOrganizerEvent(200, 10);
+        $allRows = $this->repository->forOrganizerEvent(100, 10, [], 25, 0);
         $rows = $this->repository->forOrganizerEvent(100, 10, [
             'registration_status' => 'confirmed',
             'payment_status' => 'paid',
@@ -214,6 +215,13 @@ final class RegistrationRepositoryTest extends TestCase
         $this->assertSame('Eligible Event', $event['event_title']);
         $this->assertSame(100, $event['organizer_user_id']);
         $this->assertNull($foreign);
+        $this->assertSame([102, 101], array_column($allRows, 'id'));
+        $this->assertFalse(in_array('Deleted Participant', array_column($allRows, 'participant_name'), true));
+        $this->assertFalse(in_array('deleted@example.test', array_column($allRows, 'participant_email'), true));
+        $this->assertSame(2, $this->repository->countForOrganizerEvent(100, 10, []));
+        $this->assertSame([], $this->repository->forOrganizerEvent(100, 10, [
+            'search' => 'deleted@example.test',
+        ], 25, 0));
         $this->assertSame([102], array_column($rows, 'id'));
         $this->assertSame('Participant Two', $rows[0]['participant_name']);
         $this->assertSame('participant-two@example.test', $rows[0]['participant_email']);
@@ -243,7 +251,7 @@ final class RegistrationRepositoryTest extends TestCase
         ], 500, -10);
         $queries = implode("\n", $this->connection->preparedQueries);
 
-        $this->assertSame([102, 101], array_column($rows, 'id'));
+        $this->assertSame([], array_column($rows, 'id'));
         $this->assertTrue(str_contains($queries, 'organizers.user_id = :organizer_user_id'));
         $this->assertTrue(str_contains($queries, 'registrations.event_id = :event_id'));
         $this->assertFalse(str_contains($queries, "confirmed' OR 1=1"));
@@ -328,7 +336,8 @@ final class RegistrationRepositoryTest extends TestCase
                 (104, 19, 2, 'REG-CONFIRMED-FULL', 'confirmed', 0, 'BDT', '2026-08-04 10:00:00', NULL, NULL, '2026-08-04 10:00:00', '2026-08-04 10:00:00'),
                 (105, 17, 1, 'REG-OWNED', 'confirmed', 0, 'BDT', '2026-08-05 10:00:00', NULL, NULL, '2026-08-05 10:00:00', '2026-08-05 10:00:00'),
                 (108, 12, 1, 'REG-DELETED-EVENT', 'confirmed', 999, 'BDT', '2026-08-06 10:00:00', NULL, NULL, '2026-08-06 10:00:00', '2026-08-06 10:00:00'),
-                (109, 11, 5, 'REG-DELETED-PARTICIPANT', 'confirmed', 999, 'BDT', '2026-08-07 10:00:00', NULL, NULL, '2026-08-07 10:00:00', '2026-08-07 10:00:00')",
+                (109, 11, 5, 'REG-DELETED-PARTICIPANT', 'confirmed', 999, 'BDT', '2026-08-07 10:00:00', NULL, NULL, '2026-08-07 10:00:00', '2026-08-07 10:00:00'),
+                (110, 10, 5, 'REG-DELETED-PARTICIPANT-PII', 'cancelled', 100, 'BDT', '2026-08-08 10:00:00', '2026-08-08 11:00:00', 'Removed account', '2026-08-08 10:00:00', '2026-08-08 11:00:00')",
         );
     }
 

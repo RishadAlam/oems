@@ -67,6 +67,27 @@ final class TransactionUiTest extends TestCase
         $this->assertFalse(str_contains($refundedHtml, 'aria-current="step"'));
     }
 
+    public function testEventCancellationOutranksTheDerivedFailedPaymentStateInDetailAndTimelineCopy(): void
+    {
+        $cancelled = $this->registration();
+        $cancelled['registration_status'] = 'cancelled';
+        $cancelled['event_status'] = 'cancelled';
+        $cancelled['cancellation_reason'] = 'Event cancelled';
+        $cancelled['payment_status'] = 'failed';
+        $cancelled['ticket']['ticket_status'] = 'cancelled';
+
+        $html = $this->render('participant/registrations/show', [
+            'registration' => $cancelled,
+            'errors' => [],
+        ]);
+
+        $this->assertTrue(str_contains($html, 'The event was cancelled.'));
+        $this->assertTrue(str_contains($html, '<strong>Payment</strong><span>Event cancelled</span>'));
+        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd>Event cancelled</dd>'));
+        $this->assertFalse(str_contains($html, 'payment reference was rejected'));
+        $this->assertFalse(str_contains($html, '>Payment rejected</span>'));
+    }
+
     public function testCancellationFieldAlwaysAssociatesItsHelpAndConditionalError(): void
     {
         $registration = $this->registration();

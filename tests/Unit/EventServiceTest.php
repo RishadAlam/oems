@@ -6,9 +6,11 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\ImageUploadService;
+use OEMS\App\Services\NotificationService;
 use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeCategoryRepository;
 use OEMS\Tests\Support\FakeEventRepository;
+use OEMS\Tests\Support\FakeNotificationRepository;
 use OEMS\Tests\Support\FakeOrganizerRepository;
 use OEMS\Tests\Support\FakeVenueRepository;
 use OEMS\Tests\Support\TestCase;
@@ -308,6 +310,61 @@ final class EventServiceTest extends TestCase
         $this->assertFalse($result['success']);
         $this->assertArrayHasKey('status', $result['errors']);
         $this->assertSame('draft', $this->events->events[1]['status']);
+    }
+
+    public function testSuccessfulCancellationNotifiesAffectedParticipantsAfterTheTransition(): void
+    {
+        $notifications = new FakeNotificationRepository();
+        $this->events->events[1] = $this->storedEvent(1, 10, 'published');
+        $this->events->cancellationParticipantIds[1] = [31, 32];
+        $service = new EventService(
+            $this->events,
+            $this->categories,
+            $this->venues,
+            new ImageUploadService($this->uploadRoot, '/uploads/events', 5 * 1024 * 1024, false),
+            new FakeOrganizerRepository(),
+            null,
+            new NotificationService($notifications),
+        );
+
+        $result = $service->cancel(10, 1);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('cancelled', $this->events->events[1]['status']);
+        $this->assertSame([31, 32], array_column($notifications->notifications, 'user_id'));
+        $this->assertSame(
+            ['event_cancelled', 'event_cancelled'],
+            array_column($notifications->notifications, 'type'),
+        );
+    }
+
+    public function testNotificationFailureCannotUndoACommittedCancellationAndIsSanitized(): void
+    {
+        $logPath = $this->temporaryDirectory . '/event-cancellation-notification.log';
+        $notifications = new FakeNotificationRepository();
+        $notifications->throwOnCreate = true;
+        $this->events->events[1] = $this->storedEvent(1, 10, 'published');
+        $this->events->cancellationParticipantIds[1] = [31];
+        $service = new EventService(
+            $this->events,
+            $this->categories,
+            $this->venues,
+            new ImageUploadService($this->uploadRoot, '/uploads/events', 5 * 1024 * 1024, false),
+            new FakeOrganizerRepository(),
+            null,
+            new NotificationService($notifications, new Logger($logPath)),
+        );
+
+        $result = $service->cancel(10, 1);
+        $log = file_get_contents($logPath);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('cancelled', $this->events->events[1]['status']);
+        $this->assertTrue(is_string($log));
+        $this->assertTrue(str_contains($log, 'notification_dispatch'));
+        $this->assertTrue(str_contains($log, '"user_id":31'));
+        $this->assertTrue(str_contains($log, '"type":"event_cancelled"'));
+        $this->assertFalse(str_contains($log, 'Notification delivery failed.'));
     }
 
     public function testOrganizerMayPublishOnlyAnOwnedApprovedEventAndRepeatIsTruthful(): void

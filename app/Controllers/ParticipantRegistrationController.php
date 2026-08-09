@@ -11,6 +11,7 @@ use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -34,7 +35,7 @@ final class ParticipantRegistrationController extends Controller
         private readonly PaymentRepositoryInterface $payments,
         private readonly TicketRepositoryInterface $tickets,
         private readonly RegistrationService $registrationService,
-        private readonly ?RateLimiter $limiter = null,
+        private readonly RateLimiter $limiter,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -80,7 +81,7 @@ final class ParticipantRegistrationController extends Controller
             return $this->redirectWith('/events/' . rawurlencode((string) $event['slug']), 'error', 'This event is not available for registration.');
         }
 
-        $isFree = (float) $event['ticket_price'] <= 0;
+        $isFree = Money::isFree($event['ticket_price'] ?? null);
 
         return $this->render('participant/registrations/register', [
             'pageTitle' => 'Register for ' . (string) $event['title'],
@@ -105,12 +106,17 @@ final class ParticipantRegistrationController extends Controller
             return Response::redirect('/login');
         }
 
+        $existing = $this->registrations->findForParticipantEvent($userId, (int) $event['id']);
+        if ($existing !== null && in_array((string) ($existing['registration_status'] ?? $existing['status'] ?? ''), ['pending', 'confirmed'], true)) {
+            return Response::redirect('/participant/registrations/' . (int) $existing['id']);
+        }
+
         if (!$this->eventAcceptsRegistration($event)) {
             return $this->redirectWith('/events/' . rawurlencode((string) $event['slug']), 'error', 'This event is not available for registration.');
         }
 
         $limitKey = 'participant-registration:' . $userId . ':' . (int) $event['id'] . ':' . hash('sha256', $request->ip());
-        if ($this->limiter !== null && !$this->limiter->consumeAttempt($limitKey)) {
+        if (!$this->limiter->consumeAttempt($limitKey)) {
             $this->session->flash('errors', [
                 'registration' => ['Too many registration attempts. Wait before trying again.'],
             ]);
@@ -145,7 +151,7 @@ final class ParticipantRegistrationController extends Controller
         return $this->redirectWith(
             '/participant/registrations/' . $registrationId,
             'success',
-            (float) $event['ticket_price'] <= 0
+            Money::isFree($event['ticket_price'] ?? null)
                 ? 'Your registration is confirmed.'
                 : 'Your payment reference was submitted for review.',
         );
@@ -240,11 +246,9 @@ final class ParticipantRegistrationController extends Controller
 
     private function presentEvent(array $event): array
     {
-        $amount = (float) ($event['ticket_price'] ?? 0);
-
         return array_merge($event, [
             'start_display' => $this->date((string) $event['start_date'])->format('M j, Y, g:i A'),
-            'total_display' => $this->currency($amount, (string) ($event['currency'] ?? 'BDT')),
+            'total_display' => Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
         ]);
     }
 
@@ -290,7 +294,7 @@ final class ParticipantRegistrationController extends Controller
             'payment' => $payment,
             'payment_status' => $paymentStatus,
             'ticket' => $ticket,
-            'amount_display' => $this->currency((float) ($registration['amount'] ?? 0), (string) ($registration['currency'] ?? 'BDT')),
+            'amount_display' => Money::format($registration['amount'] ?? null, (string) ($registration['currency'] ?? 'BDT')),
             'registered_display' => $this->date((string) $registration['registered_at'])->format('M j, Y, g:i A'),
             'event_start_display' => $start === '' ? 'Schedule unavailable' : $this->date($start)->format('M j, Y, g:i A'),
             'can_cancel' => (bool) ($cancellationState['allowed'] ?? false),
@@ -324,14 +328,4 @@ final class ParticipantRegistrationController extends Controller
         return new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka'));
     }
 
-    private function currency(float $amount, string $currency): string
-    {
-        $formatted = number_format($amount, floor($amount) === $amount ? 0 : 2);
-
-        return match (strtoupper($currency)) {
-            'BDT' => '৳' . $formatted,
-            'USD' => '$' . $formatted,
-            default => $formatted . ' ' . strtoupper($currency),
-        };
-    }
 }

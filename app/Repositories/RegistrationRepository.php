@@ -543,6 +543,7 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             'organizers.user_id = :organizer_user_id',
             'registrations.event_id = :event_id',
             'events.deleted_at IS NULL',
+            'users.deleted_at IS NULL',
         ];
         $parameters = [
             'organizer_user_id' => $organizerUserId,
@@ -566,7 +567,9 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
 
         $search = is_scalar($filters['search'] ?? null) ? trim((string) $filters['search']) : '';
 
-        if ($search !== '' && mb_strlen($search) <= 120) {
+        if ($search !== '' && mb_strlen($search) > 120) {
+            $clauses[] = '1 = 0';
+        } elseif ($search !== '') {
             $parameters['participant_search'] = '%' . mb_strtolower($search) . '%';
             $clauses[] = '(LOWER(users.name) LIKE :participant_search_name
                 OR LOWER(users.email) LIKE :participant_search_email

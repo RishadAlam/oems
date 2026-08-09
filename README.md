@@ -71,6 +71,25 @@ In production, set `APP_URL` to the externally reachable HTTPS origin so account
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
+## Database upgrades
+
+`database/schema.sql` is the canonical schema for a fresh installation. For a new database, import `schema.sql`, then `seed.sql`, and finally the optional `demo_seed.sql` as shown above. Do not replay historical migrations on a fresh schema.
+
+For an existing populated database created from baseline `5857358`, use this exact order:
+
+1. Back up the database and stop or drain application processes that can write to it.
+2. Make the new release files available, but do not start the new PHP code yet.
+3. Run the forward migration before deploying the code that reads the new payment-review columns.
+
+   ```bash
+   mysql -u root -p oems < database/migrations/2026-08-09-participant-transactions.sql
+   ```
+
+4. Deploy the new PHP code and restart the application processes.
+5. Run the health and acceptance checks. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
+
+The migration adds nullable `payments.reviewed_by`, `payments.reviewed_at`, and `payments.review_note`, the reviewer foreign key, and the review moderation index. Its `information_schema` guards make a second deployment and recovery after a partially applied MySQL DDL run safe; existing rows and values are preserved.
+
 ## Development administrator
 
 - Email: `admin@oems.local`
@@ -131,6 +150,8 @@ The included instructions and demo references are fictional. Do not send money o
 
 ### Event lifecycle
 
+The normal release path is organizer draft → organizer submission → administrator approval → organizer publication. After publication, a participant can save the event as a favorite and register.
+
 Organizer actions:
 
 - `rejected` → `draft` by saving edits that address the administrator's review note.
@@ -160,19 +181,23 @@ Only non-deleted `published` events appear in public discovery.
 - Participant download routes enforce registration ownership before returning an asset.
 - Ticket cancellation invalidates entry. A successful check-in records attendance and moves a valid ticket to checked in.
 - Ensure the PHP process can create and write `public/uploads/tickets` in local and production environments. Do not commit generated ticket files.
+- A decoder round-trip test is intentionally deferred: the installed `endroid/qr-code` API is an encoder, and the project has no installed QR decoder or `zbar` binary. Adding ZXing, ZBar, or another decoder would introduce a new runtime dependency solely for this test. The current suite verifies the generated PNG signature and MIME type; add round-trip decoding when a maintained lightweight decoder becomes an application dependency.
 
 ### Full acceptance journey
 
 Use an isolated local database with both seeds imported.
 
-1. Sign in as `tahmid.participant@oems.local`, open Startup Growth Forum 2026, and submit a registration with a fictional reference such as `OEMS-DEMO-ACCEPTANCE-001`.
-2. Confirm the participant registration page shows payment review pending and no ticket yet.
-3. Sign in as `admin@oems.local`, open `/admin/payments?status=pending`, inspect the submitted evidence, and verify it.
-4. Sign back in as Tahmid. Confirm the registration is confirmed, the ticket opens, QR and PDF downloads work, and the notification center reports the update.
-5. Sign in as `farhan.organizer@oems.local`, open the Startup Growth Forum participant operations page, and confirm the participant, payment, ticket, and attendance states agree.
-6. Use that event's check-in screen to scan the QR or enter the printed ticket number. Confirm a repeated scan is reported as already checked in rather than creating duplicate attendance.
-7. For the review lifecycle, sign in as `jannat.participant@oems.local`, update the completed Product Leaders Meetup review, then sign in as the administrator to publish it and as `ayesha.organizer@oems.local` to add a public organizer reply.
-8. Check both light and dark themes at mobile and desktop widths on the participant registration, ticket, notification, administrator payment queue, and organizer operations screens.
+1. Sign in as the approved organizer `farhan.organizer@oems.local`, create a future paid event draft, save it, and submit it for review.
+2. Sign in as `admin@oems.local`, open `/admin/events`, inspect the submitted event, and approve it. Do not publish it from the administrator screen for this journey.
+3. Sign back in as Farhan, open the approved event, and publish it. Confirm it now appears in public discovery.
+4. Sign in as `tahmid.participant@oems.local`, save the newly published event as a favorite, open it from `/participant/favorites`, and register with a fictional reference such as `OEMS-DEMO-ACCEPTANCE-001`.
+5. Confirm the participant registration page shows payment review pending and no ticket yet.
+6. Sign in as the administrator, open `/admin/payments?status=pending`, inspect the submitted evidence, and verify it.
+7. Sign back in as Tahmid. Confirm the registration is confirmed, the ticket opens, QR and PDF downloads work, and the notification center reports the update.
+8. Sign in as Farhan, open the event's participant operations page, and confirm the participant, payment, ticket, and attendance states agree.
+9. Use that event's check-in screen to scan the QR or enter the printed ticket number. Confirm a repeated scan is reported as already checked in rather than creating duplicate attendance.
+10. For the review lifecycle, sign in as `jannat.participant@oems.local`, update the completed Product Leaders Meetup review, then sign in as the administrator to publish it and as `ayesha.organizer@oems.local` to add a public organizer reply.
+11. Check both light and dark themes at mobile and desktop widths on the participant registration, ticket, notification, administrator payment queue, and organizer operations screens.
 
 ## Current platform capabilities
 

@@ -170,6 +170,8 @@ final class ReviewRepositoryTest extends TestCase
         $this->assertSame(4.5, (float) $summary['average']);
         $this->assertFalse(in_array('Pending secret text', array_column($reviews, 'review'), true));
         $this->assertFalse(in_array('Hidden secret text', array_column($reviews, 'review'), true));
+        $this->assertFalse(in_array('Deleted review PII body', array_column($reviews, 'review'), true));
+        $this->assertFalse(in_array('Deleted Review PII Name', array_column($reviews, 'participant_name'), true));
     }
 
     public function testOrganizerReadsAndRepliesAreSqlScopedToOwnedNondeletedPublishedEvents(): void
@@ -182,7 +184,11 @@ final class ReviewRepositoryTest extends TestCase
         $this->assertNull($repository->replyForOrganizer(60, 1, 'Cross organizer reply'));
         $this->assertNull($repository->replyForOrganizer(50, 2, 'Pending reviews cannot receive replies.'));
         $this->assertNull($repository->replyForOrganizer(50, 6, 'Deleted events cannot receive replies.'));
+        $this->assertNull($repository->replyForOrganizer(50, 8, 'Deleted users cannot receive replies.'));
+        $this->assertNull($repository->findForOrganizer(50, 8));
         $this->assertSame('Thank you for the thoughtful feedback.', $repository->findForParticipantEvent(2, 101)['organizer_reply']);
+        $this->assertFalse(in_array('Deleted review PII body', array_column($owned, 'review'), true));
+        $this->assertFalse(in_array('Deleted Review PII Name', array_column($owned, 'participant_name'), true));
     }
 
     public function testIdenticalOrganizerReplyUsesScopedPostconditionWhenDriverReportsZeroChangedRows(): void
@@ -207,6 +213,7 @@ final class ReviewRepositoryTest extends TestCase
         $this->assertSame([2, 3, 6, 1, 4, 5, 7], array_column($repository->pendingForAdmin(), 'id'));
         $this->assertSame([2, 3, 6], array_column($repository->pendingForAdmin('pending'), 'id'));
         $this->assertSame([2, 3, 6, 1, 4, 5, 7], array_column($repository->pendingForAdmin('not-a-status'), 'id'));
+        $this->assertNull($repository->findForAdmin(8));
 
         $published = $repository->moderate(900, 2, 'published');
         $this->assertSame('published', $published['status']);
@@ -230,7 +237,7 @@ final class ReviewRepositoryTest extends TestCase
 
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL, slug TEXT NOT NULL, end_date TEXT NOT NULL, status TEXT NOT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT NOT NULL)');
@@ -255,7 +262,7 @@ final class ReviewRepositoryTest extends TestCase
 
     private function seedRows(): void
     {
-        $this->connection->exec("INSERT INTO users (id, name) VALUES (1, 'Participant One'), (2, 'Participant Two'), (3, 'Cancelled Participant'), (4, 'Pending Participant'), (5, 'Hidden Participant')");
+        $this->connection->exec("INSERT INTO users (id, name, deleted_at) VALUES (1, 'Participant One', NULL), (2, 'Participant Two', NULL), (3, 'Cancelled Participant', NULL), (4, 'Pending Participant', NULL), (5, 'Hidden Participant', NULL), (6, 'Deleted Review PII Name', '2026-08-08 00:00:00')");
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name) VALUES (10, 50, 'Organizer One'), (20, 60, 'Organizer Two')");
         $this->connection->exec("INSERT INTO events (id, organizer_id, title, slug, end_date, status, deleted_at) VALUES
             (101, 10, 'Completed Event', 'completed-event', '2099-08-01 12:00:00', 'completed', NULL),
@@ -265,7 +272,7 @@ final class ReviewRepositoryTest extends TestCase
             (105, 10, 'Deleted Event', 'deleted-event', '2000-08-01 12:00:00', 'completed', '2026-08-01 00:00:00')");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, status) VALUES
             (11, 101, 1, 'confirmed'), (12, 102, 1, 'confirmed'), (13, 103, 1, 'confirmed'), (14, 104, 1, 'confirmed'), (15, 105, 1, 'confirmed'),
-            (21, 101, 2, 'confirmed'), (31, 101, 3, 'cancelled'), (41, 101, 4, 'pending')");
+            (21, 101, 2, 'confirmed'), (31, 101, 3, 'cancelled'), (41, 101, 4, 'pending'), (61, 101, 6, 'confirmed')");
         $this->connection->exec("INSERT INTO tickets (id, registration_id) VALUES (201, 21)");
         $this->connection->exec("INSERT INTO attendance (id, registration_id, ticket_id, status) VALUES (301, 21, 201, 'present')");
         $this->connection->exec("INSERT INTO reviews (id, event_id, user_id, rating, review, organizer_reply, replied_at, status, created_at, updated_at) VALUES
@@ -275,6 +282,7 @@ final class ReviewRepositoryTest extends TestCase
             (4, 104, 1, 4, 'Other organizer published', NULL, NULL, 'published', '2026-08-04 09:00:00', '2026-08-04 09:00:00'),
             (5, 101, 5, 1, 'Hidden secret text', NULL, NULL, 'hidden', '2026-08-05 09:00:00', '2026-08-05 09:00:00'),
             (6, 105, 1, 4, 'Deleted event pending', NULL, NULL, 'pending', '2026-08-06 09:00:00', '2026-08-06 09:00:00'),
-            (7, 101, 1, 4, 'Newest published', NULL, NULL, 'published', '2026-08-07 09:00:00', '2026-08-07 09:00:00')");
+            (7, 101, 1, 4, 'Newest published', NULL, NULL, 'published', '2026-08-07 09:00:00', '2026-08-07 09:00:00'),
+            (8, 101, 6, 1, 'Deleted review PII body', NULL, NULL, 'published', '2026-08-08 09:00:00', '2026-08-08 09:00:00')");
     }
 }

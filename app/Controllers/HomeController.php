@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
+use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -64,7 +65,7 @@ final class HomeController extends Controller
             trim((string) ($event['venue_name'] ?? '')),
             trim((string) ($event['venue_city'] ?? '')),
         ], static fn (string $value): bool => $value !== ''));
-        $price = (float) ($event['ticket_price'] ?? 0);
+        $isFree = Money::isFree($event['ticket_price'] ?? null);
 
         return array_merge($event, [
             'date' => $start->format('M j, Y'),
@@ -72,9 +73,9 @@ final class HomeController extends Controller
             'datetime' => $start->format(DATE_ATOM),
             'category' => (string) ($event['category_name'] ?? 'Event'),
             'venue' => $venue === [] ? 'Venue to be announced' : implode(', ', $venue),
-            'price' => $price <= 0
+            'price' => $isFree
                 ? 'Free'
-                : $this->currency($price, (string) ($event['currency'] ?? 'BDT')),
+                : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
             'image' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'alt' => 'Banner for ' . (string) $event['title'],
             'favorite' => [
@@ -100,14 +101,4 @@ final class HomeController extends Controller
         return $this->favorites->statesForParticipant((int) $this->auth->id(), $eventIds);
     }
 
-    private function currency(float $amount, string $currency): string
-    {
-        $formatted = number_format($amount, floor($amount) === $amount ? 0 : 2);
-
-        return match (strtoupper($currency)) {
-            'BDT' => '৳' . $formatted,
-            'USD' => '$' . $formatted,
-            default => $formatted . ' ' . strtoupper($currency),
-        };
-    }
 }

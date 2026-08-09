@@ -115,6 +115,69 @@ final class AuthControllerMailTest extends TestCase
         rmdir($directory);
     }
 
+    public function testLoginPreservesOnlyAllowListedPublicReturnDestinationsThroughTheWholeFlow(): void
+    {
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Returning Participant',
+            'email' => 'returning@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 09:00:00',
+        ]);
+        [$controller] = $this->controller($users);
+
+        $form = $controller->showLogin(Request::create('GET', '/login', query: [
+            'return_to' => '/events/future-craft',
+        ]));
+        $validationFailure = $controller->login(Request::create('POST', '/login', input: [
+            'email' => 'returning@example.test',
+            'password' => '',
+            'return_to' => '/events/future-craft',
+        ]));
+        $success = $controller->login(Request::create('POST', '/login', input: [
+            'email' => 'returning@example.test',
+            'password' => 'DemoPass!2026',
+            'return_to' => '/events/future-craft',
+        ]));
+
+        $this->assertTrue(str_contains($form->body(), 'name="return_to" value="/events/future-craft"'));
+        $this->assertSame('/login?return_to=%2Fevents%2Ffuture-craft', $validationFailure->header('Location'));
+        $this->assertSame('/events/future-craft', $success->header('Location'));
+    }
+
+    public function testLoginRejectsExternalProtocolRelativeQueryAndFragmentReturnDestinations(): void
+    {
+        foreach ([
+            'https://evil.example/login',
+            '//evil.example/login',
+            '/events/future-craft?next=evil',
+            '/events/future-craft#fragment',
+        ] as $candidate) {
+            $users = new FakeUserRepository();
+            $users->create([
+                'name' => 'Safe Participant',
+                'email' => 'safe@example.test',
+                'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+                'role_id' => 3,
+                'status' => 'active',
+                'email_verified_at' => '2026-08-01 09:00:00',
+            ]);
+            [$controller] = $this->controller($users);
+
+            $form = $controller->showLogin(Request::create('GET', '/login', query: ['return_to' => $candidate]));
+            $success = $controller->login(Request::create('POST', '/login', input: [
+                'email' => 'safe@example.test',
+                'password' => 'DemoPass!2026',
+                'return_to' => $candidate,
+            ]));
+
+            $this->assertFalse(str_contains($form->body(), 'name="return_to"'));
+            $this->assertSame('/dashboard', $success->header('Location'));
+        }
+    }
+
     private function controller(
         ?FakeUserRepository $users = null,
         ?RateLimiter $rateLimiter = null,

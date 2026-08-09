@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use OEMS\App\Controllers\ParticipantRegistrationController;
+use OEMS\App\Controllers\ParticipantReviewController;
 use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
@@ -100,6 +102,19 @@ final class ProfileRouteSecurityTest extends TestCase
             $this->assertSame(405, $router->dispatch(Request::create('PUT', $uri))->status());
         }
         $this->assertNotSame('invalid', $security->csrfToken());
+    }
+
+    public function testParticipantWriteControllersRequireARateLimiterDependency(): void
+    {
+        foreach ([ParticipantRegistrationController::class, ParticipantReviewController::class] as $controller) {
+            $parameter = (new \ReflectionClass($controller))->getConstructor()?->getParameters();
+            $limiter = is_array($parameter) ? $parameter[array_key_last($parameter)] : null;
+
+            $this->assertNotNull($limiter);
+            $this->assertSame('limiter', $limiter->getName());
+            $this->assertFalse($limiter->allowsNull());
+            $this->assertFalse($limiter->isDefaultValueAvailable());
+        }
     }
 
     private function profileRouter(?int $authenticatedUserId = null, string $role = 'participant'): array

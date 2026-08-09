@@ -26,7 +26,7 @@ $canCancel = in_array($status, ['approved', 'published'], true);
             <div><dt><i class="ph ph-hourglass" aria-hidden="true"></i>Registration closes</dt><dd><time datetime="<?= e(str_replace(' ', 'T', (string) $event['registration_deadline'])) ?>"><?= e(date('M j, Y, g:i A', strtotime((string) $event['registration_deadline']))) ?></time></dd></div>
             <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i>Venue</dt><dd><?= e($event['venue_name'] ?? 'No venue selected') ?><?php if (!empty($event['venue_city'])): ?>, <?= e($event['venue_city']) ?><?php endif; ?></dd></div>
             <div><dt><i class="ph ph-users" aria-hidden="true"></i>Capacity</dt><dd><?= e($event['capacity']) ?> total, <?= e($event['available_seats']) ?> available</dd></div>
-            <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Ticket price</dt><dd>৳<?= e(number_format((float) ($event['ticket_price'] ?? 0), 2)) ?> <?= e($event['currency'] ?? 'BDT') ?></dd></div>
+            <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Ticket price</dt><dd><?= e(\OEMS\App\Support\Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT'))) ?></dd></div>
             <div><dt><i class="ph ph-microphone-stage" aria-hidden="true"></i>Speaker</dt><dd><?= e($event['speaker'] ?? 'Not specified') ?></dd></div>
             <div><dt><i class="ph ph-link" aria-hidden="true"></i>Map</dt><dd><?php if (!empty($event['map_url'])): ?><a class="text-link" href="<?= e($event['map_url']) ?>" target="_blank" rel="noopener noreferrer">Open submitted map <i class="ph ph-arrow-square-out" aria-hidden="true"></i></a><?php else: ?>Not provided<?php endif; ?></dd></div>
         </dl>

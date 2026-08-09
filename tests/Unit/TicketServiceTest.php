@@ -7,6 +7,7 @@ namespace OEMS\Tests\Unit;
 use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
+use OEMS\Core\Logger;
 use OEMS\Tests\Support\TestCase;
 use PDO;
 use Throwable;
@@ -177,6 +178,33 @@ final class TicketServiceTest extends TestCase
         $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
     }
 
+    public function testCheckInRejectsFragmentedAndDuplicateTokenQueryUrls(): void
+    {
+        $rawToken = str_repeat('f', 64);
+        $digest = hash('sha256', $rawToken);
+        $this->connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (20, 10, 'OEMS-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF', '{$digest}', 'valid', CURRENT_TIMESTAMP)");
+
+        $fragmented = $this->service->checkIn(
+            2,
+            5,
+            'https://oems.test/organizer/check-in?token=' . $rawToken . '#ignored',
+            2,
+            '127.0.0.1',
+        );
+        $duplicated = $this->service->checkIn(
+            2,
+            5,
+            'https://oems.test/organizer/check-in?token=' . $rawToken . '&token=' . $rawToken,
+            2,
+            '127.0.0.1',
+        );
+
+        $this->assertNull($fragmented);
+        $this->assertNull($duplicated);
+        $this->assertSame('valid', (string) $this->connection->query('SELECT status FROM tickets WHERE id = 20')->fetchColumn());
+        $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM attendance')->fetchColumn());
+    }
+
     public function testCheckInInsideOuterTransactionLeavesCommitAndRollbackToCaller(): void
     {
         $rawToken = str_repeat('e', 64);
@@ -230,6 +258,33 @@ final class TicketServiceTest extends TestCase
         $this->service->cleanupCreated($issuance);
         $this->assertSame(0, (int) $this->connection->query('SELECT COUNT(*) FROM tickets')->fetchColumn());
         $this->assertSame([], glob($this->ticketRoot . '/*') ?: []);
+    }
+
+    public function testCleanupFailureReturnsFalseAndLogsOnlySanitizedResultContext(): void
+    {
+        $logPath = dirname($this->ticketRoot) . '/oems-ticket-cleanup-' . bin2hex(random_bytes(6)) . '.log';
+        file_put_contents($logPath, '');
+        $service = new TicketService(
+            $this->connection,
+            new TicketRepository($this->connection),
+            new TicketArtifactService($this->ticketRoot, 'uploads/tickets'),
+            'https://oems.test/organizer/check-in',
+            new Logger($logPath),
+        );
+
+        $cleaned = $service->cleanupCreated([
+            'created_paths' => ['uploads/tickets/../private-artifact.txt'],
+        ]);
+        $log = file_get_contents($logPath);
+        unlink($logPath);
+
+        $this->assertFalse($cleaned);
+        $this->assertTrue(is_string($log));
+        $this->assertTrue(str_contains($log, 'ticket_artifact_cleanup'));
+        $this->assertTrue(str_contains($log, '"operation":"cleanup_created"'));
+        $this->assertTrue(str_contains($log, '"failure_count":1'));
+        $this->assertFalse(str_contains($log, 'private-artifact.txt'));
+        $this->assertFalse(str_contains($log, $this->ticketRoot));
     }
 
     private function createSchema(): void

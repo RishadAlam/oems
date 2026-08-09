@@ -173,7 +173,9 @@ final class ReviewRepository implements ReviewRepositoryInterface
                           AND attendance.status = :present_status
                     ) THEN 1 ELSE 0 END AS verified_attendee
              FROM reviews
-             INNER JOIN users ON users.id = reviews.user_id
+             INNER JOIN users
+                     ON users.id = reviews.user_id
+                    AND users.deleted_at IS NULL
              WHERE reviews.event_id = :event_id
                AND reviews.status = :published_status
              ORDER BY reviews.created_at DESC, reviews.id DESC',
@@ -191,9 +193,12 @@ final class ReviewRepository implements ReviewRepositoryInterface
     public function summaryForEvent(int $eventId): array
     {
         $statement = $this->connection->prepare(
-            'SELECT COUNT(*) AS review_count, AVG(rating) AS average_rating
+            'SELECT COUNT(*) AS review_count, AVG(reviews.rating) AS average_rating
              FROM reviews
-             WHERE event_id = :event_id AND status = :published_status',
+             INNER JOIN users
+                     ON users.id = reviews.user_id
+                    AND users.deleted_at IS NULL
+             WHERE reviews.event_id = :event_id AND reviews.status = :published_status',
         );
         $statement->execute(['event_id' => $eventId, 'published_status' => 'published']);
         $row = $statement->fetch();
@@ -283,6 +288,9 @@ final class ReviewRepository implements ReviewRepositoryInterface
                    SELECT 1
                    FROM events
                    INNER JOIN organizers ON organizers.id = events.organizer_id
+                   INNER JOIN users
+                           ON users.id = reviews.user_id
+                          AND users.deleted_at IS NULL
                    WHERE events.id = reviews.event_id
                      AND organizers.user_id = :organizer_user_id
                      AND events.deleted_at IS NULL
@@ -309,7 +317,13 @@ final class ReviewRepository implements ReviewRepositoryInterface
         $statement = $this->connection->prepare(
             'UPDATE reviews
              SET status = :target_status, updated_at = CURRENT_TIMESTAMP
-             WHERE id = :review_id AND status = :pending_status',
+             WHERE id = :review_id
+               AND status = :pending_status
+               AND EXISTS (
+                   SELECT 1 FROM users
+                   WHERE users.id = reviews.user_id
+                     AND users.deleted_at IS NULL
+               )',
         );
         $statement->execute([
             'target_status' => $status,
@@ -360,7 +374,9 @@ final class ReviewRepository implements ReviewRepositoryInterface
                        organizers.user_id AS organizer_user_id,
                        organizers.organization_name
                 FROM reviews
-                INNER JOIN users ON users.id = reviews.user_id
+                INNER JOIN users
+                        ON users.id = reviews.user_id
+                       AND users.deleted_at IS NULL
                 INNER JOIN events ON events.id = reviews.event_id
                 INNER JOIN organizers ON organizers.id = events.organizer_id';
     }

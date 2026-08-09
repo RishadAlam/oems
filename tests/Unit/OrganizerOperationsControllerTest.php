@@ -144,6 +144,37 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
     }
 
+    public function testParticipantSearchNormalizesWhitespaceAndRejectsOverlengthForUiAndCsv(): void
+    {
+        $normalized = $this->participants->index($this->routed(
+            'GET',
+            '/organizer/events/10/participants',
+            '10',
+            query: ['search' => "  formula@example.test\t\n  "],
+        ));
+        $overlength = str_repeat('x', 121);
+        $rejectedUi = $this->participants->index($this->routed(
+            'GET',
+            '/organizer/events/10/participants',
+            '10',
+            query: ['search' => $overlength],
+        ));
+        $rejectedCsv = $this->participants->export($this->routed(
+            'GET',
+            '/organizer/events/10/participants.csv',
+            '10',
+            query: ['search' => $overlength],
+        ));
+
+        $this->assertSame(200, $normalized->status());
+        $this->assertTrue(str_contains($normalized->body(), 'formula@example.test'));
+        $this->assertTrue(str_contains($normalized->body(), 'name="search" type="search" maxlength="120" value="formula@example.test"'));
+        $this->assertSame(422, $rejectedUi->status());
+        $this->assertSame(422, $rejectedCsv->status());
+        $this->assertFalse(str_contains($rejectedUi->body(), 'formula@example.test'));
+        $this->assertFalse(str_contains($rejectedUi->body(), $overlength));
+    }
+
     public function testParticipantFakeCountIsIndependentOfThePageLimit(): void
     {
         foreach (range(102, 226) as $registrationId) {

@@ -6,6 +6,7 @@
 
 <form class="form-stack mt-9" action="/login" method="post" novalidate>
     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+    <?php if (is_string($returnTo ?? null)): ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><?php endif; ?>
 
     <div class="field-group">
         <label for="email">Email address</label>

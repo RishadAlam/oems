@@ -540,6 +540,24 @@ final class EventRepository implements EventRepositoryInterface
         });
     }
 
+    public function participantIdsForEventCancellation(int $eventId): array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT DISTINCT registrations.user_id
+             FROM registrations
+             INNER JOIN users
+                     ON users.id = registrations.user_id
+                    AND users.deleted_at IS NULL
+             WHERE registrations.event_id = :event_id
+               AND registrations.status = 'cancelled'
+               AND registrations.cancellation_reason = 'Event cancelled'
+             ORDER BY registrations.user_id ASC",
+        );
+        $statement->execute(['event_id' => $eventId]);
+
+        return array_map('intval', $statement->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
     public function publishOwned(int $userId, int $eventId, array $context): bool
     {
         return $this->transitionOwned($userId, $eventId, $context, 'published');
@@ -887,20 +905,6 @@ final class EventRepository implements EventRepositoryInterface
 
     private function cancelParticipantFulfillment(int $eventId): void
     {
-        $notify = $this->connection->prepare(
-            "INSERT INTO notifications (user_id, type, title, message, action_url, data)
-             SELECT registrations.user_id,
-                    'event_cancelled',
-                    'Event cancelled',
-                    'An event in your registrations was cancelled. Your registration and ticket are no longer active.',
-                    '/participant/registrations',
-                    NULL
-             FROM registrations
-             WHERE registrations.event_id = :notification_event_id
-               AND registrations.status IN ('pending', 'confirmed')",
-        );
-        $notify->execute(['notification_event_id' => $eventId]);
-
         $tickets = $this->connection->prepare(
             "UPDATE tickets
              SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP

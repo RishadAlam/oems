@@ -7,6 +7,7 @@ namespace OEMS\App\Services;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
+use OEMS\App\Support\Money;
 use OEMS\Core\Logger;
 use PDO;
 use Throwable;
@@ -70,7 +71,7 @@ final class RegistrationService
                 return $result;
             }
 
-            $isFree = (float) $event['ticket_price'] <= 0.0;
+            $isFree = Money::isFree($event['ticket_price'] ?? null);
             $methodSlug = $isFree ? 'free' : 'manual';
             $method = $this->payments->findActiveMethodBySlug($methodSlug);
 

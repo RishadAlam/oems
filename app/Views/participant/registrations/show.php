@@ -8,7 +8,10 @@ $cancellationReason = is_string($cancellationState['reason'] ?? null)
     ? $cancellationState['reason']
     : null;
 $reasonError = field_error($errors, 'reason') ?? field_error($errors, 'registration');
+$eventCancelled = (string) ($registration['event_status'] ?? '') === 'cancelled'
+    || (string) ($registration['cancellation_reason'] ?? '') === 'Event cancelled';
 $statusCopy = match (true) {
+    $eventCancelled => 'The event was cancelled. Your registration and ticket are no longer active.',
     $paymentStatus === 'failed' => 'The payment reference was rejected and your place was released.',
     $registrationStatus === 'confirmed' => 'Your place is confirmed.',
     $registrationStatus === 'cancelled' => 'This registration is cancelled and no longer holds a place.',
@@ -25,14 +28,16 @@ $ticketStepLabel = match ($ticketStepStatus) {
     'valid' => 'Ready for check-in',
     default => 'Issued',
 };
-$paymentStepLabel = match ($paymentStatus) {
-    'failed' => 'Payment rejected',
-    'refunded' => 'Refunded',
-    'paid' => 'Paid',
-    'not_required' => 'Not required',
+$paymentStepLabel = match (true) {
+    $eventCancelled => 'Event cancelled',
+    $paymentStatus === 'failed' => 'Payment rejected',
+    $paymentStatus === 'refunded' => 'Refunded',
+    $paymentStatus === 'paid' => 'Paid',
+    $paymentStatus === 'not_required' => 'Not required',
     default => 'Review pending',
 };
 $paymentStepState = match (true) {
+    $eventCancelled => 'terminal',
     $paymentStatus === 'failed' => 'failed',
     $paymentStatus === 'refunded' || $registrationTerminal => 'terminal',
     $paymentStatus === 'pending' => 'current',
@@ -40,6 +45,7 @@ $paymentStepState = match (true) {
     default => 'terminal',
 };
 $ticketStepState = match (true) {
+    $eventCancelled => 'terminal',
     !$ticketIssued && $registrationTerminal => 'unavailable',
     !$ticketIssued && $paymentComplete => 'current',
     !$ticketIssued => 'upcoming',
@@ -48,8 +54,11 @@ $ticketStepState = match (true) {
     default => 'current',
 };
 $ticketStepLabel = !$ticketIssued
-    ? ($registrationTerminal ? 'Not issued' : ($paymentComplete ? 'Issuance pending' : 'Issued after approval'))
-    : $ticketStepLabel;
+    ? ($eventCancelled ? 'Event cancelled' : ($registrationTerminal ? 'Not issued' : ($paymentComplete ? 'Issuance pending' : 'Issued after approval')))
+    : ($eventCancelled ? 'Event cancelled' : $ticketStepLabel);
+$paymentDetailLabel = $eventCancelled
+    ? 'Event cancelled'
+    : ($paymentStatus === 'pending' ? 'Payment review pending' : ucfirst(str_replace('_', ' ', $paymentStatus)));
 ?>
 <header class="dashboard-page-header">
     <div><p class="dashboard-kicker"><i class="ph ph-identification-card" aria-hidden="true"></i><span><?= e($registration['registration_number']) ?></span></p><h1><?= e($registration['event_title']) ?></h1><p><?= e($statusCopy) ?></p></div>
@@ -70,7 +79,7 @@ $ticketStepLabel = !$ticketIssued
         <h2 id="payment-status-heading" class="text-xl font-bold">Payment and ticket</h2>
         <dl class="status-list mt-5">
             <div><dt>Total</dt><dd><?= e($registration['amount_display']) ?> <?= e($registration['currency']) ?></dd></div>
-            <div><dt>Payment</dt><dd><?= e($paymentStatus === 'pending' ? 'Payment review pending' : ucfirst(str_replace('_', ' ', $paymentStatus))) ?></dd></div>
+            <div><dt>Payment</dt><dd><?= e($paymentDetailLabel) ?></dd></div>
             <div><dt>Ticket</dt><dd><?php if (is_array($registration['ticket'])): ?><a class="text-link" href="/participant/tickets/<?= e($registration['ticket']['id']) ?>">View ticket <?= e($registration['ticket']['ticket_number']) ?></a><?php else: ?>Not issued<?php endif; ?></dd></div>
         </dl>
     </section>

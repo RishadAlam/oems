@@ -487,12 +487,14 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame('2026-01-04 10:00:00', $this->eventValue(503, 'published_at'));
     }
 
-    public function testEventCancellationAtomicallyClosesParticipantFulfillmentAndNotifiesOwners(): void
+    public function testEventCancellationAtomicallyClosesParticipantFulfillmentWhenNotificationStorageFails(): void
     {
         $this->connection->exec("UPDATE events SET available_seats = 48 WHERE id = 503");
+        $this->connection->exec("INSERT INTO users (id, deleted_at) VALUES (31, NULL), (32, NULL)");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (901, 503, 31, 'REG-CANCEL-PAID', 'confirmed', 500, 'BDT', CURRENT_TIMESTAMP), (902, 503, 32, 'REG-CANCEL-PENDING', 'pending', 500, 'BDT', CURRENT_TIMESTAMP)");
         $this->connection->exec("INSERT INTO payments (id, registration_id, status, refunded_at, updated_at) VALUES (911, 901, 'paid', NULL, CURRENT_TIMESTAMP), (912, 902, 'pending', NULL, CURRENT_TIMESTAMP)");
         $this->connection->exec("INSERT INTO tickets (id, registration_id, status, updated_at) VALUES (921, 901, 'valid', CURRENT_TIMESTAMP), (922, 902, 'valid', CURRENT_TIMESTAMP)");
+        $this->connection->exec("CREATE TRIGGER reject_cancellation_notification BEFORE INSERT ON notifications BEGIN SELECT RAISE(ABORT, 'notification storage failed'); END");
 
         $this->assertTrue($this->repository->transitionOwned(20, 503, $this->auditContext(), 'cancelled'));
 
@@ -502,8 +504,9 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(['paid', 'failed'], $this->connection->query('SELECT status FROM payments ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
         $this->assertSame([null, null], $this->connection->query('SELECT refunded_at FROM payments ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
         $this->assertSame(['cancelled', 'cancelled'], $this->connection->query('SELECT status FROM tickets ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
-        $this->assertSame([31, 32], $this->connection->query('SELECT user_id FROM notifications ORDER BY user_id')->fetchAll(PDO::FETCH_COLUMN));
-        $this->assertSame(['event_cancelled', 'event_cancelled'], $this->connection->query('SELECT type FROM notifications ORDER BY user_id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([], $this->connection->query('SELECT user_id FROM notifications ORDER BY user_id')->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([31, 32], $this->repository->participantIdsForEventCancellation(503));
+        $this->assertSame(1, $this->activityCountFor(503));
     }
 
     public function testAdminTransitionRollsBackWhenAuditWriteFails(): void
@@ -574,6 +577,7 @@ final class EventRepositoryTest extends TestCase
 
     private function createSchema(): void
     {
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL DEFAULT "pending")');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, city TEXT NOT NULL, country TEXT NOT NULL)');

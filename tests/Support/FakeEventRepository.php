@@ -13,6 +13,8 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public array $galleries = [];
 
+    public array $cancellationParticipantIds = [];
+
     public bool $failCreate = false;
 
     public bool $failUpdate = false;
@@ -235,6 +237,11 @@ final class FakeEventRepository implements EventRepositoryInterface
         }
 
         return true;
+    }
+
+    public function participantIdsForEventCancellation(int $eventId): array
+    {
+        return array_values(array_map('intval', $this->cancellationParticipantIds[$eventId] ?? []));
     }
 
     public function publishOwned(int $userId, int $eventId, array $context): bool

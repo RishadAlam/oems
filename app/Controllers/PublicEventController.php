@@ -11,6 +11,7 @@ use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\ReviewRepositoryInterface;
+use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -173,7 +174,8 @@ final class PublicEventController extends Controller
             return ['label' => 'Sold out', 'description' => 'No places are currently available.', 'href' => null];
         }
 
-        $label = (float) ($event['ticket_price'] ?? 0) <= 0 ? 'Register free' : 'Register and pay';
+        $isFree = Money::isFree($event['ticket_price'] ?? null);
+        $label = $isFree ? 'Register free' : 'Register and pay';
 
         if ($userId !== null && !$this->auth->hasRole('participant')) {
             return [
@@ -185,14 +187,16 @@ final class PublicEventController extends Controller
 
         $description = match (true) {
             $this->auth->guest() => 'Sign in with a participant account to reserve one place.',
-            (float) ($event['ticket_price'] ?? 0) <= 0 => 'Confirm one free place for this event.',
+            $isFree => 'Confirm one free place for this event.',
             default => 'Review the total and submit your payment reference.',
         };
 
         return [
             'label' => $label,
             'description' => $description,
-            'href' => $this->auth->guest() ? '/login' : '/participant/events/' . rawurlencode((string) $event['slug']) . '/register',
+            'href' => $this->auth->guest()
+                ? '/login?return_to=' . rawurlencode('/events/' . (string) $event['slug'])
+                : '/participant/events/' . rawurlencode((string) $event['slug']) . '/register',
         ];
     }
 
@@ -240,7 +244,7 @@ final class PublicEventController extends Controller
             trim((string) ($event['venue_city'] ?? '')),
             trim((string) ($event['venue_country'] ?? '')),
         ], static fn (string $value): bool => $value !== ''));
-        $price = (float) ($event['ticket_price'] ?? 0);
+        $isFree = Money::isFree($event['ticket_price'] ?? null);
 
         return array_merge($event, [
             'start_iso' => $start->format(DATE_ATOM),
@@ -251,9 +255,10 @@ final class PublicEventController extends Controller
             'deadline_iso' => $deadline->format(DATE_ATOM),
             'deadline_display' => $deadline->format('M j, Y, g:i A'),
             'address' => $address === [] ? 'Venue to be announced' : implode(', ', $address),
-            'price_display' => $price <= 0
+            'price_display' => $isFree
                 ? 'Free'
-                : $this->currency($price, (string) ($event['currency'] ?? 'BDT')),
+                : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
+            'is_free' => $isFree,
             'banner_display' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'banner_alt' => 'Banner for ' . (string) $event['title'],
             'favorite' => [
@@ -344,17 +349,6 @@ final class PublicEventController extends Controller
             $value,
             new DateTimeZone((string) $this->config->get('timezone', 'Asia/Dhaka')),
         );
-    }
-
-    private function currency(float $amount, string $currency): string
-    {
-        $formatted = number_format($amount, floor($amount) === $amount ? 0 : 2);
-
-        return match (strtoupper($currency)) {
-            'BDT' => '৳' . $formatted,
-            'USD' => '$' . $formatted,
-            default => $formatted . ' ' . strtoupper($currency),
-        };
     }
 
     private function absoluteUrl(string $path): string

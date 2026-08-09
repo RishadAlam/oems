@@ -69,6 +69,7 @@ final class ParticipantNotificationControllerTest extends TestCase
         $auth = new Auth($session, $users);
         $security = new Security($session);
         $container = new Container();
+        $container->instance(ParticipantNotificationController::class, $this->controller);
         $router = new Router($container);
         $router->aliasMiddleware('role', new RoleMiddleware($auth));
         $router->aliasMiddleware('csrf', new CsrfMiddleware($security));
@@ -77,6 +78,46 @@ final class ParticipantNotificationControllerTest extends TestCase
 
         $this->assertSame(419, $router->dispatch(Request::create('POST', '/participant/notifications/1/read', input: ['_token' => 'invalid']))->status());
         $this->assertSame(405, $router->dispatch(Request::create('GET', '/participant/notifications/1/read'))->status());
+        $this->assertSame(419, $router->dispatch(Request::create('POST', '/participant/notifications/read-all', input: ['_token' => 'invalid']))->status());
+        $this->assertSame(405, $router->dispatch(Request::create('GET', '/participant/notifications/read-all'))->status());
+
+        $readAll = $router->dispatch(Request::create('POST', '/participant/notifications/read-all', input: [
+            '_token' => $security->csrfToken(),
+        ]));
+
+        $this->assertSame(302, $readAll->status());
+        $this->assertSame('/participant/notifications', $readAll->header('Location'));
+        $this->assertNotNull($this->repository->notifications[1]['read_at']);
+        $this->assertNull($this->repository->notifications[2]['read_at']);
+    }
+
+    public function testNotificationRoutesDenyGuestsAndOrganizerAccounts(): void
+    {
+        foreach (['guest', 'organizer'] as $role) {
+            $_SESSION = [];
+            $session = new Session(false);
+            $users = new FakeUserRepository();
+
+            if ($role === 'organizer') {
+                $users->users[9] = ['id' => 9, 'role_id' => 2, 'name' => 'Organizer', 'email' => 'organizer@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 09:00:00'];
+                $session->put('auth.user_id', 9);
+            }
+
+            $auth = new Auth($session, $users);
+            $security = new Security($session);
+            $container = new Container();
+            $container->instance(ParticipantNotificationController::class, $this->controller);
+            $router = new Router($container);
+            $router->aliasMiddleware('role', new RoleMiddleware($auth));
+            $router->aliasMiddleware('csrf', new CsrfMiddleware($security));
+            $routes = require base_path('routes/web.php');
+            $routes($router);
+            $expectedStatus = $role === 'guest' ? 302 : 403;
+
+            $this->assertSame($expectedStatus, $router->dispatch(Request::create('GET', '/participant/notifications'))->status());
+            $this->assertSame($expectedStatus, $router->dispatch(Request::create('POST', '/participant/notifications/1/read', input: ['_token' => $security->csrfToken()]))->status());
+            $this->assertSame($expectedStatus, $router->dispatch(Request::create('POST', '/participant/notifications/read-all', input: ['_token' => $security->csrfToken()]))->status());
+        }
     }
 
     public function testNotificationHistoryProvidesPaginationNavigation(): void

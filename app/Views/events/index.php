@@ -99,7 +99,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                                             <button class="favorite-control" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
                                         </form>
                                     <?php elseif (!empty($event['favorite']['is_guest'])): ?>
-                                        <a class="favorite-guest-link" href="/login" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
+                                        <a class="favorite-guest-link" href="/login?return_to=%2Fevents" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
                                     <?php endif; ?>
                                     <a class="text-link" href="/events/<?= e($event['slug']) ?>"><span>View details</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                                 </div>

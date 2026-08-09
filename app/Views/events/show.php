@@ -82,7 +82,7 @@
                     <div><dt><i class="ph ph-calendar-blank" aria-hidden="true"></i>Starts</dt><dd><time datetime="<?= e($event['start_iso']) ?>"><?= e($event['start_date_display']) ?> at <?= e($event['start_time_display']) ?></time></dd></div>
                     <div><dt><i class="ph ph-clock" aria-hidden="true"></i>Ends</dt><dd><time datetime="<?= e($event['end_iso']) ?>"><?= e($event['end_display']) ?></time></dd></div>
                     <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i>Venue</dt><dd><address><?= e($event['address']) ?></address></dd></div>
-                    <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Price</dt><dd><?= e($event['price_display']) ?><?php if ((float) $event['ticket_price'] > 0): ?> <?= e($event['currency'] ?? 'BDT') ?><?php endif; ?></dd></div>
+                    <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Price</dt><dd><?= e($event['price_display']) ?><?php if (empty($event['is_free'])): ?> <?= e($event['currency'] ?? 'BDT') ?><?php endif; ?></dd></div>
                     <div><dt><i class="ph ph-users" aria-hidden="true"></i>Capacity</dt><dd><?= e($event['capacity']) ?> total places, <?= e($event['available_seats']) ?> currently available</dd></div>
                     <?php if (!empty($event['speaker'])): ?><div><dt><i class="ph ph-microphone-stage" aria-hidden="true"></i>Speaker</dt><dd><?= e($event['speaker']) ?></dd></div><?php endif; ?>
                 </dl>
@@ -120,7 +120,7 @@
                     <div>
                         <h2 id="favorite-heading">Save this event</h2>
                         <p>Sign in to keep this event in your saved list.</p>
-                        <a class="favorite-guest-link" href="/login" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
+                        <a class="favorite-guest-link" href="/login?return_to=<?= e(rawurlencode('/events/' . (string) $event['slug'])) ?>" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>
                     </div>
                 </section>
             <?php endif; ?>

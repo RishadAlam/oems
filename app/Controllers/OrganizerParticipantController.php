@@ -46,6 +46,9 @@ final class OrganizerParticipantController extends Controller
 
         [$userId, $eventId, $event] = $context;
         $filters = $this->filters($request);
+        if ($filters === null) {
+            return Response::text('The participant search must not exceed 120 characters.', 422);
+        }
         $page = $this->positiveInt($request->query('page')) ?? 1;
         $perPage = 25;
         $total = $this->registrations->countForOrganizerEvent($userId, $eventId, $filters);
@@ -80,6 +83,9 @@ final class OrganizerParticipantController extends Controller
 
         [$userId, $eventId, $event] = $context;
         $filters = $this->filters($request);
+        if ($filters === null) {
+            return Response::text('The participant search must not exceed 120 characters.', 422);
+        }
         $filename = $this->safeFilename((string) ($event['event_slug'] ?? ''), $eventId);
 
         return Response::stream(function (callable $emit) use ($userId, $eventId, $filters): void {
@@ -181,14 +187,24 @@ final class OrganizerParticipantController extends Controller
         return $event === null ? null : [$userId, $eventId, $event];
     }
 
-    private function filters(Request $request): array
+    private function filters(Request $request): ?array
     {
         $filters = [];
 
         foreach (self::FILTERS as $key) {
             $value = $request->query($key);
             if (is_scalar($value)) {
-                $filters[$key] = trim((string) $value);
+                $normalized = trim((string) $value);
+
+                if ($key === 'search') {
+                    $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? '';
+
+                    if (mb_strlen($normalized) > 120) {
+                        return null;
+                    }
+                }
+
+                $filters[$key] = $normalized;
             }
         }
 

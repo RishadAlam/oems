@@ -32,19 +32,23 @@ final class AuthController extends Controller
 
     public function showLogin(Request $request): Response
     {
-        return $this->render('auth/login', ['pageTitle' => 'Welcome back'], 'auth');
+        return $this->render('auth/login', [
+            'pageTitle' => 'Welcome back',
+            'returnTo' => $this->safeLoginReturnTo($request->query('return_to')),
+        ], 'auth');
     }
 
     public function login(Request $request): Response
     {
-        $data = $request->only(['email', 'password', 'remember']);
+        $data = $request->only(['email', 'password', 'remember', 'return_to']);
+        $returnTo = $this->safeLoginReturnTo($data['return_to'] ?? null);
         $errors = Validator::validate($data, [
             'email' => 'required|email|max:190',
             'password' => 'required|string',
         ]);
 
         if ($errors !== []) {
-            return $this->redirectWithErrors('/login', $errors, ['email' => $data['email'] ?? '']);
+            return $this->redirectWithErrors($this->loginLocation($returnTo), $errors, ['email' => $data['email'] ?? '']);
         }
 
         $result = $this->authService->attempt(
@@ -56,7 +60,7 @@ final class AuthController extends Controller
         );
 
         if (!$result['success']) {
-            return $this->redirectWithErrors('/login', $result['errors'], ['email' => $data['email']]);
+            return $this->redirectWithErrors($this->loginLocation($returnTo), $result['errors'], ['email' => $data['email']]);
         }
 
         $headers = [];
@@ -65,7 +69,7 @@ final class AuthController extends Controller
             $headers['Set-Cookie'] = $this->rememberCookie((string) $result['remember_cookie'], time() + 2592000);
         }
 
-        return Response::redirect('/dashboard', 302, $headers);
+        return Response::redirect($returnTo ?? '/dashboard', 302, $headers);
     }
 
     public function showRegister(Request $request): Response
@@ -262,5 +266,25 @@ final class AuthController extends Controller
         }
 
         return implode('; ', $parts);
+    }
+
+    private function safeLoginReturnTo(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $candidate = trim($value);
+
+        return $candidate === '/'
+            || $candidate === '/events'
+            || preg_match('#^/events/[a-z0-9]+(?:-[a-z0-9]+)*$#', $candidate) === 1
+                ? $candidate
+                : null;
+    }
+
+    private function loginLocation(?string $returnTo): string
+    {
+        return $returnTo === null ? '/login' : '/login?return_to=' . rawurlencode($returnTo);
     }
 }

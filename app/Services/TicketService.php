@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Services;
 
 use OEMS\App\Contracts\TicketRepositoryInterface;
+use OEMS\Core\Logger;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -16,6 +17,7 @@ final class TicketService
         private readonly TicketRepositoryInterface $tickets,
         private readonly TicketArtifactService $artifacts,
         private readonly string $expectedCheckInUrl = '/organizer/check-in',
+        private readonly ?Logger $logger = null,
     ) {
     }
 
@@ -100,7 +102,7 @@ final class TicketService
                 throw new RuntimeException('The issued ticket could not be read.');
             }
         } catch (Throwable $exception) {
-            $this->deletePaths($createdPaths);
+            $this->deletePaths($createdPaths, 'issue_failure');
 
             throw $exception;
         }
@@ -113,14 +115,20 @@ final class TicketService
         ];
     }
 
-    public function cleanupCreated(array $issuance): void
+    public function cleanupCreated(array $issuance): bool
     {
-        $this->deletePaths(is_array($issuance['created_paths'] ?? null) ? $issuance['created_paths'] : []);
+        return $this->deletePaths(
+            is_array($issuance['created_paths'] ?? null) ? $issuance['created_paths'] : [],
+            'cleanup_created',
+        );
     }
 
-    public function cleanupReplaced(array $issuance): void
+    public function cleanupReplaced(array $issuance): bool
     {
-        $this->deletePaths(is_array($issuance['replaced_paths'] ?? null) ? $issuance['replaced_paths'] : []);
+        return $this->deletePaths(
+            is_array($issuance['replaced_paths'] ?? null) ? $issuance['replaced_paths'] : [],
+            'cleanup_replaced',
+        );
     }
 
     public function checkInByToken(
@@ -269,11 +277,31 @@ final class TicketService
         return $this->tickets->voidForRegistration($registrationId);
     }
 
-    private function deletePaths(array $paths): void
+    private function deletePaths(array $paths, string $operation): bool
     {
+        $failureCount = 0;
+
         foreach ($paths as $path) {
-            $this->artifacts->delete(is_string($path) ? $path : null);
+            try {
+                if (!$this->artifacts->delete(is_string($path) ? $path : null)) {
+                    $failureCount++;
+                }
+            } catch (Throwable) {
+                $failureCount++;
+            }
         }
+
+        if ($failureCount > 0) {
+            try {
+                $this->logger?->warning('ticket_artifact_cleanup', [
+                    'operation' => $operation,
+                    'failure_count' => $failureCount,
+                ]);
+            } catch (Throwable) {
+            }
+        }
+
+        return $failureCount === 0;
     }
 
     private function rawTokenFromCheckInValue(string $value): ?string
@@ -291,7 +319,8 @@ final class TicketService
         if (!is_array($parts)
             || !is_array($expected)
             || ($parts['path'] ?? '') !== ($expected['path'] ?? '/organizer/check-in')
-            || !isset($parts['query'])) {
+            || !isset($parts['query'])
+            || isset($parts['fragment'])) {
             return null;
         }
 
@@ -307,14 +336,11 @@ final class TicketService
             return null;
         }
 
-        parse_str((string) $parts['query'], $query);
-        if (array_keys($query) !== ['token'] || !is_string($query['token'])) {
+        if (preg_match('/\Atoken=([a-f0-9]{64})\z/i', (string) $parts['query'], $query) !== 1) {
             return null;
         }
 
-        return preg_match('/\A[a-f0-9]{64}\z/i', $query['token']) === 1
-            ? strtolower($query['token'])
-            : null;
+        return strtolower($query[1]);
     }
 
     private function urlPort(array $parts): ?int

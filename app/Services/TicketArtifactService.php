@@ -93,17 +93,37 @@ final class TicketArtifactService
         return $target;
     }
 
-    public function delete(?string $path): void
+    public function delete(?string $path): bool
     {
         if ($path === null) {
-            return;
+            return true;
         }
 
-        $resolved = $this->resolvePublicPath($path);
+        $filename = $this->filenameFromPublicPath($path);
+        $root = $this->existingUploadRoot();
 
-        if ($resolved !== null) {
-            @unlink($resolved);
+        if ($filename === null || $root === null) {
+            return false;
         }
+
+        $candidate = $root . DIRECTORY_SEPARATOR . $filename;
+        if (is_link($candidate)) {
+            return false;
+        }
+
+        if (!file_exists($candidate)) {
+            return true;
+        }
+
+        $resolved = realpath($candidate);
+
+        if ($resolved === false
+            || !str_starts_with($resolved, $root . DIRECTORY_SEPARATOR)
+            || !is_file($resolved)) {
+            return false;
+        }
+
+        return @unlink($resolved);
     }
 
     private function writeQrCode(string $payload, string $destination): void

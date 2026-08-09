@@ -227,6 +227,7 @@ $container->singleton(
         $container->get(TicketRepositoryInterface::class),
         $container->get(TicketArtifactService::class),
         (string) $container->get(Config::class)->get('url', 'http://localhost:8000') . '/organizer/check-in',
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(
@@ -245,6 +246,7 @@ $container->singleton(
         $container->get(ImageUploadService::class),
         $container->get(OrganizerRepositoryInterface::class),
         $container->get(Logger::class),
+        $container->get(NotificationService::class),
     ),
 );
 $container->singleton(

@@ -5,6 +5,7 @@
 /node_modules/
 /vendor/
 /.worktrees/
+/.superpowers/
 /storage/logs/*.log
 /storage/cache/*
 /public/uploads/*

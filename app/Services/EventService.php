@@ -8,6 +8,7 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\App\Support\Money;
 use OEMS\Core\Logger;
 use OEMS\Core\Validator;
 use Throwable;
@@ -21,6 +22,7 @@ final class EventService
         private readonly ImageUploadService $uploads,
         private readonly OrganizerRepositoryInterface $organizers,
         private readonly ?Logger $logger = null,
+        private readonly ?NotificationService $notifications = null,
     ) {
     }
 
@@ -260,6 +262,10 @@ final class EventService
             return $this->failure(['event' => ['The event status could not be changed.']]);
         }
 
+        if ($status === 'cancelled') {
+            $this->notifyEventCancellation($eventId);
+        }
+
         return $this->success(['event_id' => $eventId, 'status' => $status]);
     }
 
@@ -295,6 +301,11 @@ final class EventService
             'capacity' => 'required|integer|min_value:1|max_value:100000',
             'ticket_price' => 'required|numeric|min_value:0|max_value:9999999.99',
         ]);
+        $normalizedTicketPrice = Money::normalize($normalized['ticket_price']);
+
+        if (!isset($errors['ticket_price']) && $normalizedTicketPrice === null) {
+            $errors['ticket_price'][] = 'The ticket price may have no more than two decimal places.';
+        }
 
         $category = $errors['category_id'] ?? null;
 
@@ -366,7 +377,7 @@ final class EventService
             'registration_deadline' => $this->databaseDateTime($normalized['registration_deadline']),
             'capacity' => $capacity,
             'available_seats' => $availableSeats,
-            'ticket_price' => number_format((float) $normalized['ticket_price'], 2, '.', ''),
+            'ticket_price' => $normalizedTicketPrice,
             'currency' => 'BDT',
             'tags' => $tags,
             'is_featured' => (bool) ($existing['is_featured'] ?? false),
@@ -520,7 +531,43 @@ final class EventService
             return $this->failure(['event' => ['The event status could not be changed.']]);
         }
 
+        if ($status === 'cancelled') {
+            $this->notifyEventCancellation($eventId);
+        }
+
         return $this->success(['event_id' => $eventId, 'status' => $status]);
+    }
+
+    private function notifyEventCancellation(int $eventId): void
+    {
+        if ($this->notifications === null) {
+            return;
+        }
+
+        try {
+            $participantIds = $this->events->participantIdsForEventCancellation($eventId);
+        } catch (Throwable $exception) {
+            try {
+                $this->logger?->error('event_cancellation_notification_lookup', [
+                    'event_id' => $eventId,
+                    'exception' => $exception::class,
+                ]);
+            } catch (Throwable) {
+            }
+
+            return;
+        }
+
+        foreach ($participantIds as $participantId) {
+            $this->notifications->notify(
+                (int) $participantId,
+                'event_cancelled',
+                'Event cancelled',
+                'An event in your registrations was cancelled. Your registration and ticket are no longer active.',
+                '/participant/registrations',
+                ['event_id' => $eventId],
+            );
+        }
     }
 
     private function length(string $value): int

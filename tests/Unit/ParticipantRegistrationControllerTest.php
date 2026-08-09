@@ -199,6 +199,41 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertSame(['channel' => 'mobile'], $this->payments->payments[1]['gateway_response']);
     }
 
+    public function testPostRetryFindsOwnedActiveRegistrationBeforeFinalSeatAndDeadlineAvailabilityChecks(): void
+    {
+        $soldOut = array_merge($this->eventFixture(), [
+            'id' => 32,
+            'slug' => 'last-seat-retry',
+            'available_seats' => 0,
+        ]);
+        $deadlinePassed = array_merge($this->eventFixture(), [
+            'id' => 33,
+            'slug' => 'deadline-retry',
+            'registration_deadline' => '2000-08-21 18:00:00',
+        ]);
+        $this->events->events[32] = $soldOut;
+        $this->events->events[33] = $deadlinePassed;
+        $this->registrations->registrations[4] = array_merge($this->registrationFixture(), [
+            'id' => 4,
+            'event_id' => 32,
+            'user_id' => 7,
+            'status' => 'pending',
+        ]);
+        $this->registrations->registrations[5] = array_merge($this->registrationFixture(), [
+            'id' => 5,
+            'event_id' => 33,
+            'user_id' => 7,
+            'status' => 'confirmed',
+        ]);
+
+        $soldOutRetry = $this->controller()->store($this->slugged('POST', 'last-seat-retry'));
+        $deadlineRetry = $this->controller()->store($this->slugged('POST', 'deadline-retry'));
+
+        $this->assertSame('/participant/registrations/4', $soldOutRetry->header('Location'));
+        $this->assertSame('/participant/registrations/5', $deadlineRetry->header('Location'));
+        $this->assertSame([4, 5], array_keys($this->registrations->registrations));
+    }
+
     public function testPaymentErrorsAreInlineAndNeverRepopulateTheReference(): void
     {
         $response = $this->controller()->store($this->slugged('POST', 'future-craft', [
