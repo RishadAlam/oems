@@ -28,7 +28,9 @@ try {
         );
     }
 
-    $router->dispatch($request)->send();
+    $router->dispatch($request)
+        ->withHeader('Permissions-Policy', 'geolocation=(self)')
+        ->send();
 } catch (Throwable $exception) {
     $app['container']->get(Logger::class)->error('Unhandled application exception.', [
         'exception' => $exception::class,
@@ -39,5 +41,7 @@ try {
     $body = (bool) $app['config']['debug']
         ? '<h1>Application error</h1><pre>' . e($exception->getMessage()) . '</pre>'
         : '<h1>Something went wrong</h1><p>Please try again shortly.</p>';
-    Response::html($body, 500)->send();
+    Response::html($body, 500)
+        ->withHeader('Permissions-Policy', 'geolocation=(self)')
+        ->send();
 }

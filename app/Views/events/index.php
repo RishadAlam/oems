@@ -56,13 +56,49 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                     <option value="latest" <?= $filters['sort'] === 'latest' ? 'selected' : '' ?>>Latest</option>
                     <option value="price_low" <?= $filters['sort'] === 'price_low' ? 'selected' : '' ?>>Price, low to high</option>
                     <option value="price_high" <?= $filters['sort'] === 'price_high' ? 'selected' : '' ?>>Price, high to low</option>
+                    <?php if (!empty($distanceSortAvailable)): ?><option value="distance" <?= $filters['sort'] === 'distance' ? 'selected' : '' ?>>Nearest</option><?php endif; ?>
                 </select>
             </div>
+            <?php if ($location !== null): ?>
+                <div class="event-filter-panel__field">
+                    <label for="event-radius">Distance</label>
+                    <select id="event-radius" name="radius">
+                        <?php foreach ($radii as $radius): ?><option value="<?= e($radius) ?>" <?= (int) $location['radius'] === (int) $radius ? 'selected' : '' ?>>Within <?= e($radius) ?> km</option><?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
             <div class="event-filter-panel__actions">
                 <button class="button button--primary" type="submit"><span>Apply filters</span><i class="ph ph-funnel" aria-hidden="true"></i></button>
                 <a class="button button--quiet" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear all</span></a>
             </div>
         </form>
+
+        <div class="event-location-controls" aria-label="Location and result view controls">
+            <div class="event-location-controls__preference">
+                <form action="/events/location" method="post" data-location-form>
+                    <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                    <input type="hidden" name="latitude" value="">
+                    <input type="hidden" name="longitude" value="">
+                    <input type="hidden" name="radius" value="<?= e($location['radius'] ?? 25) ?>">
+                    <button class="button button--quiet button--compact" type="button" data-location-use>
+                        <i class="ph ph-crosshair" aria-hidden="true"></i>
+                        <span><?= $location === null ? 'Use my location' : 'Change location' ?></span>
+                    </button>
+                </form>
+                <?php if ($location !== null): ?>
+                    <span class="event-location-controls__active"><i class="ph ph-map-pin" aria-hidden="true"></i><?= e($location['label']) ?></span>
+                    <form action="/events/location/clear" method="post">
+                        <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                        <button class="button button--quiet button--compact" type="submit">Clear location</button>
+                    </form>
+                <?php endif; ?>
+                <p class="event-location-controls__status" data-location-status role="status" aria-live="polite"></p>
+            </div>
+            <div class="event-view-switch" aria-label="Choose result view">
+                <button type="button" value="list" data-event-view data-view="list" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i><span>List</span></button>
+                <button type="button" value="map" data-event-view data-view="map" aria-pressed="false"><i class="ph ph-map-trifold" aria-hidden="true"></i><span>Map</span></button>
+            </div>
+        </div>
 
         <?php if ($activeFilters !== []): ?>
             <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Showing <?= count($events) ?> <?= count($events) === 1 ? 'match' : 'matches' ?> for your selected filters.</span></p>
@@ -76,9 +112,9 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                 <a class="button button--quiet button--compact" href="/events"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Clear search and filters</span></a>
             </div>
         <?php else: ?>
-            <div class="event-results-grid">
+            <div class="event-results-grid" data-event-results>
                 <?php foreach ($events as $event): ?>
-                    <article class="event-card" data-reveal>
+                    <article class="event-card" data-reveal data-event-id="<?= e($event['id']) ?>" tabindex="-1">
                         <a class="event-card__media" href="/events/<?= e($event['slug']) ?>" aria-label="View <?= e($event['title']) ?>">
                             <img src="<?= e($event['banner_display']) ?>" alt="<?= e($event['banner_alt']) ?>" width="1400" height="1050" loading="lazy">
                         </a>
@@ -87,7 +123,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                             <h2><a href="/events/<?= e($event['slug']) ?>"><?= e($event['title']) ?></a></h2>
                             <div class="event-card__details">
                                 <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['start_iso']) ?>"><?= e($event['start_date_display']) ?> at <?= e($event['start_time_display']) ?></time></span></div>
-                                <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['address']) ?></address></span></div>
+                                <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['address']) ?></address><?php if (!empty($event['distance_label'])): ?><small><?= e($event['distance_label']) ?></small><?php endif; ?></span></div>
                             </div>
                             <div class="event-card__footer">
                                 <strong><?= e($event['price_display']) ?></strong>
@@ -109,5 +145,17 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+
+        <section class="event-map-panel" data-event-map-panel hidden aria-labelledby="event-map-heading">
+            <div class="event-map-panel__heading">
+                <div><h2 id="event-map-heading">Event map</h2><p>Map markers represent published events with public coordinates.</p></div>
+                <p>Use the List view for complete event details.</p>
+            </div>
+            <div class="event-map" data-event-map role="region" aria-label="Map of published public events">
+                <p data-map-fallback>Map is unavailable. Browse the complete event list instead.</p>
+            </div>
+        </section>
+
+        <script type="application/json" id="event-map-data"><?= json_encode($mapPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     </div>
 </section>

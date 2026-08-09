@@ -22,11 +22,18 @@
             document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (dark ? 'dark' : 'light');
         }());
     </script>
+    <?php if (!empty($leafletEnabled)): ?>
+        <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+    <?php endif; ?>
     <link rel="stylesheet" href="/assets/css/app.css">
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
     <script src="/assets/js/app.js" defer></script>
+    <?php if (!empty($leafletEnabled)): ?>
+        <script src="/assets/vendor/leaflet/leaflet.js" defer></script>
+        <script src="/assets/js/location.js" defer></script>
+    <?php endif; ?>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">
     <a class="skip-link" href="#main-content">Skip to content</a>

@@ -9,6 +9,15 @@ use OEMS\Tests\Support\TestCase;
 
 final class ResponseTest extends TestCase
 {
+    public function testWithHeaderReturnsNewResponseWithoutDroppingExistingHeaders(): void
+    {
+        $response = Response::html('ok')->withHeader('Permissions-Policy', 'geolocation=(self)');
+
+        $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertSame('geolocation=(self)', $response->header('Permissions-Policy'));
+        $this->assertSame('ok', $response->body());
+    }
+
     public function testBinaryResponsePreservesBytesAndUsesOnlySuppliedSafeHeaders(): void
     {
         $this->assertTrue(method_exists(Response::class, 'binary'), 'Binary responses are not implemented.');

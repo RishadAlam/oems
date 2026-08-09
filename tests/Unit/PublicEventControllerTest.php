@@ -231,6 +231,60 @@ final class PublicEventControllerTest extends TestCase
         $this->assertFalse(array_key_exists('latitude', $this->events->filters));
     }
 
+    public function testIndexMapPayloadContainsOnlyPublishedPublicEventsWithValidCoordinates(): void
+    {
+        $public = array_merge($this->eventFixture(), [
+            'title' => 'Public </script><script>unsafe()</script> map event',
+            'venue_latitude' => '23.8103',
+            'venue_longitude' => '90.4125',
+        ]);
+        $restricted = array_merge($this->restrictedEventFixture(), ['id' => 502, 'slug' => 'restricted-map']);
+        $invalid = array_merge($this->eventFixture(), [
+            'id' => 503,
+            'slug' => 'invalid-map',
+            'venue_latitude' => '91',
+            'venue_longitude' => '90.4',
+        ]);
+        $this->events->events = [$public, $restricted, $invalid];
+
+        $body = $this->controller->index(Request::create('GET', '/events'))->body();
+        $payload = $this->jsonScript($body, 'event-map-data');
+
+        $this->assertSame(1, count($payload['markers'] ?? []));
+        $this->assertSame(501, $payload['markers'][0]['id'] ?? null);
+        $this->assertSame('23.8103', $payload['markers'][0]['latitude'] ?? null);
+        $this->assertTrue(str_contains($body, '\\u003C/script\\u003E'));
+        $this->assertFalse(str_contains($body, '</script><script>unsafe()'));
+        $this->assertFalse(str_contains(json_encode($payload), 'Secret Hall'));
+    }
+
+    public function testIndexShowsOnlyCoarseDistanceAndCoarsePlaceForRestrictedRows(): void
+    {
+        $session = new Session(false);
+        $session->put('event_location', [
+            'latitude' => '23.810',
+            'longitude' => '90.413',
+            'radius' => 25,
+            'label' => 'Current area',
+            'source' => 'device',
+            'expires_at' => 1_900_000_000,
+        ]);
+        $this->events->events = [array_merge($this->restrictedEventFixture(), [
+            'distance_km' => '7.3',
+            'venue_latitude' => '23.8117',
+            'venue_longitude' => '90.4159',
+        ])];
+        $controller = $this->controllerForSession($session, new FakeUserRepository(), new LocationService(1209600, static fn (): int => 1_800_000_000));
+
+        $body = $controller->index(Request::create('GET', '/events'))->body();
+
+        $this->assertTrue(str_contains($body, 'Within 10 km'));
+        $this->assertTrue(str_contains($body, '<address>Dhaka, Bangladesh</address>'));
+        foreach (['7.3 km away', 'Secret Hall', 'Road 12', '23.8117', '90.4159', 'maps.example.test', 'Use gate B'] as $secret) {
+            $this->assertFalse(str_contains($body, $secret), 'Leaked restricted location value: ' . $secret);
+        }
+    }
+
     public function testShowReturnsBranded404ForUnpublishedOrDeletedEvents(): void
     {
         $this->events->events['draft-event'] = array_merge($this->eventFixture(), [
@@ -294,6 +348,76 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'class="favorite-guest-link" href="/login?return_to=%2Fevents%2Ffuture-craft" aria-label="Sign in to save Future Craft"'));
         $this->assertTrue(str_contains($body, '<i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span>'));
         $this->assertFalse(str_contains($body, 'Week 3'));
+    }
+
+    public function testRestrictedLocationDoesNotLeakExactDataToGuest(): void
+    {
+        $body = $this->showRestrictedEventAsGuest()->body();
+
+        foreach (['23.8103', '90.4125', 'Secret Hall', 'Road 12', 'maps.example.test', 'Use gate B'] as $secret) {
+            $this->assertFalse(str_contains($body, $secret), 'Leaked restricted location value: ' . $secret);
+        }
+
+        $this->assertTrue(str_contains($body, 'Dhaka, Bangladesh'));
+        $this->assertTrue(str_contains($body, 'Exact location shared after confirmation'));
+        $this->assertFalse(str_contains($body, 'application/ld+json') && str_contains($body, 'Secret Hall'));
+    }
+
+    public function testRestrictedLocationStaysPrivateForPendingParticipant(): void
+    {
+        $this->registrations->registrations[19] = [
+            'id' => 19,
+            'event_id' => 501,
+            'user_id' => 7,
+            'status' => 'pending',
+        ];
+
+        $body = $this->showRestrictedEventForRole('participant', 7)->body();
+
+        $this->assertTrue(str_contains($body, 'Exact location shared after confirmation'));
+        $this->assertFalse(str_contains($body, 'Secret Hall'));
+        $this->assertFalse(str_contains($body, 'Use gate B'));
+    }
+
+    public function testRestrictedLocationIsVisibleToConfirmedParticipantOwnerAndSuperAdmin(): void
+    {
+        $this->registrations->registrations[20] = [
+            'id' => 20,
+            'event_id' => 501,
+            'user_id' => 7,
+            'status' => 'confirmed',
+        ];
+
+        foreach ([['participant', 7], ['organizer', 9], ['super-admin', 1]] as [$role, $userId]) {
+            $body = $this->showRestrictedEventForRole($role, $userId)->body();
+
+            $this->assertTrue(str_contains($body, 'Secret Hall, Road 12, Dhaka, Bangladesh'));
+            $this->assertTrue(str_contains($body, 'Use gate B'));
+            $this->assertTrue(str_contains($body, 'https://maps.example.test/secret'));
+            $this->assertTrue(str_contains($body, '"name":"Secret Hall"'));
+            $this->assertTrue(str_contains($body, 'id="event-detail-map-data"'));
+        }
+    }
+
+    public function testPublicExactLocationRemainsVisibleToGuests(): void
+    {
+        $event = array_merge($this->eventFixture(), [
+            'venue_address_line' => 'Main Road',
+            'venue_latitude' => '23.8103',
+            'venue_longitude' => '90.4125',
+            'arrival_notes' => 'Use the east entrance.',
+            'venue_map_url' => 'https://maps.example.test/public',
+        ]);
+        $this->events->events[$event['slug']] = $event;
+
+        $body = $this->controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        )->body();
+
+        $this->assertTrue(str_contains($body, 'Dhaka Arts Hall, Main Road, Dhaka, Bangladesh'));
+        $this->assertTrue(str_contains($body, 'Use the east entrance.'));
+        $this->assertTrue(str_contains($body, 'https://maps.example.test/public'));
+        $this->assertTrue(str_contains($body, '"name":"Dhaka Arts Hall"'));
     }
 
     public function testShowUsesTruthfulUnavailableActionsForSoldOutClosedAndEndedEvents(): void
@@ -561,9 +685,103 @@ final class PublicEventControllerTest extends TestCase
             'category_name' => 'Technology',
             'category_slug' => 'technology',
             'venue_name' => 'Dhaka Arts Hall',
+            'venue_address_line' => null,
             'venue_city' => 'Dhaka',
             'venue_country' => 'Bangladesh',
+            'venue_postal_code' => null,
+            'venue_latitude' => null,
+            'venue_longitude' => null,
+            'venue_map_url' => null,
+            'location_visibility' => 'public',
+            'arrival_notes' => null,
+            'organizer_user_id' => 9,
             'organization_name' => 'OEMS Studio',
         ];
+    }
+
+    private function restrictedEventFixture(): array
+    {
+        return array_merge($this->eventFixture(), [
+            'venue_name' => 'Secret Hall',
+            'venue_address_line' => 'Road 12',
+            'venue_latitude' => '23.8103',
+            'venue_longitude' => '90.4125',
+            'venue_map_url' => 'https://maps.example.test/secret',
+            'map_url' => 'https://maps.example.test/event-secret',
+            'arrival_notes' => 'Use gate B',
+            'location_visibility' => 'registered',
+        ]);
+    }
+
+    private function showRestrictedEventAsGuest(): \OEMS\Core\Response
+    {
+        $event = $this->restrictedEventFixture();
+        $this->events->events[$event['slug']] = $event;
+
+        return $this->controller->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        );
+    }
+
+    private function showRestrictedEventForRole(string $role, int $userId): \OEMS\Core\Response
+    {
+        $event = $this->restrictedEventFixture();
+        $this->events->events[$event['slug']] = $event;
+        $session = new Session(false);
+        $session->put('auth.user_id', $userId);
+        $users = new FakeUserRepository();
+        $users->users[$userId] = [
+            'id' => $userId,
+            'role_id' => $users->roles[$role]['id'],
+            'name' => ucfirst($role),
+            'email' => $role . '@example.test',
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 10:00:00',
+        ];
+
+        return $this->controllerForSession($session, $users)->show(
+            Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),
+        );
+    }
+
+    private function controllerForSession(
+        Session $session,
+        FakeUserRepository $users,
+        ?LocationService $locations = null,
+    ): PublicEventController {
+        return new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, $users),
+            new Config([
+                'name' => 'OEMS',
+                'url' => 'https://events.example.test',
+                'timezone' => 'Asia/Dhaka',
+                'map' => [
+                    'tile_url' => 'https://tiles.example.test/{z}/{x}/{y}.png',
+                    'tile_attribution' => 'Map data',
+                    'default_lat' => 23.8103,
+                    'default_lng' => 90.4125,
+                    'default_zoom' => 11,
+                ],
+            ]),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+            null,
+            null,
+            $locations,
+        );
+    }
+
+    private function jsonScript(string $body, string $id): array
+    {
+        $pattern = '/<script type="application\/json" id="' . preg_quote($id, '/') . '">(.*?)<\/script>/s';
+        $this->assertSame(1, preg_match($pattern, $body, $matches));
+        $decoded = json_decode($matches[1], true);
+        $this->assertTrue(is_array($decoded));
+
+        return $decoded;
     }
 }

@@ -1,0 +1,300 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import test from 'node:test';
+import vm from 'node:vm';
+
+const source = fs.readFileSync(new URL('../../public/assets/js/location.js', import.meta.url), 'utf8');
+
+class ElementStub {
+    constructor({ value = '', textContent = '' } = {}) {
+        this.attributes = new Map();
+        this.dataset = {};
+        this.disabled = false;
+        this.focusCalls = 0;
+        this.hidden = false;
+        this.listeners = new Map();
+        this.scrollCalls = [];
+        this.textContent = textContent;
+        this.value = value;
+    }
+
+    addEventListener(type, callback) {
+        const callbacks = this.listeners.get(type) ?? [];
+        callbacks.push(callback);
+        this.listeners.set(type, callbacks);
+    }
+
+    dispatch(type, detail = {}) {
+        for (const callback of this.listeners.get(type) ?? []) {
+            callback({ preventDefault() {}, currentTarget: this, ...detail });
+        }
+    }
+
+    click() { this.dispatch('click'); }
+    focus() { this.focusCalls += 1; this.dispatch('focus'); }
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    removeAttribute(name) { this.attributes.delete(name); }
+    scrollIntoView(options) { this.scrollCalls.push(options); }
+}
+
+function createLeafletHarness() {
+    const maps = [];
+    const markers = [];
+
+    const L = {
+        map(element) {
+            const map = {
+                element,
+                fitBoundsCalls: [],
+                invalidateSizeCalls: 0,
+                panToCalls: [],
+                removed: false,
+                setViewCalls: [],
+                fitBounds(bounds, options) { this.fitBoundsCalls.push({ bounds, options }); return this; },
+                invalidateSize() { this.invalidateSizeCalls += 1; return this; },
+                panTo(coordinates, options) { this.panToCalls.push({ coordinates, options }); return this; },
+                remove() { this.removed = true; },
+                setView(coordinates, zoom) { this.setViewCalls.push({ coordinates, zoom }); return this; },
+            };
+            maps.push(map);
+            return map;
+        },
+        marker(coordinates) {
+            const marker = {
+                coordinates,
+                events: new Map(),
+                popup: '',
+                openPopupCalls: 0,
+                addTo() { return this; },
+                bindPopup(value) { this.popup = value; return this; },
+                on(type, callback) { this.events.set(type, callback); return this; },
+                openPopup() { this.openPopupCalls += 1; return this; },
+                emit(type) { this.events.get(type)?.(); },
+            };
+            markers.push(marker);
+            return marker;
+        },
+        tileLayer() { return { addTo() { return this; } }; },
+        featureGroup() {
+            return { getBounds: () => ({ isValid: () => true }) };
+        },
+    };
+
+    return { L, maps, markers };
+}
+
+function createHarness({
+    errorCode = null,
+    latitude = 23.810331,
+    longitude = 90.412521,
+    malformedPayload = false,
+    mobile = false,
+    reducedMotion = false,
+    supported = true,
+} = {}) {
+    const useLocation = new ElementStub();
+    const status = new ElementStub();
+    const form = new ElementStub();
+    const latitudeInput = new ElementStub();
+    const longitudeInput = new ElementStub();
+    const radiusInput = new ElementStub({ value: '25' });
+    const tokenInput = new ElementStub({ value: 'csrf-token' });
+    const listToggle = new ElementStub({ value: 'list' });
+    const mapToggle = new ElementStub({ value: 'map' });
+    const list = new ElementStub();
+    const panel = new ElementStub();
+    panel.hidden = true;
+    const mapContainer = new ElementStub();
+    const payload = new ElementStub({
+        textContent: malformedPayload ? '{bad json' : JSON.stringify({
+            config: {
+                tile_url: 'https://tiles.example.test/{z}/{x}/{y}.png',
+                tile_attribution: 'Map data',
+                default_lat: 23.8103,
+                default_lng: 90.4125,
+                default_zoom: 11,
+            },
+            markers: [{
+                id: 501,
+                title: 'Future Craft',
+                href: '/events/future-craft',
+                latitude: '23.8103',
+                longitude: '90.4125',
+            }],
+        }),
+    });
+    const card = new ElementStub();
+    card.dataset.eventId = '501';
+    const requests = [];
+    const windowListeners = new Map();
+    const geolocationCalls = [];
+    const leaflet = createLeafletHarness();
+
+    listToggle.dataset.view = 'list';
+    mapToggle.dataset.view = 'map';
+    listToggle.setAttribute('aria-pressed', 'true');
+    mapToggle.setAttribute('aria-pressed', 'false');
+    form.querySelector = (selector) => ({
+        '[name="latitude"]': latitudeInput,
+        '[name="longitude"]': longitudeInput,
+        '[name="radius"]': radiusInput,
+        '[name="_token"]': tokenInput,
+    }[selector] ?? null);
+    form.requestSubmit = () => {
+        requests.push({
+            body: {
+                latitude: latitudeInput.value,
+                longitude: longitudeInput.value,
+                radius: radiusInput.value,
+                _token: tokenInput.value,
+            },
+        });
+    };
+
+    const sandbox = {
+        console,
+        document: {
+            querySelector: (selector) => ({
+                '[data-location-use]': useLocation,
+                '[data-location-status]': status,
+                '[data-location-form]': form,
+                '[data-event-results]': list,
+                '[data-event-map-panel]': panel,
+                '[data-event-map]': mapContainer,
+                '#event-map-data': payload,
+            }[selector] ?? null),
+            querySelectorAll: (selector) => ({
+                '[data-event-view]': [listToggle, mapToggle],
+                '[data-event-id]': [card],
+            }[selector] ?? []),
+        },
+        navigator: supported ? {
+            geolocation: {
+                getCurrentPosition(success, error, options) {
+                    geolocationCalls.push(options);
+                    if (errorCode === null) success({ coords: { latitude, longitude } });
+                    else error({ code: errorCode });
+                },
+            },
+        } : {},
+        matchMedia(query) {
+            return {
+                matches: query.includes('max-width') ? mobile : reducedMotion,
+                addEventListener() {},
+            };
+        },
+        addEventListener(type, callback) { windowListeners.set(type, callback); },
+        setTimeout,
+        clearTimeout,
+        L: leaflet.L,
+    };
+    sandbox.window = sandbox;
+    vm.runInNewContext(source, sandbox, { filename: 'location.js' });
+
+    return {
+        card,
+        geolocationCalls,
+        leaflet,
+        list,
+        listToggle,
+        mapToggle,
+        panel,
+        requests,
+        status,
+        useLocation,
+        clickUseLocation: async () => { useLocation.click(); await Promise.resolve(); },
+        pagehide: () => windowListeners.get('pagehide')?.(),
+    };
+}
+
+test('use my location rounds coordinates and posts csrf payload once', async () => {
+    const harness = createHarness({ latitude: 23.810331, longitude: 90.412521 });
+    assert.equal(harness.requests.length, 0);
+
+    await harness.clickUseLocation();
+    await harness.clickUseLocation();
+
+    assert.equal(harness.requests.length, 1);
+    assert.deepEqual(harness.requests[0].body, {
+        latitude: '23.810',
+        longitude: '90.413',
+        radius: '25',
+        _token: 'csrf-token',
+    });
+    assert.deepEqual(JSON.parse(JSON.stringify(harness.geolocationCalls[0])), {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000,
+    });
+});
+
+test('permission denial and timeout provide actionable status without posting', async () => {
+    const denied = createHarness({ errorCode: 1 });
+    await denied.clickUseLocation();
+    assert.match(denied.status.textContent, /permission/i);
+    assert.equal(denied.requests.length, 0);
+
+    const timeout = createHarness({ errorCode: 3 });
+    await timeout.clickUseLocation();
+    assert.match(timeout.status.textContent, /timed out/i);
+    assert.equal(timeout.requests.length, 0);
+});
+
+test('unsupported browser leaves the canonical list usable', async () => {
+    const harness = createHarness({ supported: false });
+    await harness.clickUseLocation();
+
+    assert.match(harness.status.textContent, /does not support/i);
+    assert.equal(harness.requests.length, 0);
+    assert.equal(harness.list.hidden, false);
+});
+
+test('list and map controls expose pressed state and mobile panel visibility', () => {
+    const harness = createHarness({ mobile: true });
+
+    harness.mapToggle.click();
+    assert.equal(harness.mapToggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(harness.listToggle.getAttribute('aria-pressed'), 'false');
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, true);
+
+    harness.listToggle.click();
+    assert.equal(harness.mapToggle.getAttribute('aria-pressed'), 'false');
+    assert.equal(harness.listToggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(harness.panel.hidden, true);
+    assert.equal(harness.list.hidden, false);
+});
+
+test('marker and card interactions preserve keyboard focus and disable reduced motion', () => {
+    const harness = createHarness({ reducedMotion: true });
+    harness.mapToggle.click();
+    const marker = harness.leaflet.markers[0];
+    const map = harness.leaflet.maps[0];
+
+    marker.emit('click');
+    assert.equal(harness.card.focusCalls, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(harness.card.scrollCalls[0])), { behavior: 'auto', block: 'nearest' });
+
+    harness.card.focus();
+    assert.equal(marker.openPopupCalls, 1);
+    assert.equal(map.panToCalls[0].options.animate, false);
+});
+
+test('malformed marker payload keeps the list and renders an inline fallback', () => {
+    const harness = createHarness({ malformedPayload: true, mobile: true });
+    harness.mapToggle.click();
+
+    assert.equal(harness.leaflet.maps.length, 0);
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.panel.hidden, false);
+    assert.match(harness.status.textContent, /map is unavailable/i);
+});
+
+test('pagehide removes the Leaflet instance', () => {
+    const harness = createHarness();
+    harness.mapToggle.click();
+    harness.pagehide();
+
+    assert.equal(harness.leaflet.maps[0].removed, true);
+});

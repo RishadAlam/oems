@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\Core;
 
 use JsonException;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class Response
@@ -93,6 +94,35 @@ final class Response
         }
 
         return null;
+    }
+
+    public function withHeader(string $name, string $value): self
+    {
+        $name = trim($name);
+        $value = trim($value);
+
+        if ($name === ''
+            || preg_match('/^[!#$%&\'*+.^_`|~0-9A-Za-z-]+$/', $name) !== 1
+            || str_contains($value, "\r")
+            || str_contains($value, "\n")) {
+            throw new InvalidArgumentException('Invalid response header.');
+        }
+
+        $headers = [];
+        foreach ($this->headers as $key => $existingValue) {
+            if (!is_string($key) || strcasecmp($key, $name) !== 0) {
+                $headers[$key] = $existingValue;
+            }
+        }
+        $headers[$name] = $value;
+
+        return new self(
+            $this->body,
+            $this->status,
+            $headers,
+            $this->filePath,
+            $this->streamCallback,
+        );
     }
 
     public function send(): void

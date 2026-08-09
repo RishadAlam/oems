@@ -68,7 +68,11 @@ final class PublicEventController extends Controller
         $matches = $this->events->publicSearch($filters);
         $favoriteStates = $this->favoriteStates($matches);
         $events = array_map(
-            fn (array $event): array => $this->presentEvent($event, isset($favoriteStates[(int) ($event['id'] ?? 0)])),
+            fn (array $event): array => $this->presentEvent(
+                $event,
+                isset($favoriteStates[(int) ($event['id'] ?? 0)]),
+                ($event['location_visibility'] ?? 'public') === 'public',
+            ),
             $matches,
         );
         $description = 'Explore published workshops, talks, and gatherings by date, place, category, and price.';
@@ -90,13 +94,12 @@ final class PublicEventController extends Controller
             'filters' => $filters,
             'location' => $location,
             'radii' => self::RADII,
-            'mapConfig' => [
-                'tile_url' => (string) $this->config->get('map.tile_url', ''),
-                'tile_attribution' => (string) $this->config->get('map.tile_attribution', ''),
-                'default_lat' => (float) $this->config->get('map.default_lat', 23.8103),
-                'default_lng' => (float) $this->config->get('map.default_lng', 90.4125),
-                'default_zoom' => (int) $this->config->get('map.default_zoom', 11),
+            'mapConfig' => $this->mapConfig(),
+            'mapPayload' => [
+                'config' => $this->mapConfig(),
+                'markers' => $this->publicMarkers($matches),
             ],
+            'leafletEnabled' => true,
             'distanceSortAvailable' => $location !== null,
         ]);
     }
@@ -117,8 +120,13 @@ final class PublicEventController extends Controller
             return $this->notFound();
         }
 
+        $exactLocationVisible = $this->canViewExactLocation($event);
         $favoriteStates = $this->favoriteStates([$event]);
-        $event = $this->presentEvent($event, isset($favoriteStates[(int) ($event['id'] ?? 0)]));
+        $event = $this->presentEvent(
+            $event,
+            isset($favoriteStates[(int) ($event['id'] ?? 0)]),
+            $exactLocationVisible,
+        );
         $gallery = array_map(
             fn (array $image): array => [
                 'path' => (string) ($image['image_path'] ?? ''),
@@ -153,6 +161,11 @@ final class PublicEventController extends Controller
             'openGraph' => $openGraph,
             'jsonLd' => $this->jsonLd($event, $canonicalUrl, $images, $reviewSummary),
             'event' => $event,
+            'mapPayload' => $this->detailMapPayload($event),
+            'leafletEnabled' => $exactLocationVisible && $this->validCoordinates(
+                $event['venue_latitude'] ?? null,
+                $event['venue_longitude'] ?? null,
+            ),
             'gallery' => $gallery,
             'registrationAction' => $this->registrationAction($event),
             'reviews' => $publishedReviews,
@@ -262,20 +275,38 @@ final class PublicEventController extends Controller
         ];
     }
 
-    private function presentEvent(array $event, bool $isFavorited = false): array
+    private function presentEvent(
+        array $event,
+        bool $isFavorited = false,
+        ?bool $exactLocationVisible = null,
+    ): array
     {
         $start = $this->date((string) $event['start_date']);
         $end = $this->date((string) $event['end_date']);
         $deadline = $this->date((string) $event['registration_deadline']);
-        $address = array_values(array_filter([
+        $exactLocationVisible ??= ($event['location_visibility'] ?? 'public') === 'public';
+        $addressParts = $exactLocationVisible ? [
             trim((string) ($event['venue_name'] ?? '')),
+            trim((string) ($event['venue_address_line'] ?? '')),
+            trim((string) ($event['venue_city'] ?? '')),
+            trim((string) ($event['venue_postal_code'] ?? '')),
+            trim((string) ($event['venue_country'] ?? '')),
+        ] : [
             trim((string) ($event['venue_city'] ?? '')),
             trim((string) ($event['venue_country'] ?? '')),
-        ], static fn (string $value): bool => $value !== ''));
+        ];
+        $address = array_values(array_filter($addressParts, static fn (string $value): bool => $value !== ''));
         $isFree = Money::isFree($event['ticket_price'] ?? null);
         $distanceExact = ($event['location_visibility'] ?? 'public') === 'public';
+        $directionsUrl = $exactLocationVisible
+            ? ($this->locations ?? new LocationService())->directionsUrl([
+                'map_url' => $event['venue_map_url'] ?? $event['map_url'] ?? null,
+                'latitude' => $event['venue_latitude'] ?? null,
+                'longitude' => $event['venue_longitude'] ?? null,
+            ])
+            : null;
 
-        return array_merge($event, [
+        $presented = array_merge($event, [
             'start_iso' => $start->format(DATE_ATOM),
             'start_date_display' => $start->format('M j, Y'),
             'start_time_display' => $start->format('g:i A'),
@@ -289,6 +320,8 @@ final class PublicEventController extends Controller
                 : Money::format($event['ticket_price'] ?? null, (string) ($event['currency'] ?? 'BDT')),
             'is_free' => $isFree,
             'distance_label' => $this->locations?->distanceLabel($event['distance_km'] ?? null, $distanceExact),
+            'exact_location_visible' => $exactLocationVisible,
+            'directions_url' => $directionsUrl,
             'banner_display' => (string) (($event['banner'] ?? '') ?: '/assets/images/event-creative.webp'),
             'banner_alt' => 'Banner for ' . (string) $event['title'],
             'favorite' => [
@@ -297,6 +330,124 @@ final class PublicEventController extends Controller
                 'is_saved' => $isFavorited,
             ],
         ]);
+
+        if (!$exactLocationVisible) {
+            foreach ([
+                'venue_name',
+                'venue_address_line',
+                'venue_postal_code',
+                'venue_latitude',
+                'venue_longitude',
+                'venue_map_url',
+                'map_url',
+                'arrival_notes',
+                'latitude',
+                'longitude',
+            ] as $field) {
+                unset($presented[$field]);
+            }
+        }
+
+        return $presented;
+    }
+
+    private function canViewExactLocation(array $event): bool
+    {
+        if (($event['location_visibility'] ?? 'public') === 'public') {
+            return true;
+        }
+
+        $userId = $this->auth->id();
+        if ($userId === null) {
+            return false;
+        }
+
+        if ($this->auth->hasRole('super-admin')) {
+            return true;
+        }
+
+        if ($this->auth->hasRole('organizer')
+            && $userId === (int) ($event['organizer_user_id'] ?? 0)) {
+            return true;
+        }
+
+        $registration = $this->auth->hasRole('participant')
+            ? $this->registrations->findForParticipantEvent($userId, (int) $event['id'])
+            : null;
+        $status = $registration['registration_status'] ?? $registration['status'] ?? null;
+
+        return $status === 'confirmed';
+    }
+
+    private function mapConfig(): array
+    {
+        return [
+            'tile_url' => (string) $this->config->get('map.tile_url', ''),
+            'tile_attribution' => (string) $this->config->get('map.tile_attribution', ''),
+            'default_lat' => (float) $this->config->get('map.default_lat', 23.8103),
+            'default_lng' => (float) $this->config->get('map.default_lng', 90.4125),
+            'default_zoom' => (int) $this->config->get('map.default_zoom', 11),
+        ];
+    }
+
+    private function publicMarkers(array $events): array
+    {
+        $markers = [];
+
+        foreach ($events as $event) {
+            if (($event['status'] ?? null) !== 'published'
+                || !empty($event['deleted_at'])
+                || ($event['location_visibility'] ?? 'public') !== 'public'
+                || !$this->validCoordinates($event['venue_latitude'] ?? null, $event['venue_longitude'] ?? null)) {
+                continue;
+            }
+
+            $markers[] = [
+                'id' => (int) ($event['id'] ?? 0),
+                'title' => (string) ($event['title'] ?? 'Event'),
+                'href' => '/events/' . rawurlencode((string) ($event['slug'] ?? '')),
+                'latitude' => (string) $event['venue_latitude'],
+                'longitude' => (string) $event['venue_longitude'],
+            ];
+        }
+
+        return $markers;
+    }
+
+    private function detailMapPayload(array $event): ?array
+    {
+        if (empty($event['exact_location_visible'])
+            || !$this->validCoordinates($event['venue_latitude'] ?? null, $event['venue_longitude'] ?? null)) {
+            return null;
+        }
+
+        return [
+            'config' => $this->mapConfig(),
+            'markers' => [[
+                'id' => (int) ($event['id'] ?? 0),
+                'title' => (string) ($event['title'] ?? 'Event'),
+                'href' => '/events/' . rawurlencode((string) ($event['slug'] ?? '')),
+                'latitude' => (string) $event['venue_latitude'],
+                'longitude' => (string) $event['venue_longitude'],
+            ]],
+        ];
+    }
+
+    private function validCoordinates(mixed $latitude, mixed $longitude): bool
+    {
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
+            return false;
+        }
+
+        $latitude = (float) $latitude;
+        $longitude = (float) $longitude;
+
+        return is_finite($latitude)
+            && is_finite($longitude)
+            && $latitude >= -90
+            && $latitude <= 90
+            && $longitude >= -180
+            && $longitude <= 180;
     }
 
     /** @return array<int, bool> */
@@ -329,7 +480,9 @@ final class PublicEventController extends Controller
                 'name' => (string) (($event['venue_name'] ?? '') ?: 'Venue to be announced'),
                 'address' => [
                     '@type' => 'PostalAddress',
+                    'streetAddress' => (string) ($event['venue_address_line'] ?? ''),
                     'addressLocality' => (string) ($event['venue_city'] ?? ''),
+                    'postalCode' => (string) ($event['venue_postal_code'] ?? ''),
                     'addressCountry' => (string) ($event['venue_country'] ?? ''),
                 ],
             ],
@@ -341,6 +494,15 @@ final class PublicEventController extends Controller
 
         if ($images !== []) {
             $json['image'] = $images;
+        }
+
+        if (!empty($event['exact_location_visible'])
+            && $this->validCoordinates($event['venue_latitude'] ?? null, $event['venue_longitude'] ?? null)) {
+            $json['location']['geo'] = [
+                '@type' => 'GeoCoordinates',
+                'latitude' => (float) $event['venue_latitude'],
+                'longitude' => (float) $event['venue_longitude'],
+            ];
         }
 
         if (trim((string) ($event['speaker'] ?? '')) !== '') {

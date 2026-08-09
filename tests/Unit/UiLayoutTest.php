@@ -58,6 +58,24 @@ final class UiLayoutTest extends TestCase
         $this->assertFalse(str_contains($html, '</script><script>alert'));
     }
 
+    public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $html = $view->render('errors/404', [
+            'app' => ['name' => 'OEMS'],
+            'currentUser' => null,
+            'flash' => [],
+            'pageTitle' => 'Map preview',
+            'leafletEnabled' => true,
+        ], 'public');
+
+        $this->assertTrue(str_contains($html, 'href="/assets/vendor/leaflet/leaflet.css"'));
+        $this->assertTrue(str_contains($html, 'src="/assets/vendor/leaflet/leaflet.js"'));
+        $this->assertTrue(str_contains($html, 'src="/assets/js/location.js"'));
+        $this->assertFalse(str_contains($html, 'unpkg.com'));
+        $this->assertFalse(str_contains($html, 'jsdelivr.net'));
+    }
+
     public function testMobileNavigationStartsCollapsedAndExposesItsControlState(): void
     {
         $html = $this->renderHome();

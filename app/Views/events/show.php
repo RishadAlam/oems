@@ -25,6 +25,26 @@
                 <p class="public-event__description"><?= nl2br(e($event['description'])) ?></p>
             </section>
 
+            <section class="public-event__location" aria-labelledby="event-location-heading">
+                <h2 id="event-location-heading">Location</h2>
+                <?php if (!empty($event['exact_location_visible'])): ?>
+                    <address><?= e($event['address']) ?></address>
+                    <?php if (!empty($event['arrival_notes'])): ?><p><?= nl2br(e($event['arrival_notes'])) ?></p><?php endif; ?>
+                    <?php if (!empty($event['directions_url'])): ?>
+                        <a class="text-link" href="<?= e($event['directions_url']) ?>" target="_blank" rel="noopener noreferrer"><span>Get directions</span><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
+                    <?php endif; ?>
+                    <?php if (is_array($mapPayload)): ?>
+                        <div class="event-map event-map--detail" data-event-map role="region" aria-label="Map showing the event location">
+                            <p data-map-fallback>Map is unavailable. Use the address or directions link instead.</p>
+                        </div>
+                        <script type="application/json" id="event-detail-map-data"><?= json_encode($mapPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <address><?= e($event['address']) ?></address>
+                    <p class="public-event__location-notice"><i class="ph ph-lock-key" aria-hidden="true"></i><span>Exact location shared after confirmation</span></p>
+                <?php endif; ?>
+            </section>
+
             <?php if ($gallery !== []): ?>
                 <section class="public-event__gallery" aria-labelledby="event-gallery-heading">
                     <h2 id="event-gallery-heading">Event gallery</h2>
@@ -81,7 +101,7 @@
                 <dl>
                     <div><dt><i class="ph ph-calendar-blank" aria-hidden="true"></i>Starts</dt><dd><time datetime="<?= e($event['start_iso']) ?>"><?= e($event['start_date_display']) ?> at <?= e($event['start_time_display']) ?></time></dd></div>
                     <div><dt><i class="ph ph-clock" aria-hidden="true"></i>Ends</dt><dd><time datetime="<?= e($event['end_iso']) ?>"><?= e($event['end_display']) ?></time></dd></div>
-                    <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i>Venue</dt><dd><address><?= e($event['address']) ?></address></dd></div>
+                    <div><dt><i class="ph ph-map-pin" aria-hidden="true"></i>Venue</dt><dd><address><?= e($event['address']) ?></address><?php if (empty($event['exact_location_visible'])): ?><small>Exact location shared after confirmation</small><?php endif; ?></dd></div>
                     <div><dt><i class="ph ph-ticket" aria-hidden="true"></i>Price</dt><dd><?= e($event['price_display']) ?><?php if (empty($event['is_free'])): ?> <?= e($event['currency'] ?? 'BDT') ?><?php endif; ?></dd></div>
                     <div><dt><i class="ph ph-users" aria-hidden="true"></i>Capacity</dt><dd><?= e($event['capacity']) ?> total places, <?= e($event['available_seats']) ?> currently available</dd></div>
                     <?php if (!empty($event['speaker'])): ?><div><dt><i class="ph ph-microphone-stage" aria-hidden="true"></i>Speaker</dt><dd><?= e($event['speaker']) ?></dd></div><?php endif; ?>
