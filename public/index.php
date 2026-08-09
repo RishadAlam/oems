@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Services\AuthService;
+use OEMS\App\Support\RememberCookie;
 use OEMS\Core\Auth;
 use OEMS\Core\Logger;
 use OEMS\Core\Request;
@@ -21,17 +22,30 @@ try {
     $rememberCookieName = (string) $app['config']['remember_cookie'];
     $rememberCookie = $request->cookie($rememberCookieName);
 
+    $rememberResult = null;
+
     if ($auth->guest() && is_string($rememberCookie) && $rememberCookie !== '') {
-        $app['container']->get(AuthService::class)->consumeRememberCookie(
+        $rememberResult = $app['container']->get(AuthService::class)->consumeRememberCookie(
             $rememberCookie,
             $request->ip(),
             (string) $request->header('User-Agent', ''),
         );
     }
 
-    $router->dispatch($request)
-        ->withSecurityHeaders()
-        ->send();
+    $response = $router->dispatch($request)->withSecurityHeaders();
+
+    if (is_array($rememberResult)) {
+        $rememberHeader = (new RememberCookie(
+            $rememberCookieName,
+            (bool) $app['config']['secure_cookies'],
+        ))->forConsumptionResult($rememberResult);
+
+        if ($rememberHeader !== null) {
+            $response = $response->withHeader('Set-Cookie', $rememberHeader);
+        }
+    }
+
+    $response->send();
 } catch (Throwable $exception) {
     $app['container']->get(Logger::class)->error('Unhandled application exception.', [
         'exception' => $exception::class,

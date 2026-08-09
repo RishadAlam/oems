@@ -60,7 +60,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 09:00:00',
         ];
-        $this->session->put('auth.user_id', 7);
+        $this->authenticateSession($this->session, $users, 7);
         $auth = new Auth($this->session, $users);
         $this->events = new FakeEventRepository();
         $this->registrations = new FakeRegistrationRepository();

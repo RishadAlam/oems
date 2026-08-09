@@ -32,7 +32,7 @@ final class ParticipantNotificationControllerTest extends TestCase
         $session = new Session(false);
         $users = new FakeUserRepository();
         $users->users[7] = ['id' => 7, 'role_id' => 3, 'name' => 'Participant', 'email' => 'participant@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 09:00:00'];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $security = new Security($session);
         $this->repository = new FakeNotificationRepository();
         $this->repository->createForUser(7, ['type' => 'ticket_issued', 'title' => 'Ready', 'message' => 'Your ticket is ready.', 'action_url' => '/participant/tickets/4', 'data' => []]);
@@ -65,7 +65,7 @@ final class ParticipantNotificationControllerTest extends TestCase
         $session = new Session(false);
         $users = new FakeUserRepository();
         $users->users[7] = ['id' => 7, 'role_id' => 3, 'name' => 'Participant', 'email' => 'participant@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 09:00:00'];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $auth = new Auth($session, $users);
         $security = new Security($session);
         $container = new Container();
@@ -100,7 +100,7 @@ final class ParticipantNotificationControllerTest extends TestCase
 
             if ($role === 'organizer') {
                 $users->users[9] = ['id' => 9, 'role_id' => 2, 'name' => 'Organizer', 'email' => 'organizer@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 09:00:00'];
-                $session->put('auth.user_id', 9);
+                $this->authenticateSession($session, $users, 9);
             }
 
             $auth = new Auth($session, $users);

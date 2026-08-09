@@ -6,6 +6,7 @@ namespace OEMS\App\Controllers;
 
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\AccountMailer;
+use OEMS\App\Support\RememberCookie;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -251,22 +252,10 @@ final class AuthController extends Controller
 
     private function rememberCookie(string $value, int $expires): string
     {
-        $name = (string) $this->config->get('remember_cookie', 'OEMS_REMEMBER');
-        $parts = [
-            rawurlencode($name) . '=' . rawurlencode($value),
-            'Expires=' . gmdate('D, d M Y H:i:s T', $expires),
-            'Max-Age=' . max(0, $expires - time()),
-            'Path=/',
-            'HttpOnly',
-            'SameSite=Lax',
-        ];
-
-        if ((bool) $this->config->get('secure_cookies', false)
-            || (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')) {
-            $parts[] = 'Secure';
-        }
-
-        return implode('; ', $parts);
+        return (new RememberCookie(
+            (string) $this->config->get('remember_cookie', 'OEMS_REMEMBER'),
+            (bool) $this->config->get('secure_cookies', false),
+        ))->header($value, $expires);
     }
 
     private function safeLoginReturnTo(mixed $value): ?string

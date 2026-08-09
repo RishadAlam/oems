@@ -78,7 +78,6 @@ final class OrganizerVenueControllerTest extends TestCase
         $_SESSION = [];
         $_SERVER['REQUEST_URI'] = '/organizer/venues';
         $this->session = new Session(false);
-        $this->session->put('auth.user_id', 10);
         $users = new FakeUserRepository();
         $users->users[10] = [
             'id' => 10,
@@ -89,6 +88,7 @@ final class OrganizerVenueControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
+        $this->authenticateSession($this->session, $users, 10);
         $this->venues = new FakeVenueRepository();
         $this->geocoder = new OrganizerVenueTestGeocoder();
         $this->rateDirectory = sys_get_temp_dir() . '/oems-venue-geocode-' . bin2hex(random_bytes(6));
@@ -406,9 +406,6 @@ final class OrganizerVenueControllerTest extends TestCase
     {
         $_SESSION = [];
         $session = new Session(false);
-        if ($role !== 'guest') {
-            $session->put('auth.user_id', 10);
-        }
         $security = new Security($session);
         $users = new FakeUserRepository();
         $users->users[10] = [
@@ -420,6 +417,9 @@ final class OrganizerVenueControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
+        if ($role !== 'guest') {
+            $this->authenticateSession($session, $users, 10);
+        }
         $auth = new Auth($session, $users);
         $container = new Container();
         $container->instance(OrganizerVenueController::class, $this->controller);

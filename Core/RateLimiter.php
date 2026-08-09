@@ -70,30 +70,9 @@ final class RateLimiter
 
     public function clear(string $key): void
     {
-        $path = $this->pathFor($key);
-
-        if (!is_file($path)) {
-            return;
-        }
-
-        $handle = fopen($path, 'c+');
-
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open the rate-limit store.');
-        }
-
-        try {
-            if (!flock($handle, LOCK_EX)) {
-                throw new RuntimeException('Unable to lock the rate-limit store.');
-            }
-
-            ftruncate($handle, 0);
-            fflush($handle);
-            unlink($path);
-            flock($handle, LOCK_UN);
-        } finally {
-            fclose($handle);
-        }
+        $this->withExclusiveLock($key, function (array $record, int $now, mixed $handle): void {
+            $this->writeRecord($handle, ['attempts' => 0, 'expires_at' => 0]);
+        });
     }
 
     /** @return array{attempts: int, expires_at: int} */

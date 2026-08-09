@@ -52,30 +52,35 @@ final class Logger
 
     private function redact(array $context): array
     {
-        $sensitiveKeys = [
-            'api_key',
-            'authorization',
-            'cookie',
-            'password',
-            'password_confirmation',
-            'remember_token',
-            'reset_token',
-            'secret',
-            'set-cookie',
-            'token',
-            'validator',
-        ];
         $safe = [];
 
         foreach ($context as $key => $value) {
-            if (is_string($key) && in_array(strtolower($key), $sensitiveKeys, true)) {
+            if (is_string($key) && $this->isSensitiveKey($key)) {
                 $safe[$key] = '[redacted]';
                 continue;
             }
 
-            $safe[$key] = is_array($value) ? $this->redact($value) : $value;
+            if (is_array($value)) {
+                $safe[$key] = $this->redact($value);
+                continue;
+            }
+
+            $safe[$key] = is_object($value) ? $this->redact(get_object_vars($value)) : $value;
         }
 
         return $safe;
+    }
+
+    private function isSensitiveKey(string $key): bool
+    {
+        $normalized = strtolower((string) preg_replace('/[^a-z0-9]/i', '', $key));
+
+        foreach (['apikey', 'authorization', 'cookie', 'password', 'secret', 'token', 'validator'] as $term) {
+            if (str_contains($normalized, $term)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

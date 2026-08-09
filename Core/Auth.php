@@ -38,7 +38,11 @@ final class Auth
     public function user(): ?array
     {
         if ($this->resolved) {
-            return $this->cachedUser;
+            if ($this->cachedUser !== null || $this->session->get('auth.user_id') === null) {
+                return $this->cachedUser;
+            }
+
+            $this->resolved = false;
         }
 
         $this->resolved = true;
@@ -58,8 +62,9 @@ final class Auth
 
         $sessionSignature = $this->session->get('auth.password_signature');
 
-        if (is_string($sessionSignature)
-            && !hash_equals($sessionSignature, hash('sha256', (string) ($user['password'] ?? '')))) {
+        if (!is_string($sessionSignature)
+            || !preg_match('/^[a-f0-9]{64}$/', $sessionSignature)
+            || !hash_equals($sessionSignature, hash('sha256', (string) ($user['password'] ?? '')))) {
             $this->session->forget('auth');
 
             return null;

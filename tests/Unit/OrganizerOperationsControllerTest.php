@@ -48,9 +48,9 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->temporaryDirectory = sys_get_temp_dir() . '/oems-organizer-operations-' . bin2hex(random_bytes(6));
         mkdir($this->temporaryDirectory, 0775, true);
         $this->session = new Session(false);
-        $this->session->put('auth.user_id', 10);
         $this->security = new Security($this->session);
         $users = $this->users('organizer');
+        $this->authenticateSession($this->session, $users, 10);
         $auth = new Auth($this->session, $users);
         $config = new Config(['name' => 'OEMS', 'url' => 'https://oems.test']);
         $view = new View(base_path('app/Views'));
@@ -306,9 +306,10 @@ final class OrganizerOperationsControllerTest extends TestCase
     {
         $_SESSION = [];
         $session = new Session(false);
-        $session->put('auth.user_id', 10);
         $security = new Security($session);
-        $auth = new Auth($session, $this->users($role));
+        $users = $this->users($role);
+        $this->authenticateSession($session, $users, 10);
+        $auth = new Auth($session, $users);
         $container = new Container();
         $container->instance(OrganizerParticipantController::class, $this->participants);
         $container->instance(OrganizerCheckInController::class, $this->checkIn);

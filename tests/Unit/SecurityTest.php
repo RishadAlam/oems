@@ -69,4 +69,68 @@ PHP,
         $this->assertTrue($actual !== '', 'Session start did not produce an identifier.');
         $this->assertNotSame($identifier, $actual);
     }
+
+    public function testDirectHttpsForcesTheSessionCookieSecureWhenConfigurationIsFalse(): void
+    {
+        $code = sprintf(
+            <<<'PHP'
+require %s;
+$_SERVER['HTTPS'] = 'on';
+new OEMS\Core\Session(true, ['name' => 'OEMS_HTTPS_TEST', 'secure' => false]);
+echo json_encode(session_get_cookie_params(), JSON_THROW_ON_ERROR);
+session_destroy();
+PHP,
+            var_export(base_path('vendor/autoload.php'), true),
+        );
+        [$status, $output, $error] = $this->runPhpProcess($code);
+        $parameters = json_decode($output, true);
+
+        $this->assertSame(0, $status, $error);
+        $this->assertTrue(is_array($parameters));
+        $this->assertTrue($parameters['secure'] ?? false);
+    }
+
+    public function testAuthenticatedSessionRegenerationChangesTheLiveIdentifier(): void
+    {
+        $code = sprintf(
+            <<<'PHP'
+require %s;
+$session = new OEMS\Core\Session(true, ['name' => 'OEMS_ROTATION_TEST']);
+$before = session_id();
+$rotated = $session->regenerate();
+$after = session_id();
+echo json_encode(['before' => $before, 'after' => $after, 'rotated' => $rotated], JSON_THROW_ON_ERROR);
+session_destroy();
+PHP,
+            var_export(base_path('vendor/autoload.php'), true),
+        );
+        [$status, $output, $error] = $this->runPhpProcess($code);
+        $result = json_decode($output, true);
+
+        $this->assertSame(0, $status, $error);
+        $this->assertTrue(is_array($result));
+        $this->assertTrue($result['rotated'] ?? false);
+        $this->assertTrue(is_string($result['before'] ?? null) && $result['before'] !== '');
+        $this->assertTrue(is_string($result['after'] ?? null) && $result['after'] !== '');
+        $this->assertNotSame($result['before'], $result['after']);
+    }
+
+    /** @return array{int, string, string} */
+    private function runPhpProcess(string $code): array
+    {
+        $process = proc_open(
+            [PHP_BINARY, '-r', $code],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            base_path(),
+        );
+        $this->assertTrue(is_resource($process));
+        fclose($pipes[0]);
+        $output = trim((string) stream_get_contents($pipes[1]));
+        $error = trim((string) stream_get_contents($pipes[2]));
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        return [proc_close($process), $output, $error];
+    }
 }

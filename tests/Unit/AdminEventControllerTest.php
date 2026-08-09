@@ -246,7 +246,7 @@ final class AdminEventControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
-        $session->put('auth.user_id', 99);
+        $this->authenticateSession($session, $users, 99);
 
         return $users;
     }

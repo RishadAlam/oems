@@ -101,6 +101,31 @@ final class AuthServiceTest extends TestCase
         $this->assertSame('participant', $this->session->get('auth.role'));
     }
 
+    public function testAuthenticatedSessionWithoutAValidPasswordSignatureFailsClosed(): void
+    {
+        $userId = $this->users->create([
+            'name' => 'Unsigned Session User',
+            'email' => 'unsigned-session@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+
+        foreach ([null, ['unexpected-shape']] as $signature) {
+            $_SESSION = [];
+            $this->session->put('auth.user_id', $userId);
+
+            if ($signature !== null) {
+                $this->session->put('auth.password_signature', $signature);
+            }
+
+            $auth = new Auth($this->session, $this->users);
+
+            $this->assertTrue($auth->guest());
+            $this->assertNull($this->session->get('auth.user_id'));
+        }
+    }
+
     public function testUnverifiedUserCannotLogin(): void
     {
         $this->users->create([
@@ -184,6 +209,109 @@ final class AuthServiceTest extends TestCase
         rmdir($directory);
     }
 
+    public function testLoginLimitFollowsTheAccountAcrossRotatingIpAddresses(): void
+    {
+        $this->users->create([
+            'name' => 'Distributed Login Target',
+            'email' => 'distributed-login@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-account-rate-' . bin2hex(random_bytes(5));
+        $service = new AuthService(
+            $this->users,
+            $this->session,
+            new RateLimiter($directory, 2, 900),
+        );
+
+        $service->attempt('distributed-login@example.com', 'wrong-one', false, '192.0.2.10');
+        $service->attempt('distributed-login@example.com', 'wrong-two', false, '192.0.2.11');
+        $blocked = $service->attempt(
+            'distributed-login@example.com',
+            'secure-password',
+            false,
+            '192.0.2.12',
+        );
+
+        $this->assertFalse($blocked['success']);
+        $this->assertSame(
+            'Too many sign-in attempts. Try again in a few minutes.',
+            $blocked['errors']['email'][0],
+        );
+
+        $this->removeRateLimitDirectory($directory);
+    }
+
+    public function testSuccessfulLoginClearsBothAccountAndIpAttemptHistory(): void
+    {
+        $this->users->create([
+            'name' => 'Recovered Login User',
+            'email' => 'recovered-login@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-login-clear-' . bin2hex(random_bytes(5));
+        $service = new AuthService(
+            $this->users,
+            $this->session,
+            new RateLimiter($directory, 2, 900),
+        );
+
+        $service->attempt('recovered-login@example.com', 'wrong-one', false, '192.0.2.20');
+        $firstSuccess = $service->attempt(
+            'recovered-login@example.com',
+            'secure-password',
+            false,
+            '192.0.2.21',
+        );
+        $service->attempt('recovered-login@example.com', 'wrong-two', false, '192.0.2.22');
+        $secondSuccess = $service->attempt(
+            'recovered-login@example.com',
+            'secure-password',
+            false,
+            '192.0.2.23',
+        );
+
+        $this->assertTrue($firstSuccess['success']);
+        $this->assertTrue($secondSuccess['success']);
+
+        $this->removeRateLimitDirectory($directory);
+    }
+
+    public function testBlockedAccountAttemptStillConsumesTheSourceIpBudget(): void
+    {
+        $this->users->create([
+            'name' => 'Partial Consumption User',
+            'email' => 'partial-login@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+        $directory = sys_get_temp_dir() . '/oems-login-partial-' . bin2hex(random_bytes(5));
+        $limiter = new RateLimiter($directory, 1, 900);
+        $service = new AuthService($this->users, $this->session, $limiter);
+
+        $service->attempt('partial-login@example.com', 'wrong-one', false, '192.0.2.30');
+        $service->attempt('partial-login@example.com', 'wrong-two', false, '192.0.2.31');
+        $limiter->clear('login:account:partial-login@example.com');
+        $blocked = $service->attempt(
+            'partial-login@example.com',
+            'secure-password',
+            false,
+            '192.0.2.31',
+        );
+
+        $this->assertFalse($blocked['success']);
+        $this->assertSame(
+            'Too many sign-in attempts. Try again in a few minutes.',
+            $blocked['errors']['email'][0],
+        );
+
+        $this->removeRateLimitDirectory($directory);
+    }
+
     public function testRegistrationRateLimitStopsRepeatedAccountCreationFromOneIp(): void
     {
         $directory = sys_get_temp_dir() . '/oems-registration-rate-' . bin2hex(random_bytes(5));
@@ -247,15 +375,71 @@ final class AuthServiceTest extends TestCase
         $guestToken = $security->csrfToken();
         $service = new AuthService($this->users, $this->session);
 
-        $authenticated = $service->consumeRememberCookie(
+        $result = $service->consumeRememberCookie(
             $selector . ':' . $validator,
             '192.0.2.71',
             'OEMS Test',
         );
 
-        $this->assertTrue($authenticated);
+        $this->assertTrue($result['authenticated']);
+        $this->assertTrue(is_string($result['remember_cookie']));
+        $this->assertNotSame($selector . ':' . $validator, $result['remember_cookie']);
         $this->assertFalse($security->verifyCsrf($guestToken));
         $this->assertSame($userId, $this->session->get('auth.user_id'));
+
+        $replay = $service->consumeRememberCookie(
+            $selector . ':' . $validator,
+            '192.0.2.71',
+            'OEMS Test',
+        );
+
+        $this->assertFalse($replay['authenticated']);
+        $this->assertTrue($replay['forget_cookie']);
+    }
+
+    public function testInvalidRememberCookieRequestsBrowserExpiryWithoutCreatingASession(): void
+    {
+        $service = new AuthService($this->users, $this->session);
+
+        $result = $service->consumeRememberCookie('malformed-cookie', '192.0.2.72', 'OEMS Test');
+
+        $this->assertFalse($result['authenticated']);
+        $this->assertTrue($result['forget_cookie']);
+        $this->assertNull($result['remember_cookie']);
+        $this->assertNull($this->session->get('auth.user_id'));
+    }
+
+    public function testRememberAuthenticationRefreshesAnAuthInstanceThatAlreadyResolvedGuest(): void
+    {
+        $userId = $this->users->create([
+            'name' => 'Resolved Guest Participant',
+            'email' => 'resolved-guest@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+        $selector = str_repeat('c', 24);
+        $validator = str_repeat('d', 64);
+        $this->users->storeRememberSession(
+            $userId,
+            $selector,
+            hash('sha256', $validator),
+            (new \DateTimeImmutable())->modify('+1 hour'),
+            '192.0.2.73',
+            'OEMS Test',
+        );
+        $auth = new Auth($this->session, $this->users);
+        $service = new AuthService($this->users, $this->session);
+
+        $this->assertTrue($auth->guest());
+        $result = $service->consumeRememberCookie(
+            $selector . ':' . $validator,
+            '192.0.2.73',
+            'OEMS Test',
+        );
+
+        $this->assertTrue($result['authenticated']);
+        $this->assertTrue($auth->check());
     }
 
     public function testPasswordResetMakesAnExistingAuthenticatedSessionUnusable(): void
@@ -431,5 +615,16 @@ final class AuthServiceTest extends TestCase
             unlink($file);
         }
         rmdir($directory);
+    }
+
+    private function removeRateLimitDirectory(string $directory): void
+    {
+        foreach (glob($directory . '/*') ?: [] as $file) {
+            unlink($file);
+        }
+
+        if (is_dir($directory)) {
+            rmdir($directory);
+        }
     }
 }

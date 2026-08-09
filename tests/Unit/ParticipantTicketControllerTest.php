@@ -38,7 +38,7 @@ final class ParticipantTicketControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 09:00:00',
         ];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $auth = new Auth($session, $users);
         $this->ticketRoot = sys_get_temp_dir() . '/oems-ticket-controller-' . bin2hex(random_bytes(6));
         mkdir($this->ticketRoot, 0775, true);

@@ -48,7 +48,7 @@ final class RoleMiddlewareTest extends TestCase
             'role_id' => 3,
             'email_verified_at' => '2026-08-06 10:00:00',
         ]);
-        $this->session->put('auth.user_id', $id);
+        $this->authenticateSession($this->session, $this->users, $id);
         $middleware = new RoleMiddleware(new Auth($this->session, $this->users));
 
         $response = $middleware->withArgument('participant')->handle(
@@ -69,7 +69,7 @@ final class RoleMiddlewareTest extends TestCase
             'role_id' => 3,
             'email_verified_at' => '2026-08-06 10:00:00',
         ]);
-        $this->session->put('auth.user_id', $id);
+        $this->authenticateSession($this->session, $this->users, $id);
         $middleware = new RoleMiddleware(new Auth($this->session, $this->users));
 
         $response = $middleware->withArgument('organizer')->handle(
@@ -80,4 +80,3 @@ final class RoleMiddlewareTest extends TestCase
         $this->assertSame(403, $response->status());
     }
 }
-

@@ -12,13 +12,16 @@ final class Response
 {
     private const FILE_CHUNK_BYTES = 65536;
 
+    private readonly array $headers;
+
     public function __construct(
         private readonly string $body = '',
         private readonly int $status = 200,
-        private readonly array $headers = [],
+        array $headers = [],
         private readonly ?string $filePath = null,
         private readonly ?\Closure $streamCallback = null,
     ) {
+        $this->headers = self::validatedHeaders($headers);
     }
 
     public static function html(string $body, int $status = 200, array $headers = []): self

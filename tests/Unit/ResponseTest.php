@@ -45,6 +45,19 @@ final class ResponseTest extends TestCase
         $this->assertSame('Invalid response header.', $message);
     }
 
+    public function testPublicConstructorCannotBypassHeaderValidation(): void
+    {
+        $message = null;
+
+        try {
+            new Response('ok', 200, ['X-Trace' => "safe\r\nX-Injected: true"]);
+        } catch (InvalidArgumentException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        $this->assertSame('Invalid response header.', $message);
+    }
+
     public function testSecurityHeadersHardenHtmlWithoutBlockingLocalAssetsOrHttpsMapTiles(): void
     {
         $response = Response::html('ok')->withSecurityHeaders();

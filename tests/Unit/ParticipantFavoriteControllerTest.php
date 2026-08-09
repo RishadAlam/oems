@@ -50,7 +50,7 @@ final class ParticipantFavoriteControllerTest extends TestCase
             'pagination' => ['page' => 1, 'per_page' => 12, 'total' => 14, 'last_page' => 2],
         ];
         $auth = new Auth($session, $users);
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $this->security = new Security($session);
 
         if (class_exists(ParticipantFavoriteController::class) && class_exists(FavoriteService::class)) {
@@ -137,7 +137,7 @@ final class ParticipantFavoriteControllerTest extends TestCase
                 'status' => 'active',
                 'email_verified_at' => '2026-08-01 10:00:00',
             ];
-            $session->put('auth.user_id', $userId);
+            $this->authenticateSession($session, $users, $userId);
         }
         $auth = new Auth($session, $users);
         $security = new Security($session);

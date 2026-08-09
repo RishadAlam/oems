@@ -38,7 +38,7 @@ final class ProfileControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
-        $this->session->put('auth.user_id', 7);
+        $this->authenticateSession($this->session, $users, 7);
         $this->profiles = new FakeProfileRepository();
         $this->profiles->profiles[7] = $this->profileFixture();
         $auth = new Auth($this->session, $users);

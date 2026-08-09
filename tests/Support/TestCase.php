@@ -125,5 +125,20 @@ abstract class TestCase
             throw new RuntimeException($message);
         }
     }
-}
 
+    protected function authenticateSession(
+        \OEMS\Core\Session $session,
+        \OEMS\App\Contracts\UserRepositoryInterface $users,
+        int $userId,
+    ): void {
+        $user = $users->findById($userId);
+
+        if ($user === null) {
+            throw new RuntimeException('Cannot authenticate a missing test user.');
+        }
+
+        $session->put('auth.user_id', $userId);
+        $session->put('auth.role', (string) ($user['role_slug'] ?? ''));
+        $session->put('auth.password_signature', hash('sha256', (string) ($user['password'] ?? '')));
+    }
+}

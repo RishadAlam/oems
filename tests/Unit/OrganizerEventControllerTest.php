@@ -409,7 +409,7 @@ final class OrganizerEventControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-06 10:00:00',
         ];
-        $this->session->put('auth.user_id', 10);
+        $this->authenticateSession($this->session, $users, 10);
 
         return $users;
     }

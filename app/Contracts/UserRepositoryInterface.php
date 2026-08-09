@@ -24,7 +24,11 @@ interface UserRepositoryInterface
 
     public function storePasswordReset(string $email, string $tokenHash, DateTimeImmutable $expiresAt): void;
 
-    public function findValidPasswordReset(string $tokenHash, DateTimeImmutable $now): ?array;
+    public function resetPasswordUsingToken(
+        string $tokenHash,
+        DateTimeImmutable $now,
+        string $passwordHash,
+    ): ?array;
 
     public function deletePasswordResets(string $email): void;
 
@@ -37,10 +41,18 @@ interface UserRepositoryInterface
         string $userAgent,
     ): void;
 
-    public function findRememberSession(string $selector, DateTimeImmutable $now): ?array;
+    public function rotateRememberSession(
+        string $selector,
+        string $validatorHash,
+        DateTimeImmutable $now,
+        string $replacementSelector,
+        string $replacementValidatorHash,
+        DateTimeImmutable $replacementExpiresAt,
+        string $ipAddress,
+        string $userAgent,
+    ): ?array;
 
     public function deleteRememberSession(string $selector): void;
 
     public function deleteRememberSessionsForUser(int $userId): void;
 }
-

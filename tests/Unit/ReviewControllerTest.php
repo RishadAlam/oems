@@ -310,7 +310,7 @@ final class ReviewControllerTest extends TestCase
         }
 
         $session = $userId === 7 ? $this->session : new Session(false);
-        $session->put('auth.user_id', $userId);
+        $this->authenticateSession($session, $this->users, $userId);
         $security = $userId === 7 ? $this->security : new Security($session);
         $service = new ReviewService(new PDO('sqlite::memory:'), $this->users, $this->reviews);
 
@@ -345,7 +345,7 @@ final class ReviewControllerTest extends TestCase
         if ($userId !== null) {
             $roleId = ['super-admin' => 1, 'organizer' => 2, 'participant' => 3][$role];
             $users->users[$userId] = $this->user($userId, $roleId, 'Route User');
-            $session->put('auth.user_id', $userId);
+            $this->authenticateSession($session, $users, $userId);
         }
         $auth = new Auth($session, $users);
         $security = new Security($session);

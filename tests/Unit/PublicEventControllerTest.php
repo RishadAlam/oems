@@ -484,7 +484,7 @@ final class PublicEventControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 09:00:00',
         ];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $controller = new PublicEventController(
             new View(base_path('app/Views')),
             $session,
@@ -648,7 +648,7 @@ final class PublicEventControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 10:00:00',
         ];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $favorites = new FakeFavoriteRepository();
         $favorites->favorites[7][501] = true;
         $controller = new PublicEventController(
@@ -737,7 +737,6 @@ final class PublicEventControllerTest extends TestCase
         $event = $this->restrictedEventFixture();
         $this->events->events[$event['slug']] = $event;
         $session = new Session(false);
-        $session->put('auth.user_id', $userId);
         $users = new FakeUserRepository();
         $users->users[$userId] = [
             'id' => $userId,
@@ -747,6 +746,7 @@ final class PublicEventControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 10:00:00',
         ];
+        $this->authenticateSession($session, $users, $userId);
 
         return $this->controllerForSession($session, $users)->show(
             Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']),

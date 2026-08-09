@@ -20,7 +20,7 @@ final class Session
             'lifetime' => 0,
             'path' => '/',
             'domain' => '',
-            'secure' => (bool) ($options['secure'] ?? $secure),
+            'secure' => $secure || (bool) ($options['secure'] ?? false),
             'httponly' => true,
             'samesite' => 'Lax',
         ]);

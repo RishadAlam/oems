@@ -89,7 +89,11 @@ final class FakeUserRepository implements UserRepositoryInterface
         ];
     }
 
-    public function findValidPasswordReset(string $tokenHash, DateTimeImmutable $now): ?array
+    public function resetPasswordUsingToken(
+        string $tokenHash,
+        DateTimeImmutable $now,
+        string $passwordHash,
+    ): ?array
     {
         $reset = $this->passwordResets[$tokenHash] ?? null;
 
@@ -97,7 +101,17 @@ final class FakeUserRepository implements UserRepositoryInterface
             return null;
         }
 
-        return $reset;
+        $user = $this->findByEmail((string) $reset['email']);
+
+        if ($user === null || ($user['status'] ?? 'inactive') !== 'active') {
+            return null;
+        }
+
+        $this->users[(int) $user['id']]['password'] = $passwordHash;
+        $this->deletePasswordResets((string) $reset['email']);
+        $this->deleteRememberSessionsForUser((int) $user['id']);
+
+        return ['user_id' => (int) $user['id'], 'email' => (string) $reset['email']];
     }
 
     public function deletePasswordResets(string $email): void
@@ -127,15 +141,41 @@ final class FakeUserRepository implements UserRepositoryInterface
         ];
     }
 
-    public function findRememberSession(string $selector, DateTimeImmutable $now): ?array
+    public function rotateRememberSession(
+        string $selector,
+        string $validatorHash,
+        DateTimeImmutable $now,
+        string $replacementSelector,
+        string $replacementValidatorHash,
+        DateTimeImmutable $replacementExpiresAt,
+        string $ipAddress,
+        string $userAgent,
+    ): ?array
     {
         $session = $this->rememberSessions[$selector] ?? null;
 
-        if ($session === null || $session['expires_at'] <= $now) {
+        if ($session === null) {
             return null;
         }
 
-        return $session;
+        if ($session['expires_at'] <= $now
+            || !hash_equals((string) $session['validator_hash'], $validatorHash)) {
+            unset($this->rememberSessions[$selector]);
+
+            return null;
+        }
+
+        unset($this->rememberSessions[$selector]);
+        $this->storeRememberSession(
+            (int) $session['user_id'],
+            $replacementSelector,
+            $replacementValidatorHash,
+            $replacementExpiresAt,
+            $ipAddress,
+            $userAgent,
+        );
+
+        return ['user_id' => (int) $session['user_id']];
     }
 
     public function deleteRememberSession(string $selector): void
@@ -166,4 +206,3 @@ final class FakeUserRepository implements UserRepositoryInterface
         return $user;
     }
 }
-

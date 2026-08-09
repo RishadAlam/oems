@@ -513,7 +513,6 @@ final class DashboardLayoutTest extends TestCase
             default => '/admin/dashboard',
         };
         $session = new Session(false);
-        $session->put('auth.user_id', $userId);
         $users = new FakeUserRepository();
         $users->users[$userId] = [
             'id' => $userId,
@@ -526,6 +525,7 @@ final class DashboardLayoutTest extends TestCase
             'email' => $role . '@oems.local',
             'status' => 'active',
         ];
+        $this->authenticateSession($session, $users, $userId);
         $events = new FakeEventRepository();
         $registrations = new FakeRegistrationRepository();
         $payments = new FakePaymentRepository();

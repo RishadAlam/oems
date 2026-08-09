@@ -139,7 +139,7 @@ final class ProfileRouteSecurityTest extends TestCase
                 'status' => 'active',
                 'email_verified_at' => '2026-08-06 10:00:00',
             ];
-            $session->put('auth.user_id', $authenticatedUserId);
+            $this->authenticateSession($session, $users, $authenticatedUserId);
         }
 
         $auth = new Auth($session, $users);

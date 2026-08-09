@@ -169,21 +169,82 @@ final class UserRepository implements UserRepositoryInterface
         ]);
     }
 
-    public function findValidPasswordReset(string $tokenHash, DateTimeImmutable $now): ?array
+    public function resetPasswordUsingToken(
+        string $tokenHash,
+        DateTimeImmutable $now,
+        string $passwordHash,
+    ): ?array
     {
-        $statement = $this->database->connection()->prepare(
-            'SELECT email, token_hash, expires_at
-             FROM password_resets
-             WHERE token_hash = :token_hash AND expires_at > :now
-             LIMIT 1',
-        );
-        $statement->execute([
-            'token_hash' => $tokenHash,
-            'now' => $now->format('Y-m-d H:i:s'),
-        ]);
-        $reset = $statement->fetch();
+        return $this->database->transaction(function (PDO $connection) use (
+            $tokenHash,
+            $now,
+            $passwordHash,
+        ): ?array {
+            $lockingClause = $connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+                ? ''
+                : ' FOR UPDATE';
+            $lookup = $connection->prepare(
+                'SELECT password_resets.email, users.id AS user_id
+                 FROM password_resets
+                 INNER JOIN users ON users.email = password_resets.email
+                 WHERE password_resets.token_hash = :lookup_token_hash
+                   AND password_resets.expires_at > :lookup_now
+                   AND users.deleted_at IS NULL
+                   AND users.status = :active_status
+                 LIMIT 1' . $lockingClause,
+            );
+            $lookup->execute([
+                'lookup_token_hash' => $tokenHash,
+                'lookup_now' => $now->format('Y-m-d H:i:s'),
+                'active_status' => 'active',
+            ]);
+            $reset = $lookup->fetch();
 
-        return is_array($reset) ? $reset : null;
+            if (!is_array($reset)) {
+                return null;
+            }
+
+            $consume = $connection->prepare(
+                'DELETE FROM password_resets
+                 WHERE token_hash = :consume_token_hash AND expires_at > :consume_now',
+            );
+            $consume->execute([
+                'consume_token_hash' => $tokenHash,
+                'consume_now' => $now->format('Y-m-d H:i:s'),
+            ]);
+
+            if ($consume->rowCount() !== 1) {
+                return null;
+            }
+
+            $update = $connection->prepare(
+                'UPDATE users
+                 SET password = :new_password, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :password_user_id',
+            );
+            $update->execute([
+                'new_password' => $passwordHash,
+                'password_user_id' => (int) $reset['user_id'],
+            ]);
+
+            if ($update->rowCount() !== 1) {
+                throw new \RuntimeException('Unable to update the password for a consumed reset token.');
+            }
+
+            $deleteResets = $connection->prepare(
+                'DELETE FROM password_resets WHERE email = :reset_email',
+            );
+            $deleteResets->execute(['reset_email' => (string) $reset['email']]);
+            $deleteSessions = $connection->prepare(
+                'DELETE FROM sessions WHERE user_id = :session_user_id',
+            );
+            $deleteSessions->execute(['session_user_id' => (int) $reset['user_id']]);
+
+            return [
+                'user_id' => (int) $reset['user_id'],
+                'email' => (string) $reset['email'],
+            ];
+        });
     }
 
     public function deletePasswordResets(string $email): void
@@ -216,21 +277,88 @@ final class UserRepository implements UserRepositoryInterface
         ]);
     }
 
-    public function findRememberSession(string $selector, DateTimeImmutable $now): ?array
+    public function rotateRememberSession(
+        string $selector,
+        string $validatorHash,
+        DateTimeImmutable $now,
+        string $replacementSelector,
+        string $replacementValidatorHash,
+        DateTimeImmutable $replacementExpiresAt,
+        string $ipAddress,
+        string $userAgent,
+    ): ?array
     {
-        $statement = $this->database->connection()->prepare(
-            'SELECT user_id, selector, validator_hash, expires_at
-             FROM sessions
-             WHERE selector = :selector AND expires_at > :now
-             LIMIT 1',
-        );
-        $statement->execute([
-            'selector' => $selector,
-            'now' => $now->format('Y-m-d H:i:s'),
-        ]);
-        $session = $statement->fetch();
+        return $this->database->transaction(function (PDO $connection) use (
+            $selector,
+            $validatorHash,
+            $now,
+            $replacementSelector,
+            $replacementValidatorHash,
+            $replacementExpiresAt,
+            $ipAddress,
+            $userAgent,
+        ): ?array {
+            $lockingClause = $connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+                ? ''
+                : ' FOR UPDATE';
+            $lookup = $connection->prepare(
+                'SELECT user_id, validator_hash, expires_at
+                 FROM sessions
+                 WHERE selector = :lookup_selector
+                 LIMIT 1' . $lockingClause,
+            );
+            $lookup->execute(['lookup_selector' => $selector]);
+            $session = $lookup->fetch();
 
-        return is_array($session) ? $session : null;
+            if (!is_array($session)) {
+                return null;
+            }
+
+            if ((string) $session['expires_at'] <= $now->format('Y-m-d H:i:s')
+                || !hash_equals((string) $session['validator_hash'], $validatorHash)) {
+                $deleteInvalid = $connection->prepare(
+                    'DELETE FROM sessions WHERE selector = :invalid_selector',
+                );
+                $deleteInvalid->execute(['invalid_selector' => $selector]);
+
+                return null;
+            }
+
+            $consume = $connection->prepare(
+                'DELETE FROM sessions
+                 WHERE selector = :consume_selector
+                   AND validator_hash = :consume_validator_hash
+                   AND expires_at > :consume_now',
+            );
+            $consume->execute([
+                'consume_selector' => $selector,
+                'consume_validator_hash' => $validatorHash,
+                'consume_now' => $now->format('Y-m-d H:i:s'),
+            ]);
+
+            if ($consume->rowCount() !== 1) {
+                return null;
+            }
+
+            $replacement = $connection->prepare(
+                'INSERT INTO sessions
+                    (user_id, selector, validator_hash, ip_address, user_agent, last_activity_at, expires_at, created_at)
+                 VALUES
+                    (:replacement_user_id, :replacement_selector, :replacement_validator_hash,
+                     :replacement_ip_address, :replacement_user_agent, CURRENT_TIMESTAMP,
+                     :replacement_expires_at, CURRENT_TIMESTAMP)',
+            );
+            $replacement->execute([
+                'replacement_user_id' => (int) $session['user_id'],
+                'replacement_selector' => $replacementSelector,
+                'replacement_validator_hash' => $replacementValidatorHash,
+                'replacement_ip_address' => $ipAddress,
+                'replacement_user_agent' => $userAgent,
+                'replacement_expires_at' => $replacementExpiresAt->format('Y-m-d H:i:s'),
+            ]);
+
+            return ['user_id' => (int) $session['user_id']];
+        });
     }
 
     public function deleteRememberSession(string $selector): void

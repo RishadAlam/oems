@@ -298,7 +298,7 @@ final class AdminPaymentControllerTest extends TestCase
             3 => ['id' => 3, 'role_id' => 3, 'name' => 'Other Participant', 'email' => 'other@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 00:00:00'],
             9 => ['id' => 9, 'role_id' => $role === 'super-admin' ? 1 : ($role === 'organizer' ? 2 : 3), 'name' => 'Administrator', 'email' => 'admin@example.test', 'status' => 'active', 'email_verified_at' => '2026-08-01 00:00:00'],
         ];
-        $session->put('auth.user_id', 9);
+        $this->authenticateSession($session, $users, 9);
 
         return $users;
     }

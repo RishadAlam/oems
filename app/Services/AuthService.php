@@ -83,13 +83,19 @@ final class AuthService
         string $userAgent = '',
     ): array {
         $normalizedEmail = strtolower(trim($email));
-        $rateLimitKey = 'login:' . $normalizedEmail . ':' . $ipAddress;
+        $accountRateLimitKey = 'login:account:' . $normalizedEmail;
+        $ipRateLimitKey = 'login:ip:' . $normalizedEmail . ':' . $ipAddress;
 
-        if ($this->rateLimiter !== null && !$this->rateLimiter->consumeAttempt($rateLimitKey)) {
-            return [
-                'success' => false,
-                'errors' => ['email' => ['Too many sign-in attempts. Try again in a few minutes.']],
-            ];
+        if ($this->rateLimiter !== null) {
+            $accountAttemptAllowed = $this->rateLimiter->consumeAttempt($accountRateLimitKey);
+            $ipAttemptAllowed = $this->rateLimiter->consumeAttempt($ipRateLimitKey);
+
+            if (!$accountAttemptAllowed || !$ipAttemptAllowed) {
+                return [
+                    'success' => false,
+                    'errors' => ['email' => ['Too many sign-in attempts. Try again in a few minutes.']],
+                ];
+            }
         }
 
         $user = $this->users->findByEmail($normalizedEmail);
@@ -116,7 +122,8 @@ final class AuthService
             ];
         }
 
-        $this->rateLimiter?->clear($rateLimitKey);
+        $this->rateLimiter?->clear($accountRateLimitKey);
+        $this->rateLimiter?->clear($ipRateLimitKey);
 
         $this->establishAuthenticatedSession($user);
         $this->users->updateLastLogin((int) $user['id']);
@@ -208,23 +215,11 @@ final class AuthService
             return false;
         }
 
-        $reset = $this->users->findValidPasswordReset(hash('sha256', $token), new DateTimeImmutable());
-
-        if ($reset === null) {
-            return false;
-        }
-
-        $user = $this->users->findByEmail((string) $reset['email']);
-
-        if ($user === null) {
-            return false;
-        }
-
-        $this->users->updatePassword((int) $user['id'], password_hash($password, PASSWORD_DEFAULT));
-        $this->users->deletePasswordResets((string) $reset['email']);
-        $this->users->deleteRememberSessionsForUser((int) $user['id']);
-
-        return true;
+        return $this->users->resetPasswordUsingToken(
+            hash('sha256', $token),
+            new DateTimeImmutable(),
+            password_hash($password, PASSWORD_DEFAULT),
+        ) !== null;
     }
 
     public function changePassword(int $userId, string $currentPassword, string $newPassword): bool
@@ -244,36 +239,48 @@ final class AuthService
         return true;
     }
 
-    public function consumeRememberCookie(string $cookie, string $ipAddress, string $userAgent): bool
+    public function consumeRememberCookie(string $cookie, string $ipAddress, string $userAgent): array
     {
         [$selector, $validator] = array_pad(explode(':', $cookie, 2), 2, '');
 
         if (!preg_match('/^[a-f0-9]{24}$/', $selector) || !preg_match('/^[a-f0-9]{64}$/', $validator)) {
-            return false;
+            return $this->rememberCookieResult(false, null, null, true);
         }
 
-        $rememberSession = $this->users->findRememberSession($selector, new DateTimeImmutable());
-
-        if ($rememberSession === null || !hash_equals(
-            (string) $rememberSession['validator_hash'],
+        $replacementSelector = bin2hex(random_bytes(12));
+        $replacementValidator = bin2hex(random_bytes(32));
+        $replacementExpiresAt = (new DateTimeImmutable())->add(new DateInterval('P30D'));
+        $rememberSession = $this->users->rotateRememberSession(
+            $selector,
             hash('sha256', $validator),
-        )) {
-            $this->users->deleteRememberSession($selector);
+            new DateTimeImmutable(),
+            $replacementSelector,
+            hash('sha256', $replacementValidator),
+            $replacementExpiresAt,
+            $ipAddress,
+            substr($userAgent, 0, 500),
+        );
 
-            return false;
+        if ($rememberSession === null) {
+            return $this->rememberCookieResult(false, null, null, true);
         }
 
         $user = $this->users->findById((int) $rememberSession['user_id']);
 
         if ($user === null || ($user['status'] ?? 'inactive') !== 'active') {
-            $this->users->deleteRememberSession($selector);
+            $this->users->deleteRememberSession($replacementSelector);
 
-            return false;
+            return $this->rememberCookieResult(false, null, null, true);
         }
 
         $this->establishAuthenticatedSession($user);
 
-        return true;
+        return $this->rememberCookieResult(
+            true,
+            $replacementSelector . ':' . $replacementValidator,
+            $replacementExpiresAt->getTimestamp(),
+            false,
+        );
     }
 
     public function logout(?string $rememberCookie = null): void
@@ -296,5 +303,19 @@ final class AuthService
         $this->session->put('auth.user_id', (int) $user['id']);
         $this->session->put('auth.role', (string) $user['role_slug']);
         $this->session->put('auth.password_signature', hash('sha256', (string) ($user['password'] ?? '')));
+    }
+
+    private function rememberCookieResult(
+        bool $authenticated,
+        ?string $rememberCookie,
+        ?int $expiresAt,
+        bool $forgetCookie,
+    ): array {
+        return [
+            'authenticated' => $authenticated,
+            'remember_cookie' => $rememberCookie,
+            'expires_at' => $expiresAt,
+            'forget_cookie' => $forgetCookie,
+        ];
     }
 }

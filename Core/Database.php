@@ -9,10 +9,11 @@ use Throwable;
 
 final class Database
 {
-    private ?PDO $pdo = null;
+    private ?PDO $pdo;
 
-    public function __construct(private readonly array $config)
+    public function __construct(private readonly array $config, ?PDO $connection = null)
     {
+        $this->pdo = $connection;
     }
 
     public function connection(): PDO
@@ -48,15 +49,32 @@ final class Database
     public function transaction(callable $operation): mixed
     {
         $connection = $this->connection();
-        $connection->beginTransaction();
+        $isSqlite = $connection->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite';
+
+        if ($isSqlite) {
+            $connection->exec('BEGIN IMMEDIATE');
+        } else {
+            $connection->beginTransaction();
+        }
 
         try {
             $result = $operation($connection);
-            $connection->commit();
+
+            if ($isSqlite) {
+                $connection->exec('COMMIT');
+            } else {
+                $connection->commit();
+            }
 
             return $result;
         } catch (Throwable $exception) {
-            if ($connection->inTransaction()) {
+            if ($isSqlite) {
+                try {
+                    $connection->exec('ROLLBACK');
+                } catch (Throwable) {
+                    // The operation may have ended the transaction before failing.
+                }
+            } elseif ($connection->inTransaction()) {
                 $connection->rollBack();
             }
 
@@ -64,4 +82,3 @@ final class Database
         }
     }
 }
-

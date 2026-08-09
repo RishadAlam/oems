@@ -33,4 +33,33 @@ final class LoggerTest extends TestCase
             }
         }
     }
+
+    public function testRedactsCompoundCredentialKeysInsideNestedObjects(): void
+    {
+        $path = sys_get_temp_dir() . '/oems-logger-' . bin2hex(random_bytes(6)) . '.log';
+        $logger = new Logger($path);
+        $payload = new \stdClass();
+        $payload->clientSecret = 'object-client-secret';
+        $payload->safeLabel = 'visible-label';
+
+        try {
+            $logger->warning('Nested authentication payload.', [
+                'access_token' => 'top-level-token',
+                'request' => [
+                    'sessionCookie' => 'nested-cookie',
+                    'payload' => $payload,
+                ],
+            ]);
+            $record = (string) file_get_contents($path);
+
+            foreach (['top-level-token', 'nested-cookie', 'object-client-secret'] as $secret) {
+                $this->assertFalse(str_contains($record, $secret));
+            }
+            $this->assertTrue(str_contains($record, 'visible-label'));
+        } finally {
+            if (is_file($path)) {
+                unlink($path);
+            }
+        }
+    }
 }

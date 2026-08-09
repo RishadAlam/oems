@@ -105,7 +105,7 @@ final class HomeControllerTest extends TestCase
             'status' => 'active',
             'email_verified_at' => '2026-08-01 10:00:00',
         ];
-        $session->put('auth.user_id', 7);
+        $this->authenticateSession($session, $users, 7);
         $favorites = new FakeFavoriteRepository();
         $favorites->favorites[7][41] = true;
         $controller = new HomeController(
