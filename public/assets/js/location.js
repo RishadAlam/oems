@@ -18,6 +18,7 @@
     let map = null;
     let payload = null;
     let locationSubmitted = false;
+    let cardFocusCleanups = [];
 
     const setStatus = (message) => {
         if (locationStatus) locationStatus.textContent = message;
@@ -138,13 +139,15 @@
         }
 
         for (const card of cards) {
-            card.addEventListener('focus', () => {
+            const handleCardFocus = () => {
                 if (syncingFocus) return;
                 const point = markerById.get(String(card.dataset.eventId));
                 if (!point) return;
                 point.marker.openPopup();
                 map.panTo(point.coordinates, { animate: !reduceMotion });
-            });
+            };
+            card.addEventListener('focusin', handleCardFocus);
+            cardFocusCleanups.push(() => card.removeEventListener('focusin', handleCardFocus));
         }
 
         const fallback = mapElement.querySelector?.('[data-map-fallback]');
@@ -158,6 +161,13 @@
         }
 
         return true;
+    };
+
+    const destroyMap = () => {
+        for (const cleanup of cardFocusCleanups) cleanup();
+        cardFocusCleanups = [];
+        map?.remove();
+        map = null;
     };
 
     const setView = (view) => {
@@ -185,7 +195,18 @@
     if (viewButtons.length === 0 && payload && mapElement) initializeMap();
 
     global.addEventListener?.('pagehide', () => {
-        map?.remove();
-        map = null;
+        destroyMap();
+    });
+
+    global.addEventListener?.('pageshow', (event) => {
+        if (!event.persisted) return;
+
+        if (viewButtons.length === 0) {
+            initializeMap();
+            return;
+        }
+
+        const selectedView = viewButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.view;
+        if (selectedView === 'map') setView('map');
     });
 }(typeof window !== 'undefined' ? window : globalThis));

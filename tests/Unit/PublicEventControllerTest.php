@@ -360,7 +360,7 @@ final class PublicEventControllerTest extends TestCase
 
         $this->assertTrue(str_contains($body, 'Dhaka, Bangladesh'));
         $this->assertTrue(str_contains($body, 'Exact location shared after confirmation'));
-        $this->assertFalse(str_contains($body, 'application/ld+json') && str_contains($body, 'Secret Hall'));
+        $this->assertFalse(str_contains($body, 'application/ld+json'));
     }
 
     public function testRestrictedLocationStaysPrivateForPendingParticipant(): void
@@ -377,6 +377,7 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'Exact location shared after confirmation'));
         $this->assertFalse(str_contains($body, 'Secret Hall'));
         $this->assertFalse(str_contains($body, 'Use gate B'));
+        $this->assertFalse(str_contains($body, 'application/ld+json'));
     }
 
     public function testRestrictedLocationIsVisibleToConfirmedParticipantOwnerAndSuperAdmin(): void
@@ -394,6 +395,7 @@ final class PublicEventControllerTest extends TestCase
             $this->assertTrue(str_contains($body, 'Secret Hall, Road 12, Dhaka, Bangladesh'));
             $this->assertTrue(str_contains($body, 'Use gate B'));
             $this->assertTrue(str_contains($body, 'https://maps.example.test/secret'));
+            $this->assertTrue(str_contains($body, '<script type="application/ld+json">'));
             $this->assertTrue(str_contains($body, '"name":"Secret Hall"'));
             $this->assertTrue(str_contains($body, 'id="event-detail-map-data"'));
         }
@@ -417,6 +419,7 @@ final class PublicEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'Dhaka Arts Hall, Main Road, Dhaka, Bangladesh'));
         $this->assertTrue(str_contains($body, 'Use the east entrance.'));
         $this->assertTrue(str_contains($body, 'https://maps.example.test/public'));
+        $this->assertTrue(str_contains($body, '<script type="application/ld+json">'));
         $this->assertTrue(str_contains($body, '"name":"Dhaka Arts Hall"'));
     }
 

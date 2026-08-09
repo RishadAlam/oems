@@ -13,6 +13,7 @@ class ElementStub {
         this.focusCalls = 0;
         this.hidden = false;
         this.listeners = new Map();
+        this.parentElement = null;
         this.scrollCalls = [];
         this.textContent = textContent;
         this.value = value;
@@ -24,14 +25,30 @@ class ElementStub {
         this.listeners.set(type, callbacks);
     }
 
+    removeEventListener(type, callback) {
+        const callbacks = this.listeners.get(type) ?? [];
+        this.listeners.set(type, callbacks.filter((candidate) => candidate !== callback));
+    }
+
     dispatch(type, detail = {}) {
+        const event = { preventDefault() {}, target: this, bubbles: true, ...detail };
+        this.dispatchEvent(type, event);
+    }
+
+    dispatchEvent(type, event) {
         for (const callback of this.listeners.get(type) ?? []) {
-            callback({ preventDefault() {}, currentTarget: this, ...detail });
+            callback({ ...event, currentTarget: this });
         }
+
+        if (event.bubbles !== false) this.parentElement?.dispatchEvent(type, event);
     }
 
     click() { this.dispatch('click'); }
-    focus() { this.focusCalls += 1; this.dispatch('focus'); }
+    focus() {
+        this.focusCalls += 1;
+        this.dispatch('focus', { bubbles: false });
+        this.dispatch('focusin');
+    }
     getAttribute(name) { return this.attributes.get(name) ?? null; }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     removeAttribute(name) { this.attributes.delete(name); }
@@ -126,6 +143,8 @@ function createHarness({
     });
     const card = new ElementStub();
     card.dataset.eventId = '501';
+    const cardLink = new ElementStub();
+    cardLink.parentElement = card;
     const requests = [];
     const windowListeners = new Map();
     const geolocationCalls = [];
@@ -194,6 +213,7 @@ function createHarness({
 
     return {
         card,
+        cardLink,
         geolocationCalls,
         leaflet,
         list,
@@ -204,7 +224,8 @@ function createHarness({
         status,
         useLocation,
         clickUseLocation: async () => { useLocation.click(); await Promise.resolve(); },
-        pagehide: () => windowListeners.get('pagehide')?.(),
+        pagehide: (persisted = false) => windowListeners.get('pagehide')?.({ persisted }),
+        pageshow: (persisted = false) => windowListeners.get('pageshow')?.({ persisted }),
     };
 }
 
@@ -281,6 +302,18 @@ test('marker and card interactions preserve keyboard focus and disable reduced m
     assert.equal(map.panToCalls[0].options.animate, false);
 });
 
+test('focus entering a nested event link activates its marker', () => {
+    const harness = createHarness();
+    harness.mapToggle.click();
+    const marker = harness.leaflet.markers[0];
+
+    harness.cardLink.focus();
+
+    assert.equal(harness.card.focusCalls, 0);
+    assert.equal(marker.openPopupCalls, 1);
+    assert.equal(harness.leaflet.maps[0].panToCalls.length, 1);
+});
+
 test('malformed marker payload keeps the list and renders an inline fallback', () => {
     const harness = createHarness({ malformedPayload: true, mobile: true });
     harness.mapToggle.click();
@@ -297,4 +330,25 @@ test('pagehide removes the Leaflet instance', () => {
     harness.pagehide();
 
     assert.equal(harness.leaflet.maps[0].removed, true);
+});
+
+test('persisted page restoration recreates the selected map without duplicate card listeners', () => {
+    const harness = createHarness({ mobile: true });
+    harness.mapToggle.click();
+    const firstMap = harness.leaflet.maps[0];
+    const firstMarker = harness.leaflet.markers[0];
+
+    harness.pagehide(true);
+    harness.pageshow(true);
+
+    assert.equal(firstMap.removed, true);
+    assert.equal(harness.leaflet.maps.length, 2);
+    assert.equal(harness.mapToggle.getAttribute('aria-pressed'), 'true');
+    assert.equal(harness.listToggle.getAttribute('aria-pressed'), 'false');
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, true);
+
+    harness.cardLink.focus();
+    assert.equal(firstMarker.openPopupCalls, 0);
+    assert.equal(harness.leaflet.markers[1].openPopupCalls, 1);
 });

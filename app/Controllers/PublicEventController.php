@@ -159,7 +159,9 @@ final class PublicEventController extends Controller
             'metaDescription' => $description,
             'canonicalUrl' => $canonicalUrl,
             'openGraph' => $openGraph,
-            'jsonLd' => $this->jsonLd($event, $canonicalUrl, $images, $reviewSummary),
+            'jsonLd' => $exactLocationVisible
+                ? $this->jsonLd($event, $canonicalUrl, $images, $reviewSummary)
+                : null,
             'event' => $event,
             'mapPayload' => $this->detailMapPayload($event),
             'leafletEnabled' => $exactLocationVisible && $this->validCoordinates(
