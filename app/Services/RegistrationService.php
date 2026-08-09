@@ -186,6 +186,14 @@ final class RegistrationService
         } else {
             $this->notifyParticipant(
                 $actorId,
+                'registration_pending',
+                'Registration received',
+                'Your registration is pending payment verification.',
+                '/participant/registrations/' . (int) $registration['id'],
+                ['registration_id' => (int) $registration['id']],
+            );
+            $this->notifyParticipant(
+                $actorId,
                 'payment_pending',
                 'Payment received',
                 'Your payment reference was submitted for review.',

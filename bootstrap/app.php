@@ -38,6 +38,7 @@ use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
+use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
@@ -91,7 +92,15 @@ date_default_timezone_set((string) $appConfig['timezone']);
 $container = new Container();
 $container->instance(Container::class, $container);
 $container->instance(Config::class, new Config($appConfig));
-$container->instance(View::class, new View($basePath . '/app/Views'));
+$container->instance(
+    View::class,
+    new View(
+        $basePath . '/app/Views',
+        static function (array $data, string $layout) use ($container): array {
+            return $container->get(DashboardLayoutDataProvider::class)->forLayout($data, $layout);
+        },
+    ),
+);
 $container->singleton(Session::class, static fn (): Session => new Session(true, [
     'name' => $appConfig['session_name'],
 ]));
@@ -156,6 +165,12 @@ $container->singleton(
     NotificationRepositoryInterface::class,
     static fn (Container $container): NotificationRepository => new NotificationRepository(
         $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    DashboardLayoutDataProvider::class,
+    static fn (Container $container): DashboardLayoutDataProvider => new DashboardLayoutDataProvider(
+        $container->get(NotificationRepositoryInterface::class),
     ),
 );
 $container->singleton(

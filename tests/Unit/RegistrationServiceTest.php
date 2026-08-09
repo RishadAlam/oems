@@ -583,6 +583,20 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame(1, $this->countRows('tickets'));
     }
 
+    public function testPaidRegistrationNotificationFailuresDoNotRollBackCommittedParticipantTransactions(): void
+    {
+        $notifications = new FakeNotificationRepository();
+        $notifications->throwOnCreate = true;
+        $service = $this->service($this->connection, new NotificationService($notifications, new Logger($this->logPath)));
+
+        $result = $service->register(1, 11, ['transaction_reference' => 'NOTICE-FAIL-PAID', 'channel' => 'bank']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('pending', $result['registration']['registration_status']);
+        $this->assertSame(2, $this->countRows('registrations'));
+        $this->assertSame(1, $this->countRows('payments'));
+    }
+
     public function testDispatchesRegistrationPaymentTicketAndCancellationUpdatesAfterCommit(): void
     {
         $repository = new FakeNotificationRepository();
@@ -598,10 +612,13 @@ final class RegistrationServiceTest extends TestCase
         $this->assertTrue($verified['success']);
         $this->assertTrue($cancelled['success']);
         $this->assertSame(
-            ['registration_confirmed', 'ticket_issued', 'payment_pending', 'payment_verified', 'ticket_issued', 'registration_cancelled'],
+            ['registration_confirmed', 'ticket_issued', 'registration_pending', 'payment_pending', 'payment_verified', 'ticket_issued', 'registration_cancelled'],
             array_column($repository->notifications, 'type'),
         );
-        $this->assertSame('/participant/tickets/' . (int) $verified['ticket']['id'], $repository->notifications[5]['action_url']);
+        $notifications = array_values($repository->notifications);
+        $this->assertSame('/participant/registrations/' . (int) $paid['registration']['id'], $notifications[2]['action_url']);
+        $this->assertSame(['registration_id' => (int) $paid['registration']['id']], $notifications[2]['data']);
+        $this->assertSame('/participant/tickets/' . (int) $verified['ticket']['id'], $notifications[5]['action_url']);
     }
 
     private function service(PDO $connection, ?NotificationService $notifications = null): RegistrationService

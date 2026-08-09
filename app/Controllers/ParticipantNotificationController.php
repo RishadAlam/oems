@@ -40,7 +40,6 @@ final class ParticipantNotificationController extends Controller
             'pageTitle' => 'Notifications',
             'notifications' => $this->notifications->forUser($userId, $page, 20),
             'unreadCount' => $unreadCount,
-            'unreadNotifications' => $unreadCount,
         ], 'dashboard');
     }
 

@@ -89,10 +89,49 @@ final class DashboardMetricsRepository
         );
         $reviewActions->execute(['participant_user_id' => $participantId]);
 
+        $tickets = $this->connection->prepare(
+            "SELECT tickets.id,
+                    tickets.ticket_number,
+                    tickets.status AS ticket_status,
+                    tickets.issued_at,
+                    registrations.id AS registration_id,
+                    events.title AS event_title,
+                    events.start_date AS event_start_date
+             FROM tickets
+             INNER JOIN registrations ON registrations.id = tickets.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id
+             WHERE registrations.user_id = :participant_user_id
+               AND events.deleted_at IS NULL
+               AND users.deleted_at IS NULL
+             ORDER BY tickets.issued_at DESC, tickets.id DESC
+             LIMIT 3",
+        );
+        $tickets->execute(['participant_user_id' => $participantId]);
+
+        $notifications = $this->connection->prepare(
+            "SELECT notifications.id,
+                    notifications.type,
+                    notifications.title,
+                    notifications.message,
+                    notifications.action_url,
+                    notifications.read_at,
+                    notifications.created_at
+             FROM notifications
+             INNER JOIN users ON users.id = notifications.user_id
+             WHERE notifications.user_id = :participant_user_id
+               AND users.deleted_at IS NULL
+             ORDER BY notifications.created_at DESC, notifications.id DESC
+             LIMIT 3",
+        );
+        $notifications->execute(['participant_user_id' => $participantId]);
+
         return [
             'upcoming' => is_array($items) ? $items : [],
             'favorite_count' => (int) $favorites->fetchColumn(),
             'review_actions' => (int) $reviewActions->fetchColumn(),
+            'tickets' => $tickets->fetchAll() ?: [],
+            'recent_notifications' => $notifications->fetchAll() ?: [],
         ];
     }
 

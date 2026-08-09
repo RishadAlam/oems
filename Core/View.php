@@ -4,17 +4,28 @@ declare(strict_types=1);
 
 namespace OEMS\Core;
 
+use Closure;
 use RuntimeException;
 use Throwable;
 
 final class View
 {
-    public function __construct(private readonly string $basePath)
+    public function __construct(
+        private readonly string $basePath,
+        private readonly ?Closure $layoutDataProvider = null,
+    )
     {
     }
 
     public function render(string $template, array $data = [], string $layout = 'public'): string
     {
+        if ($this->layoutDataProvider !== null) {
+            $provided = ($this->layoutDataProvider)($data, $layout);
+            if (is_array($provided)) {
+                $data = array_merge($provided, $data);
+            }
+        }
+
         $templatePath = $this->resolve($template);
         $layoutPath = $this->resolve('layouts/' . $layout);
         $content = $this->capture($templatePath, $data);
@@ -52,4 +63,3 @@ final class View
         }
     }
 }
-

@@ -5,6 +5,8 @@ $ticket = is_array($metrics['ticket'] ?? null) ? $metrics['ticket'] : [];
 $reviews = is_array($metrics['reviews'] ?? null) ? $metrics['reviews'] : [];
 $workspace = is_array($workspace ?? null) ? $workspace : [];
 $upcoming = is_array($workspace['upcoming'] ?? null) ? $workspace['upcoming'] : [];
+$recentTickets = is_array($workspace['tickets'] ?? null) ? $workspace['tickets'] : [];
+$recentNotifications = is_array($workspace['recent_notifications'] ?? null) ? $workspace['recent_notifications'] : [];
 $favoriteCount = (int) ($workspace['favorite_count'] ?? 0);
 $reviewActions = (int) ($workspace['review_actions'] ?? 0);
 $unreadNotifications = (int) ($unreadNotifications ?? 0);
@@ -17,6 +19,45 @@ $unreadNotifications = (int) ($unreadNotifications ?? 0);
         <p>Track registration, payment, ticket, attendance, and review activity.</p>
     </div>
     <a class="button button--primary" href="/events"><span>Find an event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+</div>
+
+<div class="mt-6 grid gap-6 xl:grid-cols-2">
+    <section class="dashboard-panel">
+        <div class="dashboard-panel__heading">
+            <span class="dashboard-panel__icon"><i class="ph ph-ticket" aria-hidden="true"></i></span><div><h2>Recent tickets</h2><p>Your latest issued tickets.</p></div>
+        </div>
+        <?php if ($recentTickets === []): ?>
+            <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-ticket" aria-hidden="true"></i></span><strong>No tickets yet</strong><p>Your confirmed registrations will appear here.</p><a class="button button--quiet button--compact" href="/participant/registrations"><span>View registrations</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+        <?php else: ?>
+            <div class="grid gap-3">
+                <?php foreach ($recentTickets as $item): ?>
+                    <a class="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="/participant/tickets/<?= e((int) ($item['id'] ?? 0)) ?>"><span><strong class="block"><?= e($item['event_title'] ?? '') ?></strong><small class="text-[var(--ink-muted)]"><?= e($item['ticket_number'] ?? '') ?> · <?= e(ucfirst((string) ($item['ticket_status'] ?? 'valid'))) ?></small></span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                <?php endforeach; ?>
+            </div>
+            <a class="button button--quiet button--compact mt-5" href="/participant/tickets"><span>View tickets</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        <?php endif; ?>
+    </section>
+    <section class="dashboard-panel">
+        <div class="dashboard-panel__heading">
+            <span class="dashboard-panel__icon"><i class="ph ph-bell" aria-hidden="true"></i></span><div><h2>Recent updates</h2><p>Registration, ticket, and review news.</p></div>
+        </div>
+        <?php if ($recentNotifications === []): ?>
+            <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-bell" aria-hidden="true"></i></span><strong>You are up to date</strong><p>New account and event activity will appear here.</p><a class="button button--quiet button--compact" href="/participant/notifications"><span>View notifications</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a></div>
+        <?php else: ?>
+            <div class="grid gap-3">
+                <?php foreach ($recentNotifications as $item): ?>
+                    <?php
+                    $actionUrl = (string) ($item['action_url'] ?? '');
+                    if (preg_match('#^/participant/(?:registrations|tickets|reviews)(?:/[1-9][0-9]*)?$#', $actionUrl) !== 1) {
+                        $actionUrl = '/participant/notifications';
+                    }
+                    ?>
+                    <a class="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="<?= e($actionUrl) ?>"><span><strong class="block"><?= e($item['title'] ?? '') ?></strong><small class="text-[var(--ink-muted)]"><?= e($item['message'] ?? '') ?></small></span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                <?php endforeach; ?>
+            </div>
+            <a class="button button--quiet button--compact mt-5" href="/participant/notifications"><span>View notifications</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+        <?php endif; ?>
+    </section>
 </div>
 
 <div class="dashboard-metric-grid mt-8">

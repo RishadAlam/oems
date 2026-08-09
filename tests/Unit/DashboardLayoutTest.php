@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Repositories\DashboardMetricsRepository;
+use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Request;
@@ -13,6 +14,7 @@ use OEMS\Core\Security;
 use OEMS\Core\Session;
 use OEMS\Core\View;
 use OEMS\Tests\Support\FakeEventRepository;
+use OEMS\Tests\Support\FakeNotificationRepository;
 use OEMS\Tests\Support\FakePaymentRepository;
 use OEMS\Tests\Support\FakeRegistrationRepository;
 use OEMS\Tests\Support\FakeTicketRepository;
@@ -229,6 +231,23 @@ final class DashboardLayoutTest extends TestCase
                 ]],
                 'favorite_count' => 3,
                 'review_actions' => 2,
+                'tickets' => [[
+                    'id' => 29,
+                    'registration_id' => 12,
+                    'ticket_number' => 'TICKET-029',
+                    'ticket_status' => 'valid',
+                    'issued_at' => '2026-09-01 09:00:00',
+                    'event_title' => '<script>alert(1)</script> summit',
+                ]],
+                'recent_notifications' => [[
+                    'id' => 38,
+                    'type' => 'ticket_issued',
+                    'title' => '<img src=x onerror=alert(1)>',
+                    'message' => 'Your ticket is ready',
+                    'action_url' => '/participant/tickets/29',
+                    'read_at' => null,
+                    'created_at' => '2026-09-01 09:05:00',
+                ]],
             ],
             'unreadNotifications' => 4,
         ]);
@@ -240,6 +259,33 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, '4 unread updates'));
         $this->assertTrue(str_contains($participant, 'href="/participant/notifications"'));
         $this->assertTrue(str_contains($participant, 'aria-label="4 unread notifications"'));
+        $this->assertTrue(str_contains($participant, 'Recent tickets'));
+        $this->assertTrue(str_contains($participant, 'TICKET-029'));
+        $this->assertTrue(str_contains($participant, '&lt;script&gt;alert(1)&lt;/script&gt; summit'));
+        $this->assertFalse(str_contains($participant, '<script>alert(1)</script> summit'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/tickets/29"'));
+        $this->assertTrue(str_contains($participant, 'Recent updates'));
+        $this->assertTrue(str_contains($participant, '&lt;img src=x onerror=alert(1)&gt;'));
+        $this->assertFalse(str_contains($participant, '<img src=x onerror=alert(1)>'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/notifications"'));
+    }
+
+    public function testParticipantDashboardFallsBackFromAnUnsafeStoredNotificationAction(): void
+    {
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant', [
+            'workspace' => [
+                'recent_notifications' => [[
+                    'id' => 52,
+                    'title' => 'Unsafe stored update',
+                    'message' => 'This still has a useful safe destination.',
+                    'action_url' => 'javascript:alert(1)',
+                ]],
+            ],
+        ]);
+
+        $this->assertTrue(str_contains($participant, 'Unsafe stored update'));
+        $this->assertTrue(str_contains($participant, 'href="/participant/notifications"'));
+        $this->assertFalse(str_contains($participant, 'javascript:alert(1)'));
     }
 
     public function testParticipantNavigationIncludesRegistrationsAndTicketsOnlyForParticipants(): void
@@ -256,6 +302,48 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, '>Tickets</span>'));
         $this->assertFalse(str_contains($organizer, 'href="/participant/registrations"'));
         $this->assertFalse(str_contains($organizer, 'href="/participant/tickets"'));
+    }
+
+    public function testViewLevelUnreadBadgeProviderAppliesToEveryParticipantDashboardRenderOnly(): void
+    {
+        $notifications = new FakeNotificationRepository();
+        $notifications->createForUser(17, [
+            'type' => 'ticket_issued',
+            'title' => 'Ticket ready',
+            'message' => 'Your ticket is ready.',
+            'action_url' => '/participant/tickets/7',
+            'data' => [],
+        ]);
+        $provider = new DashboardLayoutDataProvider($notifications);
+        $view = new View(
+            base_path('app/Views'),
+            static fn (array $data, string $layout): array => $provider->forLayout($data, $layout),
+        );
+
+        $participant = $view->render('dashboard/participant', [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'currentUser' => ['id' => 17, 'name' => 'Participant User', 'email' => 'participant@oems.local', 'role_name' => 'Participant', 'role_slug' => 'participant'],
+            'flash' => [],
+            'pageTitle' => 'Participant dashboard',
+            'metrics' => [],
+            'workspace' => [],
+        ], 'dashboard');
+        $organizer = $view->render('dashboard/organizer', [
+            'app' => ['name' => 'OEMS'],
+            'csrfToken' => 'test-token',
+            'currentUser' => ['id' => 18, 'name' => 'Organizer User', 'email' => 'organizer@oems.local', 'role_name' => 'Organizer', 'role_slug' => 'organizer'],
+            'flash' => [],
+            'pageTitle' => 'Organizer dashboard',
+            'summary' => [],
+            'events' => [],
+            'transactionMetrics' => [],
+        ], 'dashboard');
+
+        $this->assertTrue(str_contains($participant, 'aria-label="1 unread notifications"'));
+        $this->assertFalse(str_contains($organizer, 'aria-label="1 unread notifications"'));
+        $this->assertSame([], $provider->forLayout(['currentUser' => ['id' => 17, 'role_slug' => 'participant']], 'public'));
+        $this->assertSame([], $provider->forLayout(['currentUser' => ['id' => 18, 'role_slug' => 'organizer']], 'dashboard'));
     }
 
     public function testPaymentAdministrationNavigationIsVisibleOnlyToSuperAdministrators(): void
@@ -320,6 +408,35 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'aria-label="Confirmed registrations: 1"'));
         $this->assertTrue(str_contains($response->body(), 'aria-label="Paid total: BDT 75.25"'));
         $this->assertTrue(str_contains($response->body(), 'aria-label="Checked in: 1"'));
+    }
+
+    public function testParticipantControllerRendersOnlyOwnedRecentTicketAndNotificationRecords(): void
+    {
+        [$controller, , , , , $connection] = $this->dashboardController('participant', 10);
+        $connection->exec("INSERT INTO users (id, deleted_at) VALUES (10, NULL), (11, NULL)");
+        $connection->exec("INSERT INTO events (id, organizer_id, title, slug, start_date, end_date, status, deleted_at) VALUES
+            (71, 1, 'Owned controller summit', 'owned-controller-summit', '2099-09-01 09:00:00', '2099-09-01 11:00:00', 'published', NULL),
+            (72, 1, 'Foreign controller summit', 'foreign-controller-summit', '2099-09-02 09:00:00', '2099-09-02 11:00:00', 'published', NULL),
+            (73, 1, 'Deleted controller summit', 'deleted-controller-summit', '2099-09-03 09:00:00', '2099-09-03 11:00:00', 'published', '2026-08-01 00:00:00')");
+        $connection->exec("INSERT INTO registrations (id, user_id, event_id, status, registration_number) VALUES
+            (81, 10, 71, 'confirmed', 'REG-OWNED'), (82, 11, 72, 'confirmed', 'REG-FOREIGN'), (83, 10, 73, 'confirmed', 'REG-DELETED')");
+        $connection->exec("INSERT INTO tickets (id, registration_id, ticket_number, status, issued_at) VALUES
+            (91, 81, 'TICKET-OWNED', 'valid', '2026-08-01 09:00:00'),
+            (92, 82, 'TICKET-FOREIGN', 'valid', '2026-08-02 09:00:00'),
+            (93, 83, 'TICKET-DELETED', 'valid', '2026-08-03 09:00:00')");
+        $connection->exec("INSERT INTO notifications (id, user_id, type, title, message, action_url, read_at, created_at) VALUES
+            (101, 10, 'ticket_issued', 'Owned update', 'Ticket ready', '/participant/tickets/91', NULL, '2026-08-01 10:00:00'),
+            (102, 11, 'ticket_issued', 'Foreign update', 'Not yours', '/participant/tickets/92', NULL, '2026-08-02 10:00:00')");
+
+        $response = $controller->participant(Request::create('GET', '/participant/dashboard'));
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($response->body(), 'TICKET-OWNED'));
+        $this->assertTrue(str_contains($response->body(), 'Owned update'));
+        $this->assertFalse(str_contains($response->body(), 'TICKET-FOREIGN'));
+        $this->assertFalse(str_contains($response->body(), 'Foreign update'));
+        $this->assertFalse(str_contains($response->body(), 'TICKET-DELETED'));
+        $this->assertTrue(str_contains($response->body(), 'href="/participant/tickets/91"'));
     }
 
     public function testProfileNavigationStaysActiveForATrailingSlashUrl(): void
@@ -390,14 +507,22 @@ final class DashboardLayoutTest extends TestCase
     private function dashboardController(string $role, int $userId): array
     {
         $_SESSION = [];
-        $_SERVER['REQUEST_URI'] = $role === 'organizer' ? '/organizer/dashboard' : '/admin/dashboard';
+        $_SERVER['REQUEST_URI'] = match ($role) {
+            'organizer' => '/organizer/dashboard',
+            'participant' => '/participant/dashboard',
+            default => '/admin/dashboard',
+        };
         $session = new Session(false);
         $session->put('auth.user_id', $userId);
         $users = new FakeUserRepository();
         $users->users[$userId] = [
             'id' => $userId,
-            'role_id' => $role === 'organizer' ? 2 : 1,
-            'name' => $role === 'organizer' ? 'Organizer User' : 'Super Admin',
+            'role_id' => match ($role) {
+                'organizer' => 2,
+                'participant' => 3,
+                default => 1,
+            },
+            'name' => $role === 'organizer' ? 'Organizer User' : ($role === 'participant' ? 'Participant User' : 'Super Admin'),
             'email' => $role . '@oems.local',
             'status' => 'active',
         ];
@@ -414,6 +539,8 @@ final class DashboardLayoutTest extends TestCase
         $connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL)');
         $connection->exec('CREATE TABLE favorites (user_id INTEGER NOT NULL, event_id INTEGER NOT NULL)');
         $connection->exec('CREATE TABLE reviews (id INTEGER PRIMARY KEY, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, status TEXT NOT NULL, organizer_reply TEXT NULL)');
+        $connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, ticket_number TEXT NOT NULL, status TEXT NOT NULL, issued_at TEXT NOT NULL)');
+        $connection->exec('CREATE TABLE notifications (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL, action_url TEXT NULL, read_at TEXT NULL, created_at TEXT NOT NULL)');
 
         return [
             new DashboardController(
@@ -432,6 +559,7 @@ final class DashboardLayoutTest extends TestCase
             $registrations,
             $payments,
             $tickets,
+            $connection,
         ];
     }
 }

@@ -60,3 +60,54 @@
 - `routes/web.php`
 - `public/assets/css/app.css`
 - focused notification, registration, review, dashboard tests and `FakeNotificationRepository`.
+
+## Fix Round 1
+
+### Scope delivered
+
+- Paid registrations now dispatch a distinct `registration_pending` update before the existing `payment_pending` update, only after the successful domain commit. The event uses the participant registration URL and an identifier-only context payload.
+- The participant workspace now reads the three newest owned, visible ticket records and three newest owned notification records with deterministic `issued_at`/`created_at` and ID ordering. Deleted participants and deleted event tickets remain excluded.
+- The participant dashboard renders those bounded records with ticket, notification, and item-level actions. Stored text is escaped and notification actions are constrained again at render time to the supported participant-internal paths.
+- Dashboard-layout unread notification data is now supplied by one View-level provider for every participant dashboard render. It does not run for public layouts or non-participant dashboard users.
+
+### TDD evidence
+
+1. Paid registration pending-update RED:
+   `rtk composer test -- tests/Unit/RegistrationServiceTest.php` failed because the dispatch sequence contained `payment_pending` but not `registration_pending`.
+2. Paid registration pending-update GREEN:
+   the same focused suite passed with 23 tests and 184 assertions, including a failing-notification persistence case for a paid registration.
+3. Dashboard record query RED:
+   `rtk composer test -- tests/Unit/DashboardMetricsRepositoryTest.php` failed with an undefined `tickets` workspace key.
+4. Dashboard record query GREEN:
+   the real SQLite repository suite passed with 3 tests and 17 assertions after participant-scoped bounded ticket and notification queries were added.
+5. Dashboard record rendering RED:
+   `rtk composer test -- tests/Unit/DashboardLayoutTest.php` failed because recent tickets and updates were absent, and the controller fixture exposed the new query dependency.
+6. Dashboard record rendering GREEN:
+   the layout/controller suite passed with 20 tests and 106 assertions after the panels, ownership/deleted-event fixtures, escaping, and action assertions were added.
+7. Central unread badge RED:
+   the layout suite failed because `DashboardLayoutDataProvider` did not exist.
+8. Central unread badge GREEN:
+   the layout suite passed with 22 tests and 113 assertions. Its View-boundary test verifies the participant badge, the non-participant dashboard absence, the public-layout no-op, and unsafe stored action fallback.
+
+### Fix Round 1 validation evidence
+
+- `rtk composer test`: 383 tests, 2,321 assertions, 0 failures.
+- `rtk composer check:syntax`: all scanned PHP files reported no syntax errors.
+- `rtk npm run build:css`: completed successfully; its generated-only stylesheet drift was restored so the commit contains source and test changes only.
+- `rtk node --test tests/js/check-in-camera.test.mjs`: 1 test passed, 0 failures.
+- `rtk git diff --check`: no whitespace errors.
+- Security/string audit: paid event context is identifier-only; dashboard queries bind the authenticated participant ID and exclude deleted user/event records; dashboard notification links are allow-listed internal participant URLs; all new stored text output is escaped; no em or en dashes were added to visible copy.
+
+### Fix Round 1 files intentionally changed
+
+- `Core/View.php`
+- `app/Controllers/DashboardController.php`
+- `app/Controllers/ParticipantNotificationController.php`
+- `app/Repositories/DashboardMetricsRepository.php`
+- `app/Services/DashboardLayoutDataProvider.php`
+- `app/Services/RegistrationService.php`
+- `app/Views/dashboard/participant.php`
+- `bootstrap/app.php`
+- `tests/Unit/DashboardLayoutTest.php`
+- `tests/Unit/DashboardMetricsRepositoryTest.php`
+- `tests/Unit/RegistrationServiceTest.php`

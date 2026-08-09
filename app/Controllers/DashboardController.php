@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OEMS\App\Controllers;
 
 use OEMS\App\Contracts\EventRepositoryInterface;
-use OEMS\App\Contracts\NotificationRepositoryInterface;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
@@ -32,7 +31,6 @@ final class DashboardController extends Controller
         private readonly RegistrationRepositoryInterface $registrations,
         private readonly PaymentRepositoryInterface $payments,
         private readonly TicketRepositoryInterface $tickets,
-        private readonly ?NotificationRepositoryInterface $notifications = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -63,7 +61,6 @@ final class DashboardController extends Controller
                 'reviews' => $this->dashboardMetrics->reviewsForParticipant($userId),
             ],
             'workspace' => $this->dashboardMetrics->participantWorkspace($userId),
-            'unreadNotifications' => $this->notifications?->unreadCountForUser($userId) ?? 0,
         ], 'dashboard');
     }
 
