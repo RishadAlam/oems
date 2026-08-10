@@ -589,6 +589,107 @@ final class EventRepository implements EventRepositoryInterface
         });
     }
 
+    public function trashOwned(int $userId, int $limit, int $offset): array
+    {
+        $statement = $this->connection->prepare(
+            $this->trashSelect()
+            . ' WHERE organizers.user_id = :user_id AND events.deleted_at IS NOT NULL
+                ORDER BY events.deleted_at DESC, events.id DESC LIMIT :limit OFFSET :offset',
+        );
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
+        $statement->bindValue(':offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    public function trashAdmin(int $limit, int $offset): array
+    {
+        $statement = $this->connection->prepare(
+            $this->trashSelect()
+            . ' WHERE events.deleted_at IS NOT NULL
+                ORDER BY events.deleted_at DESC, events.id DESC LIMIT :limit OFFSET :offset',
+        );
+        $statement->bindValue(':limit', max(1, min(100, $limit)), PDO::PARAM_INT);
+        $statement->bindValue(':offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->fetchAll();
+    }
+
+    public function findDeletedOwned(int $userId, int $eventId): ?array
+    {
+        $statement = $this->connection->prepare(
+            $this->trashSelect()
+            . ' WHERE events.id = :event_id AND organizers.user_id = :user_id AND events.deleted_at IS NOT NULL LIMIT 1',
+        );
+        $statement->execute(['event_id' => $eventId, 'user_id' => $userId]);
+        $event = $statement->fetch();
+
+        return is_array($event) ? $event : null;
+    }
+
+    public function findDeletedAdmin(int $eventId): ?array
+    {
+        $statement = $this->connection->prepare(
+            $this->trashSelect() . ' WHERE events.id = :event_id AND events.deleted_at IS NOT NULL LIMIT 1',
+        );
+        $statement->execute(['event_id' => $eventId]);
+        $event = $statement->fetch();
+
+        return is_array($event) ? $event : null;
+    }
+
+    public function restoreOwned(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool
+    {
+        return $this->restoreDeleted($userId, $eventId, $expectedDeletedAt, $context, true);
+    }
+
+    public function restoreAdmin(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool
+    {
+        return $this->restoreDeleted($userId, $eventId, $expectedDeletedAt, $context, false);
+    }
+
+    private function restoreDeleted(int $userId, int $eventId, string $expectedDeletedAt, array $context, bool $owned): bool
+    {
+        return $this->transactional(function () use ($userId, $eventId, $expectedDeletedAt, $context, $owned): bool {
+            $ownership = $owned
+                ? ' AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :owner_user_id)'
+                : '';
+            $statement = $this->connection->prepare(
+                "UPDATE events SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
+                 WHERE events.id = :event_id AND events.deleted_at = :expected_deleted_at
+                   AND events.status IN ('draft', 'rejected', 'cancelled')
+                   AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.event_id = events.id)"
+                . $ownership,
+            );
+            $parameters = ['event_id' => $eventId, 'expected_deleted_at' => $expectedDeletedAt];
+            if ($owned) {
+                $parameters['owner_user_id'] = $userId;
+            }
+            $statement->execute($parameters);
+            if ($statement->rowCount() !== 1) {
+                return false;
+            }
+            $this->writeActivity($userId, $eventId, 'restored', $context, null);
+
+            return true;
+        });
+    }
+
+    private function trashSelect(): string
+    {
+        return "SELECT events.id, events.title, events.slug, events.status, events.start_date,
+                       events.deleted_at, organizers.user_id AS organizer_user_id,
+                       organizers.organization_name,
+                       (SELECT COUNT(*) FROM registrations WHERE registrations.event_id = events.id) AS registration_count,
+                       CASE WHEN events.status IN ('draft', 'rejected', 'cancelled')
+                              AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.event_id = events.id)
+                            THEN 1 ELSE 0 END AS restorable
+                FROM events INNER JOIN organizers ON organizers.id = events.organizer_id";
+    }
+
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool
     {
         $currentStatuses = self::ORGANIZER_TRANSITIONS[$status] ?? null;

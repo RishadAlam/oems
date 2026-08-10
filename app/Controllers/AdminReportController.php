@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Controllers;
 
 use OEMS\App\Services\ReportService;
+use OEMS\App\Services\ReportArtifactService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -23,6 +24,7 @@ final class AdminReportController extends Controller
         Auth $auth,
         Config $config,
         private readonly ReportService $reports,
+        private readonly ReportArtifactService $artifacts,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -62,6 +64,53 @@ final class AdminReportController extends Controller
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    public function pdf(Request $request): Response
+    {
+        return $this->artifact($request, 'pdf');
+    }
+
+    public function spreadsheet(Request $request): Response
+    {
+        return $this->artifact($request, 'xml');
+    }
+
+    private function artifact(Request $request, string $format): Response
+    {
+        $result = $this->reports->adminArtifactData(
+            $request->query('type'),
+            $request->query('start'),
+            $request->query('end'),
+            $request->query('event_status'),
+            $request->query('currency'),
+        );
+        if (($result['success'] ?? false) !== true) {
+            return Response::text((string) ($result['error'] ?? 'Invalid report filters.'), 422);
+        }
+        $data = $result['data'];
+        $type = (string) $data['type'];
+        $title = 'OEMS ' . ucfirst($type) . ' report';
+        $body = $format === 'pdf'
+            ? $this->artifacts->pdf($title, $data['columns'], $data['rows'])
+            : $this->artifacts->spreadsheetXml($title, $data['columns'], $data['rows']);
+
+        return Response::binary($body, 200, $this->artifactHeaders(
+            $format === 'pdf' ? 'application/pdf' : 'application/vnd.ms-excel; charset=UTF-8',
+            'oems-' . $type . '-report.' . $format,
+            strlen($body),
+        ));
+    }
+
+    private function artifactHeaders(string $contentType, string $filename, int $length): array
+    {
+        return [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Length' => (string) $length,
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
     }
 
     private function reportData(Request $request): array

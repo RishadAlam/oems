@@ -213,9 +213,32 @@ final class AdminEventControllerTest extends TestCase
         $this->assertTrue(str_contains((string) $this->session->get('_flash.error'), 'registrations'));
     }
 
+    public function testAdministratorTrashShowsEligibilityAndRestoresOnlySafeRows(): void
+    {
+        $this->connection->exec("UPDATE events SET deleted_at = '2026-08-10 12:00:00' WHERE id IN (16, 17)");
+
+        $trash = $this->controller->trash(Request::create('GET', '/admin/events/trash'));
+        $restore = $this->controller->restore($this->routed('POST', '/admin/events/trash/16/restore', '16', [
+            'deleted_at' => '2026-08-10 12:00:00',
+        ]));
+        $blocked = $this->controller->restore($this->routed('POST', '/admin/events/trash/17/restore', '17', [
+            'deleted_at' => '2026-08-10 12:00:00',
+        ]));
+
+        $this->assertSame(200, $trash->status());
+        $this->assertTrue(str_contains($trash->body(), 'Draft Internal Rehearsal'));
+        $this->assertTrue(str_contains($trash->body(), 'Rejected Registered Workshop'));
+        $this->assertTrue(str_contains($trash->body(), 'Registration history is retained'));
+        $this->assertSame('/admin/events/16', $restore->header('Location'));
+        $this->assertNull($this->eventValue(16, 'deleted_at'));
+        $this->assertSame('/admin/events/trash', $blocked->header('Location'));
+        $this->assertNotNull($this->eventValue(17, 'deleted_at'));
+        $this->assertTrue(in_array('event.restored', $this->activityActions(), true));
+    }
+
     public function testEveryEventModerationRouteRequiresSuperAdministratorRoleAndPostsRequireCsrf(): void
     {
-        foreach (['/admin/events', '/admin/events/11'] as $uri) {
+        foreach (['/admin/events', '/admin/events/11', '/admin/events/trash'] as $uri) {
             $router = $this->routerForRole('organizer');
             $this->assertSame(403, $router['router']->dispatch(Request::create('GET', $uri))->status());
         }
@@ -234,6 +257,13 @@ final class AdminEventControllerTest extends TestCase
             ]));
             $this->assertSame(419, $blockedCsrf->status());
         }
+
+
+        $restoreUri = '/admin/events/trash/11/restore';
+        $organizer = $this->routerForRole('organizer');
+        $this->assertSame(403, $organizer['router']->dispatch(Request::create('POST', $restoreUri, input: ['_token' => $organizer['security']->csrfToken()]))->status());
+        $administrator = $this->routerForRole('super-admin');
+        $this->assertSame(419, $administrator['router']->dispatch(Request::create('POST', $restoreUri, input: ['_token' => 'invalid']))->status());
     }
 
     private function routerForRole(string $role): array

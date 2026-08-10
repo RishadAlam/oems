@@ -266,6 +266,58 @@ final class FakeEventRepository implements EventRepositoryInterface
         return true;
     }
 
+    public function trashOwned(int $userId, int $limit, int $offset): array
+    {
+        $events = [];
+        foreach ($this->events as $eventId => $event) {
+            if ((int) ($event['user_id'] ?? 0) === $userId && !empty($event['deleted_at'])) {
+                $events[] = $this->trashEvent((int) $eventId, $event);
+            }
+        }
+
+        return array_slice($events, max(0, $offset), max(0, $limit));
+    }
+
+    public function trashAdmin(int $limit, int $offset): array
+    {
+        $events = [];
+        foreach ($this->events as $eventId => $event) {
+            if (!empty($event['deleted_at'])) {
+                $events[] = $this->trashEvent((int) $eventId, $event);
+            }
+        }
+
+        return array_slice($events, max(0, $offset), max(0, $limit));
+    }
+
+    public function findDeletedOwned(int $userId, int $eventId): ?array
+    {
+        $event = $this->events[$eventId] ?? null;
+
+        return $event !== null && (int) ($event['user_id'] ?? 0) === $userId && !empty($event['deleted_at'])
+            ? $this->trashEvent($eventId, $event)
+            : null;
+    }
+
+    public function findDeletedAdmin(int $eventId): ?array
+    {
+        $event = $this->events[$eventId] ?? null;
+
+        return $event !== null && !empty($event['deleted_at']) ? $this->trashEvent($eventId, $event) : null;
+    }
+
+    public function restoreOwned(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool
+    {
+        $event = $this->findDeletedOwned($userId, $eventId);
+
+        return $event !== null && $this->restoreFake($eventId, $expectedDeletedAt);
+    }
+
+    public function restoreAdmin(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool
+    {
+        return $this->findDeletedAdmin($eventId) !== null && $this->restoreFake($eventId, $expectedDeletedAt);
+    }
+
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool
     {
         if ($this->findOwned($userId, $eventId) === null) {
@@ -401,5 +453,29 @@ final class FakeEventRepository implements EventRepositoryInterface
         }
 
         return $paths;
+    }
+
+    private function restoreFake(int $eventId, string $expectedDeletedAt): bool
+    {
+        $event = $this->events[$eventId];
+        if ((string) ($event['deleted_at'] ?? '') !== $expectedDeletedAt
+            || !in_array((string) ($event['status'] ?? ''), ['draft', 'rejected', 'cancelled'], true)
+            || (int) ($this->registrationCounts[$eventId] ?? 0) > 0) {
+            return false;
+        }
+        $this->events[$eventId]['deleted_at'] = null;
+
+        return true;
+    }
+
+    private function trashEvent(int $eventId, array $event): array
+    {
+        $registrationCount = (int) ($this->registrationCounts[$eventId] ?? 0);
+
+        return array_merge($event, [
+            'registration_count' => $registrationCount,
+            'restorable' => in_array((string) ($event['status'] ?? ''), ['draft', 'rejected', 'cancelled'], true)
+                && $registrationCount === 0 ? 1 : 0,
+        ]);
     }
 }

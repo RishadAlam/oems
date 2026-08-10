@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use DateTimeImmutable;
 use OEMS\App\Controllers\AdminReportController;
+use OEMS\App\Services\ReportArtifactService;
 use OEMS\App\Services\ReportService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -69,6 +70,35 @@ final class ReportControllerTest extends TestCase
         $this->assertNull($invalid->header('Content-Disposition'));
     }
 
+    public function testReportPdfAndSpreadsheetArePrivateBoundedArtifacts(): void
+    {
+        $controller = $this->controller();
+        $request = Request::create('GET', '/admin/reports.pdf', query: [
+            'type' => 'events', 'start' => '2026-08-01', 'end' => '2026-08-10',
+        ]);
+        $pdf = $controller->pdf($request);
+
+        $this->assertSame(200, $pdf->status());
+        $this->assertSame('application/pdf', $pdf->header('Content-Type'));
+        $this->assertSame('attachment; filename="oems-events-report.pdf"', $pdf->header('Content-Disposition'));
+        $this->assertSame('private, no-store', $pdf->header('Cache-Control'));
+        $this->assertTrue(str_starts_with($pdf->body(), '%PDF-'));
+        $this->assertFalse(str_contains(strtolower($pdf->body()), 'gateway_response'));
+
+        $xml = $controller->spreadsheet(Request::create('GET', '/admin/reports.xml', query: [
+            'type' => 'events', 'start' => '2026-08-01', 'end' => '2026-08-10',
+        ]));
+        $this->assertSame(200, $xml->status());
+        $this->assertSame('application/vnd.ms-excel; charset=UTF-8', $xml->header('Content-Type'));
+        $this->assertSame('attachment; filename="oems-events-report.xml"', $xml->header('Content-Disposition'));
+        $this->assertTrue(str_contains($xml->body(), '<Workbook'));
+        $this->assertFalse(str_contains($xml->body(), 'ss:Formula'));
+
+        $invalid = $controller->pdf(Request::create('GET', '/admin/reports.pdf', query: ['type' => "events\r\nBad"]));
+        $this->assertSame(422, $invalid->status());
+        $this->assertNull($invalid->header('Content-Disposition'));
+    }
+
     private function controller(): AdminReportController
     {
         $_SESSION = [];
@@ -94,6 +124,7 @@ final class ReportControllerTest extends TestCase
             new View(base_path('app/Views')), $session, $security, new Auth($session, $users),
             new Config(['name' => 'OEMS']),
             new ReportService($repository, new DateTimeImmutable('2026-08-10 10:00:00')),
+            new ReportArtifactService(),
         );
     }
 }

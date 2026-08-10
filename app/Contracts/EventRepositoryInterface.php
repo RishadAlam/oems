@@ -57,6 +57,18 @@ interface EventRepositoryInterface
 
     public function softDeleteAdmin(int $userId, int $eventId, array $context): bool;
 
+    public function trashOwned(int $userId, int $limit, int $offset): array;
+
+    public function trashAdmin(int $limit, int $offset): array;
+
+    public function findDeletedOwned(int $userId, int $eventId): ?array;
+
+    public function findDeletedAdmin(int $eventId): ?array;
+
+    public function restoreOwned(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool;
+
+    public function restoreAdmin(int $userId, int $eventId, string $expectedDeletedAt, array $context): bool;
+
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool;
 
     public function participantIdsForEventCancellation(int $eventId): array;

@@ -13,7 +13,7 @@ $registrationLabels = ['pending' => 'Pending', 'confirmed' => 'Confirmed', 'canc
 
 <div class="dashboard-page-heading organizer-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-chart-line-up" aria-hidden="true"></i><span>Event performance</span></p><h1>Organizer analytics</h1><p>Operational activity and event-level outcomes for the selected date range.</p></div>
-    <a class="button button--quiet" href="/organizer/analytics.csv?<?= e($query) ?>"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Export CSV</span></a>
+    <div class="flex flex-wrap gap-2"><a class="button button--quiet" href="/organizer/analytics.csv?<?= e($query) ?>"><i class="ph ph-download-simple" aria-hidden="true"></i><span>CSV</span></a><a class="button button--quiet" href="/organizer/analytics.pdf?<?= e($query) ?>"><i class="ph ph-file-pdf" aria-hidden="true"></i><span>PDF</span></a><a class="button button--quiet" href="/organizer/analytics.xml?<?= e($query) ?>"><i class="ph ph-file-xls" aria-hidden="true"></i><span>Excel XML</span></a></div>
 </div>
 
 <?php if ($filterError !== null): ?><div class="form-alert mt-6" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($filterError) ?></span></div><?php endif; ?>

@@ -50,6 +50,44 @@ final class AdminEventController extends Controller
         ], 'dashboard');
     }
 
+    public function trash(Request $request): Response
+    {
+        return $this->render('admin/events/trash', [
+            'pageTitle' => 'Deleted events',
+            'events' => $this->events->trashAdmin(100, 0),
+        ], 'dashboard');
+    }
+
+    public function restore(Request $request): Response
+    {
+        $eventId = $this->routeId($request);
+        $userId = $this->auth->id();
+        if ($eventId === null || $userId === null || $this->events->findDeletedAdmin($eventId) === null) {
+            return $this->notFound();
+        }
+        $expected = $request->input('deleted_at');
+        $agent = $request->header('User-Agent');
+        $result = $this->eventService->restoreAsAdmin(
+            $userId,
+            $eventId,
+            is_scalar($expected) ? (string) $expected : '',
+            ['ip_address' => $request->ip(), 'user_agent' => is_string($agent) ? mb_substr($agent, 0, 500) : null],
+        );
+        if (!($result['success'] ?? false)) {
+            if (($result['code'] ?? null) === 'not_found') {
+                return $this->notFound();
+            }
+            if (($result['code'] ?? null) === 'conflict') {
+                return Response::text('Conflict', 409);
+            }
+
+            return $this->redirectWith('/admin/events/trash', 'error', $this->firstError($result['errors'] ?? []));
+        }
+        $this->session->flash('success', 'Event restored with its retained ' . (string) ($result['status'] ?? 'draft') . ' lifecycle.');
+
+        return Response::redirect('/admin/events/' . $eventId);
+    }
+
     public function show(Request $request): Response
     {
         $event = $this->event($request);

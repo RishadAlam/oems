@@ -361,6 +361,40 @@ final class OrganizerEventControllerTest extends TestCase
         );
     }
 
+    public function testOrganizerTrashRendersScopedRecoveryAndRestoresRetainedDraft(): void
+    {
+        $this->events->events[11]['deleted_at'] = '2026-08-10 12:00:00';
+        $this->events->events[12]['deleted_at'] = '2026-08-10 12:00:00';
+
+        $trash = $this->controller->trash(Request::create('GET', '/organizer/events/trash'));
+        $restore = $this->controller->restore($this->routed('POST', '/organizer/events/trash/11/restore', '11', [
+            'deleted_at' => '2026-08-10 12:00:00',
+        ]));
+
+        $this->assertSame(200, $trash->status());
+        $this->assertTrue(str_contains($trash->body(), 'Dhaka Product Lab'));
+        $this->assertFalse(str_contains($trash->body(), 'Foreign Event'));
+        $this->assertTrue(str_contains($trash->body(), 'data-label="Lifecycle"'));
+        $this->assertTrue(str_contains($trash->body(), '/organizer/events/trash/11/restore'));
+        $this->assertSame('/organizer/events/11', $restore->header('Location'));
+        $this->assertNull($this->events->events[11]['deleted_at']);
+        $this->assertSame('draft', $this->events->events[11]['status']);
+        $this->assertSame('Event restored as a draft.', $this->session->get('_flash.success'));
+    }
+
+    public function testOrganizerTrashRestoreRejectsForeignAndStaleRows(): void
+    {
+        $this->events->events[11]['deleted_at'] = '2026-08-10 12:00:00';
+        $this->events->events[12]['deleted_at'] = '2026-08-10 12:00:00';
+
+        $foreign = $this->controller->restore($this->routed('POST', '/organizer/events/trash/12/restore', '12', ['deleted_at' => '2026-08-10 12:00:00']));
+        $stale = $this->controller->restore($this->routed('POST', '/organizer/events/trash/11/restore', '11', ['deleted_at' => 'old']));
+
+        $this->assertSame(404, $foreign->status());
+        $this->assertSame(409, $stale->status());
+        $this->assertNotNull($this->events->events[11]['deleted_at']);
+    }
+
     public function testEveryEventPostRouteRequiresOrganizerRoleAndCsrf(): void
     {
         $uris = [
@@ -370,6 +404,7 @@ final class OrganizerEventControllerTest extends TestCase
             '/organizer/events/11/publish',
             '/organizer/events/11/cancel',
             '/organizer/events/11/delete',
+            '/organizer/events/trash/11/restore',
         ];
 
         foreach ($uris as $uri) {

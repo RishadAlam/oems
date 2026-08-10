@@ -21,7 +21,8 @@
     $currentPath = $currentPath === '//' ? '/' : $currentPath;
     $overviewPaths = ['/dashboard', '/participant/dashboard', '/organizer/dashboard', '/admin/dashboard'];
     $overviewActive = in_array($currentPath, $overviewPaths, true);
-    $organizerEventsActive = str_starts_with($currentPath, '/organizer/events');
+    $organizerTrashActive = str_starts_with($currentPath, '/organizer/events/trash');
+    $organizerEventsActive = str_starts_with($currentPath, '/organizer/events') && !$organizerTrashActive;
     $organizerOperationsActive = preg_match('#^/organizer/events/[^/]+/(participants|check-in)#', $currentPath) === 1;
     $organizerEventsActive = $organizerEventsActive && !$organizerOperationsActive;
     $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
@@ -37,7 +38,8 @@
     $participantWaitlistActive = str_starts_with($currentPath, '/participant/waitlist');
     $participantNotificationsActive = str_starts_with($currentPath, '/participant/notifications');
     $participantReviewsActive = str_starts_with($currentPath, '/participant/reviews') || $participantReviewFormActive;
-    $adminEventsActive = str_starts_with($currentPath, '/admin/events');
+    $adminTrashActive = str_starts_with($currentPath, '/admin/events/trash');
+    $adminEventsActive = str_starts_with($currentPath, '/admin/events') && !$adminTrashActive;
     $adminUsersActive = str_starts_with($currentPath, '/admin/users');
     $adminOrganizersActive = str_starts_with($currentPath, '/admin/organizers');
     $adminPaymentsActive = str_starts_with($currentPath, '/admin/payments');
@@ -81,6 +83,7 @@
                     <?php endif; ?>
                     <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
+                        <a class="dashboard-nav-link<?= $organizerTrashActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events/trash"<?= $organizerTrashActive ? ' aria-current="page"' : '' ?>><i class="ph ph-archive" aria-hidden="true"></i><span>Event trash</span></a>
                         <a class="dashboard-nav-link<?= $organizerOperationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerOperationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-users-three" aria-hidden="true"></i><span>Event operations</span></a>
                         <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
                         <a class="dashboard-nav-link<?= $organizerCouponsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/coupons"<?= $organizerCouponsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Coupons</span></a>
@@ -92,6 +95,7 @@
                         <a class="dashboard-nav-link<?= $adminOrganizersActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/organizers"<?= $adminOrganizersActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Organizers</span></a>
                         <a class="dashboard-nav-link<?= $adminPaymentsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/payments"<?= $adminPaymentsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-receipt" aria-hidden="true"></i><span>Payment review</span></a>
                         <a class="dashboard-nav-link<?= $adminEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/events"<?= $adminEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-chevron" aria-hidden="true"></i><span>Event moderation</span></a>
+                        <a class="dashboard-nav-link<?= $adminTrashActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/events/trash"<?= $adminTrashActive ? ' aria-current="page"' : '' ?>><i class="ph ph-archive" aria-hidden="true"></i><span>Event trash</span></a>
                         <a class="dashboard-nav-link<?= $adminCategoriesActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/categories"<?= $adminCategoriesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-tag" aria-hidden="true"></i><span>Categories</span></a>
                         <a class="dashboard-nav-link<?= $adminReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/reviews"<?= $adminReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Review moderation</span></a>
                         <a class="dashboard-nav-link<?= $adminAnalyticsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/analytics"<?= $adminAnalyticsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chart-line-up" aria-hidden="true"></i><span>Analytics</span></a>

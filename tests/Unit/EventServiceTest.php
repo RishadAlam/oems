@@ -573,6 +573,41 @@ final class EventServiceTest extends TestCase
         $this->assertSame('now', $this->events->events[2]['deleted_at']);
     }
 
+    public function testOrganizerAndAdministratorRestoreEligibleDeletedEventsWithoutChangingLifecycle(): void
+    {
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft', ['deleted_at' => '2026-08-10 12:00:00']);
+        $this->events->events[2] = $this->storedEvent(2, 20, 'cancelled', ['deleted_at' => '2026-08-10 12:01:00']);
+
+        $owned = $this->service->restore(10, 1, '2026-08-10 12:00:00', []);
+        $admin = $this->service->restoreAsAdmin(99, 2, '2026-08-10 12:01:00', []);
+
+        $this->assertTrue($owned['success']);
+        $this->assertTrue($admin['success']);
+        $this->assertNull($this->events->events[1]['deleted_at']);
+        $this->assertNull($this->events->events[2]['deleted_at']);
+        $this->assertSame('draft', $this->events->events[1]['status']);
+        $this->assertSame('cancelled', $this->events->events[2]['status']);
+    }
+
+    public function testRestoreFailsClosedForForeignStaleRegisteredAndIneligibleEvents(): void
+    {
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft', ['deleted_at' => '2026-08-10 12:00:00']);
+        $this->events->events[2] = $this->storedEvent(2, 10, 'published', ['deleted_at' => '2026-08-10 12:00:00']);
+        $this->events->registrationCounts[1] = 1;
+
+        $foreign = $this->service->restore(20, 1, '2026-08-10 12:00:00', []);
+        $stale = $this->service->restore(10, 1, '2026-08-10 11:59:00', []);
+        $registered = $this->service->restore(10, 1, '2026-08-10 12:00:00', []);
+        $published = $this->service->restoreAsAdmin(99, 2, '2026-08-10 12:00:00', []);
+
+        $this->assertSame('not_found', $foreign['code']);
+        $this->assertSame('conflict', $stale['code']);
+        $this->assertSame('ineligible', $registered['code']);
+        $this->assertSame('ineligible', $published['code']);
+        $this->assertNotNull($this->events->events[1]['deleted_at']);
+        $this->assertNotNull($this->events->events[2]['deleted_at']);
+    }
+
     private function validInput(array $overrides = []): array
     {
         return array_merge([

@@ -20,7 +20,7 @@ use PDO;
 
 final class AdminOperationsControllerTest extends TestCase
 {
-    public function testRoutesEnforceRoleCsrfMethodAndExposeNoRestoreSurface(): void
+    public function testRoutesEnforceRoleCsrfAndExposeNoBackupRestoreSurface(): void
     {
         $routes = file_get_contents(base_path('routes/web.php'));
         $this->assertTrue(is_string($routes));
@@ -29,7 +29,8 @@ final class AdminOperationsControllerTest extends TestCase
         $this->assertTrue(str_contains($routes, "get('/admin/operations'"));
         $this->assertTrue(str_contains($routes, "post('/admin/operations/maintenance'"));
         $this->assertTrue(str_contains($routes, "['role:super-admin', 'csrf']"));
-        $this->assertFalse(str_contains($routes, '/restore'));
+        $this->assertFalse(str_contains($routes, '/admin/operations/restore'));
+        $this->assertTrue(str_contains($routes, "post('/admin/events/trash/{id}/restore'"));
     }
 
     public function testOperationsPageAndConfirmationBoundToggleAreTruthful(): void

@@ -243,6 +243,51 @@ final class EventService
         return $this->success(['event_id' => $eventId]);
     }
 
+    public function restore(int $userId, int $eventId, string $expectedDeletedAt, array $context): array
+    {
+        return $this->restoreDeleted($userId, $eventId, $expectedDeletedAt, $context, false);
+    }
+
+    public function restoreAsAdmin(int $userId, int $eventId, string $expectedDeletedAt, array $context): array
+    {
+        return $this->restoreDeleted($userId, $eventId, $expectedDeletedAt, $context, true);
+    }
+
+    private function restoreDeleted(int $userId, int $eventId, string $expectedDeletedAt, array $context, bool $admin): array
+    {
+        $event = $admin
+            ? $this->events->findDeletedAdmin($eventId)
+            : $this->events->findDeletedOwned($userId, $eventId);
+        if ($event === null) {
+            return ['success' => false, 'code' => 'not_found', 'errors' => ['event' => ['Event not found.']]];
+        }
+        if ($expectedDeletedAt === '' || !hash_equals((string) ($event['deleted_at'] ?? ''), $expectedDeletedAt)) {
+            return ['success' => false, 'code' => 'conflict', 'errors' => ['event' => ['This deleted event changed. Refresh and try again.']]];
+        }
+        if ((int) ($event['restorable'] ?? 0) !== 1) {
+            return ['success' => false, 'code' => 'ineligible', 'errors' => ['event' => ['Only registration-free draft, rejected, or cancelled events can be restored.']]];
+        }
+        $restored = $admin
+            ? $this->events->restoreAdmin($userId, $eventId, $expectedDeletedAt, $context)
+            : $this->events->restoreOwned($userId, $eventId, $expectedDeletedAt, $context);
+        if (!$restored) {
+            $winner = $admin ? $this->events->findForAdmin($eventId) : $this->events->findOwned($userId, $eventId);
+            if ($winner !== null && empty($winner['deleted_at']) && (string) ($winner['status'] ?? '') === (string) $event['status']) {
+                return $this->success(['event_id' => $eventId, 'status' => (string) $event['status']]);
+            }
+            $latest = $admin
+                ? $this->events->findDeletedAdmin($eventId)
+                : $this->events->findDeletedOwned($userId, $eventId);
+            if ($latest !== null && (int) ($latest['restorable'] ?? 0) !== 1) {
+                return ['success' => false, 'code' => 'ineligible', 'errors' => ['event' => ['This event now has history or an ineligible lifecycle state.']]];
+            }
+
+            return ['success' => false, 'code' => 'conflict', 'errors' => ['event' => ['This deleted event changed. Refresh and try again.']]];
+        }
+
+        return $this->success(['event_id' => $eventId, 'status' => (string) $event['status']]);
+    }
+
     public function moderate(int $userId, int $eventId, string $status, ?string $reason): array
     {
         $event = $this->events->findForAdmin($eventId);

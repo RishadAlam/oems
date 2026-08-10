@@ -719,6 +719,41 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(0, $this->repository->countPendingForAdmin());
     }
 
+    public function testEventTrashIsScopedAndEligibleRestorePreservesLifecycleWithAudit(): void
+    {
+        $this->connection->exec("UPDATE events SET deleted_at = '2026-08-10 12:00:00' WHERE id = 502");
+
+        $owned = $this->repository->trashOwned(10, 100, 0);
+        $foreign = $this->repository->trashOwned(20, 100, 0);
+        $admin = $this->repository->trashAdmin(100, 0);
+        $deleted = $this->repository->findDeletedOwned(10, 502);
+
+        $this->assertSame([505, 502], array_column($owned, 'id'));
+        $this->assertSame([], array_column($foreign, 'id'));
+        $this->assertSame([505, 502], array_column($admin, 'id'));
+        $this->assertNotNull($deleted);
+        $this->assertSame(1, (int) $deleted['restorable']);
+        $this->assertTrue($this->repository->restoreOwned(10, 502, '2026-08-10 12:00:00', $this->auditContext()));
+        $this->assertNull($this->eventValue(502, 'deleted_at'));
+        $this->assertSame('draft', $this->eventValue(502, 'status'));
+        $this->assertSame(1, $this->activityCountFor(502));
+        $this->assertFalse($this->repository->restoreOwned(10, 502, '2026-08-10 12:00:00', $this->auditContext()));
+    }
+
+    public function testEventRestoreRejectsForeignStalePublishedAndRegistrationHistory(): void
+    {
+        $this->connection->exec("UPDATE events SET deleted_at = '2026-08-10 12:00:00' WHERE id = 502");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (1, 502, 30, 'RECOVERY-1', 'cancelled', 0, 'BDT', CURRENT_TIMESTAMP)");
+
+        $this->assertSame(0, (int) $this->repository->findDeletedAdmin(502)['restorable']);
+        $this->assertFalse($this->repository->restoreOwned(20, 502, '2026-08-10 12:00:00', $this->auditContext()));
+        $this->assertFalse($this->repository->restoreOwned(10, 502, '2026-08-10 11:59:59', $this->auditContext()));
+        $this->assertFalse($this->repository->restoreAdmin(30, 502, '2026-08-10 12:00:00', $this->auditContext()));
+        $this->assertFalse($this->repository->restoreAdmin(30, 505, (string) $this->eventValue(505, 'deleted_at'), $this->auditContext()));
+        $this->assertNotNull($this->eventValue(502, 'deleted_at'));
+        $this->assertSame(0, $this->activityCountFor(502));
+    }
+
     private function createSchema(): void
     {
         $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT "active", email_verified_at TEXT NULL, deleted_at TEXT NULL)');

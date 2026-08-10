@@ -10,6 +10,7 @@ use OEMS\App\Controllers\AdminReportController;
 use OEMS\App\Controllers\OrganizerAnalyticsController;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Services\ReportService;
+use OEMS\App\Services\ReportArtifactService;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Container;
@@ -97,6 +98,28 @@ final class AnalyticsControllerTest extends TestCase
         }
     }
 
+    public function testOrganizerPdfAndSpreadsheetArePrivateAndOwnerScoped(): void
+    {
+        [$controller, $repository] = $this->organizerController();
+        $pdf = $controller->pdf(Request::create('GET', '/organizer/analytics.pdf', query: [
+            'start' => '2026-08-01', 'end' => '2026-08-10',
+        ]));
+        $this->assertSame(200, $pdf->status());
+        $this->assertSame('application/pdf', $pdf->header('Content-Type'));
+        $this->assertSame('private, no-store', $pdf->header('Cache-Control'));
+        $this->assertTrue(str_starts_with($pdf->body(), '%PDF-'));
+
+        $xml = $controller->spreadsheet(Request::create('GET', '/organizer/analytics.xml'));
+        $this->assertSame(200, $xml->status());
+        $this->assertSame('application/vnd.ms-excel; charset=UTF-8', $xml->header('Content-Type'));
+        $this->assertFalse(str_contains($xml->body(), 'ss:Formula'));
+        $this->assertFalse(str_contains(strtolower($xml->body()), 'participant email'));
+
+        $repository->foreignEventIds = [99];
+        $this->assertSame(404, $controller->pdf(Request::create('GET', '/organizer/analytics.pdf', query: ['event' => '99']))->status());
+        $this->assertSame(404, $controller->spreadsheet(Request::create('GET', '/organizer/analytics.xml', query: ['event' => '99']))->status());
+    }
+
     public function testAdminAnalyticsAppliesAllowlistedFiltersAndEscapesBreakdowns(): void
     {
         [$controller, $repository] = $this->adminController();
@@ -139,12 +162,20 @@ final class AnalyticsControllerTest extends TestCase
         $this->assertSame(200, $this->router('organizer')->dispatch(Request::create('GET', '/organizer/analytics.csv'))->status());
         $this->assertSame(403, $this->router('participant')->dispatch(Request::create('GET', '/organizer/analytics.csv'))->status());
         $this->assertSame(405, $this->router('organizer')->dispatch(Request::create('POST', '/organizer/analytics.csv'))->status());
+        $this->assertSame(200, $this->router('organizer')->dispatch(Request::create('GET', '/organizer/analytics.pdf'))->status());
+        $this->assertSame(200, $this->router('organizer')->dispatch(Request::create('GET', '/organizer/analytics.xml'))->status());
+        $this->assertSame(403, $this->router('participant')->dispatch(Request::create('GET', '/organizer/analytics.pdf'))->status());
+        $this->assertSame(405, $this->router('organizer')->dispatch(Request::create('POST', '/organizer/analytics.xml'))->status());
         $this->assertSame(200, $this->router('super-admin')->dispatch(Request::create('GET', '/admin/reports'))->status());
         $this->assertSame(200, $this->router('super-admin')->dispatch(Request::create('GET', '/admin/reports.csv'))->status());
         $this->assertSame(403, $this->router('organizer')->dispatch(Request::create('GET', '/admin/reports'))->status());
         $this->assertSame(403, $this->router('participant')->dispatch(Request::create('GET', '/admin/reports.csv'))->status());
         $this->assertSame('/login', $this->router(null)->dispatch(Request::create('GET', '/admin/reports'))->header('Location'));
         $this->assertSame(405, $this->router('super-admin')->dispatch(Request::create('POST', '/admin/reports.csv'))->status());
+        $this->assertSame(200, $this->router('super-admin')->dispatch(Request::create('GET', '/admin/reports.pdf'))->status());
+        $this->assertSame(200, $this->router('super-admin')->dispatch(Request::create('GET', '/admin/reports.xml'))->status());
+        $this->assertSame(403, $this->router('participant')->dispatch(Request::create('GET', '/admin/reports.pdf'))->status());
+        $this->assertSame(405, $this->router('super-admin')->dispatch(Request::create('POST', '/admin/reports.xml'))->status());
     }
 
     private function organizerController(): array
@@ -155,6 +186,7 @@ final class AnalyticsControllerTest extends TestCase
         return [new OrganizerAnalyticsController(
             $view, $session, $security, $auth, $config,
             new ReportService($repository, new DateTimeImmutable('2026-08-10 10:00:00')),
+            new ReportArtifactService(),
         ), $repository];
     }
 
@@ -232,9 +264,10 @@ final class AnalyticsControllerTest extends TestCase
         [$view, $session, $security, $auth, $config] = $this->dependencies($role);
         $service = new ReportService($this->repository(), new DateTimeImmutable('2026-08-10 10:00:00'));
         $container = new Container();
-        $container->instance(OrganizerAnalyticsController::class, new OrganizerAnalyticsController($view, $session, $security, $auth, $config, $service));
+        $artifacts = new ReportArtifactService();
+        $container->instance(OrganizerAnalyticsController::class, new OrganizerAnalyticsController($view, $session, $security, $auth, $config, $service, $artifacts));
         $container->instance(AdminAnalyticsController::class, new AdminAnalyticsController($view, $session, $security, $auth, $config, $service));
-        $container->instance(AdminReportController::class, new AdminReportController($view, $session, $security, $auth, $config, $service));
+        $container->instance(AdminReportController::class, new AdminReportController($view, $session, $security, $auth, $config, $service, $artifacts));
         $router = new Router($container);
         $router->aliasMiddleware('role', new RoleMiddleware($auth));
         $routes = require base_path('routes/web.php');

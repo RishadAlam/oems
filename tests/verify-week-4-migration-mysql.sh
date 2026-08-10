@@ -101,6 +101,11 @@ OEMS_BLOG_TEST_USER="$mysql_user" \
 OEMS_BLOG_TEST_PASSWORD="$mysql_password" \
 php tests/verify-blog-mysql.php
 
+OEMS_EVENT_RECOVERY_TEST_DSN="mysql:host=$mysql_host;port=$mysql_port;dbname=$database;charset=utf8mb4" \
+OEMS_EVENT_RECOVERY_TEST_USER="$mysql_user" \
+OEMS_EVENT_RECOVERY_TEST_PASSWORD="$mysql_password" \
+php tests/verify-event-recovery-mysql.php
+
 registration_id="$(scalar 'SELECT id FROM registrations ORDER BY id LIMIT 1')"
 participant_id="$(scalar "SELECT user_id FROM registrations WHERE id = $registration_id")"
 mysql_run "$database" --execute="INSERT INTO event_certificates (registration_id, participant_id, certificate_number, verification_token_hash, pdf_path, status, issued_at) VALUES ($registration_id, $participant_id, 'OEMS-WEEK4-CERT-1', REPEAT('a', 64), 'certificates/week4.pdf', 'valid', NOW())"

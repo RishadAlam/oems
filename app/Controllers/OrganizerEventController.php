@@ -83,6 +83,50 @@ final class OrganizerEventController extends Controller
         ], 'dashboard');
     }
 
+    public function trash(Request $request): Response
+    {
+        $userId = $this->auth->id();
+        if ($userId === null) {
+            return $this->notFound();
+        }
+
+        return $this->render('organizer/events/trash', [
+            'pageTitle' => 'Deleted events',
+            'events' => $this->events->trashOwned($userId, 100, 0),
+        ], 'dashboard');
+    }
+
+    public function restore(Request $request): Response
+    {
+        $eventId = $this->routeId($request);
+        $userId = $this->auth->id();
+        if ($eventId === null || $userId === null || $this->events->findDeletedOwned($userId, $eventId) === null) {
+            return $this->notFound();
+        }
+        $expected = $request->input('deleted_at');
+        $agent = $request->header('User-Agent');
+        $result = $this->eventService->restore(
+            $userId,
+            $eventId,
+            is_scalar($expected) ? (string) $expected : '',
+            ['ip_address' => $request->ip(), 'user_agent' => is_string($agent) ? mb_substr($agent, 0, 500) : null],
+        );
+        if (!($result['success'] ?? false)) {
+            if (($result['code'] ?? null) === 'not_found') {
+                return $this->notFound();
+            }
+            if (($result['code'] ?? null) === 'conflict') {
+                return Response::text('Conflict', 409);
+            }
+
+            return $this->redirectWith('/organizer/events/trash', 'error', $this->firstError($result['errors'] ?? []));
+        }
+        $status = (string) ($result['status'] ?? 'draft');
+        $this->session->flash('success', 'Event restored as a ' . $status . '.');
+
+        return Response::redirect('/organizer/events/' . $eventId);
+    }
+
     public function create(Request $request): Response
     {
         $userId = $this->auth->id();

@@ -288,6 +288,52 @@ final class ReportService
         ]];
     }
 
+    public function adminArtifactData(mixed $type, mixed $start, mixed $end, mixed $eventStatus, mixed $currency): array
+    {
+        $result = $this->reportData($type, $start, $end, $eventStatus, $currency);
+        if (($result['success'] ?? false) !== true) {
+            return $result;
+        }
+        $data = $result['data'];
+        $data['rows'] = $this->analytics->adminReportRows(
+            $data['type'],
+            $data['range']['start_at'],
+            $data['range']['end_exclusive'],
+            $data['filters'],
+            201,
+            0,
+        );
+
+        return ['success' => true, 'data' => $data];
+    }
+
+    public function organizerArtifactData(int $organizerUserId, mixed $start, mixed $end, mixed $event): array
+    {
+        $result = $this->organizerData($organizerUserId, $start, $end, $event);
+        if (($result['success'] ?? false) !== true) {
+            return $result;
+        }
+        $data = $result['data'];
+        $rows = $this->analytics->organizerEventRows(
+            $organizerUserId,
+            $data['range']['start_at'],
+            $data['range']['end_exclusive'],
+            $data['event_id'],
+            201,
+            0,
+        );
+        if ($rows === null) {
+            return ['success' => false, 'code' => 'not_found', 'data' => []];
+        }
+
+        return ['success' => true, 'data' => [
+            'range' => $data['range'],
+            'event_id' => $data['event_id'],
+            'columns' => self::ORGANIZER_COLUMNS,
+            'rows' => array_map($this->flattenOrganizerRow(...), $rows),
+        ]];
+    }
+
     public function streamAdminCsv(
         string $type,
         mixed $start,

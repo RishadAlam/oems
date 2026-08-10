@@ -120,6 +120,8 @@ return static function (Router $router): void {
     $router->get('/organizer/dashboard', [DashboardController::class, 'organizer'], ['role:organizer'], 'organizer.dashboard');
     $router->get('/organizer/analytics', [OrganizerAnalyticsController::class, 'index'], ['role:organizer'], 'organizer.analytics.index');
     $router->get('/organizer/analytics.csv', [OrganizerAnalyticsController::class, 'export'], ['role:organizer'], 'organizer.analytics.export');
+    $router->get('/organizer/analytics.pdf', [OrganizerAnalyticsController::class, 'pdf'], ['role:organizer'], 'organizer.analytics.pdf');
+    $router->get('/organizer/analytics.xml', [OrganizerAnalyticsController::class, 'spreadsheet'], ['role:organizer'], 'organizer.analytics.spreadsheet');
     $router->get('/organizer/coupons', [OrganizerCouponController::class, 'index'], ['role:organizer'], 'organizer.coupons.index');
     $router->get('/organizer/coupons/create', [OrganizerCouponController::class, 'create'], ['role:organizer'], 'organizer.coupons.create');
     $router->post('/organizer/coupons', [OrganizerCouponController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.coupons.store');
@@ -128,6 +130,8 @@ return static function (Router $router): void {
     $router->post('/organizer/coupons/{id}/status', [OrganizerCouponController::class, 'status'], ['role:organizer', 'csrf'], 'organizer.coupons.status');
     $router->get('/organizer/events', [OrganizerEventController::class, 'index'], ['role:organizer'], 'organizer.events.index');
     $router->get('/organizer/events/create', [OrganizerEventController::class, 'create'], ['role:organizer'], 'organizer.events.create');
+    $router->get('/organizer/events/trash', [OrganizerEventController::class, 'trash'], ['role:organizer'], 'organizer.events.trash');
+    $router->post('/organizer/events/trash/{id}/restore', [OrganizerEventController::class, 'restore'], ['role:organizer', 'csrf'], 'organizer.events.restore');
     $router->post('/organizer/events', [OrganizerEventController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.events.store');
     $router->get('/organizer/events/{id}', [OrganizerEventController::class, 'show'], ['role:organizer'], 'organizer.events.show');
     $router->get('/organizer/events/{id}/edit', [OrganizerEventController::class, 'edit'], ['role:organizer'], 'organizer.events.edit');
@@ -153,6 +157,8 @@ return static function (Router $router): void {
     $router->get('/organizer/reviews', [OrganizerReviewController::class, 'index'], ['role:organizer'], 'organizer.reviews.index');
     $router->post('/organizer/reviews/{id}/reply', [OrganizerReviewController::class, 'reply'], ['role:organizer', 'csrf'], 'organizer.reviews.reply');
     $router->get('/admin/dashboard', [DashboardController::class, 'admin'], ['role:super-admin'], 'admin.dashboard');
+    $router->get('/admin/events/trash', [AdminEventController::class, 'trash'], ['role:super-admin'], 'admin.events.trash');
+    $router->post('/admin/events/trash/{id}/restore', [AdminEventController::class, 'restore'], ['role:super-admin', 'csrf'], 'admin.events.restore');
     $router->get('/admin/blog', [AdminBlogController::class, 'index'], ['role:super-admin'], 'admin.blog.index');
     $router->get('/admin/blog/create', [AdminBlogController::class, 'create'], ['role:super-admin'], 'admin.blog.create');
     $router->post('/admin/blog', [AdminBlogController::class, 'store'], ['role:super-admin', 'csrf'], 'admin.blog.store');
@@ -165,6 +171,8 @@ return static function (Router $router): void {
     $router->get('/admin/analytics', [AdminAnalyticsController::class, 'index'], ['role:super-admin'], 'admin.analytics.index');
     $router->get('/admin/reports', [AdminReportController::class, 'index'], ['role:super-admin'], 'admin.reports.index');
     $router->get('/admin/reports.csv', [AdminReportController::class, 'export'], ['role:super-admin'], 'admin.reports.export');
+    $router->get('/admin/reports.pdf', [AdminReportController::class, 'pdf'], ['role:super-admin'], 'admin.reports.pdf');
+    $router->get('/admin/reports.xml', [AdminReportController::class, 'spreadsheet'], ['role:super-admin'], 'admin.reports.spreadsheet');
     $router->get('/admin/contact', [AdminContactController::class, 'index'], ['role:super-admin'], 'admin.contact.index');
     $router->get('/admin/contact/{id}', [AdminContactController::class, 'show'], ['role:super-admin'], 'admin.contact.show');
     $router->post('/admin/contact/{id}/status', [AdminContactController::class, 'status'], ['role:super-admin', 'csrf'], 'admin.contact.status');
