@@ -47,13 +47,13 @@ The repair is proven by running the migration twice and asserting that:
 
 ### Database additions
 
-Add an `announcements` table with:
+Add an `event_announcements` table with:
 
 - Organizer-owned event reference.
 - Author user reference.
 - Bounded subject and plain-text message.
 - Audience fixed to confirmed participants for this release.
-- Recipient and delivery counters.
+- Recipient count and a unique request key for replay safety.
 - Immutable sent timestamp and created timestamp.
 - Indexes for organizer event history.
 
@@ -70,16 +70,14 @@ Super admins can list, search, and filter users by role and status. The result s
 Allowed actions:
 
 - Set active, inactive, or suspended status.
-- Restore a soft-deleted participant or organizer account.
-- Soft-delete an eligible participant or organizer account.
+- Reactivate a suspended or inactive participant or organizer account.
 
 Rules:
 
-- A super admin cannot change or delete their own account.
+- A super admin cannot change their own account.
 - Super-admin accounts cannot be modified through this workspace.
-- Soft deletion removes public identity exposure and revokes remember sessions and password resets.
-- Historical transaction rows remain intact.
-- Status and deletion updates use compare-and-swap conditions and an audit record.
+- Suspension revokes remember sessions and password resets while historical transaction rows remain intact.
+- Status updates use compare-and-swap conditions and an audit record.
 - Search is bounded and never falls back to an unfiltered query when invalid.
 
 ### Organizers
@@ -95,9 +93,9 @@ Rules:
 
 ### Admin event deletion
 
-Deletion is a soft-delete operation. It is permitted only for draft, rejected, cancelled, or completed events. Published, approved, and pending events must first use their lifecycle transition so participants receive the correct settlement and cancellation behavior.
+Deletion is a soft-delete operation. It is permitted only for draft, rejected, or cancelled events with no registration history. Published, approved, pending, and completed events remain preserved. Lifecycle transitions must be used when participant settlement or historical reporting is involved.
 
-The operation is compare-and-swap protected, audited, hidden from public discovery, and preserves registrations, payments, tickets, reviews, and attendance for reporting and participant history.
+The operation is compare-and-swap protected, audited, and hidden from public discovery. The no-registration guard prevents participant history from being hidden by repository privacy scopes.
 
 ## Module 3: Organizer Announcements
 
@@ -106,18 +104,17 @@ An approved organizer can send an announcement from an owned event workspace.
 Eligibility:
 
 - Event belongs to the organizer and is not deleted.
-- Event status is approved, published, completed, or cancelled.
+- Event status is published or completed.
 - Recipients are active, verified, non-deleted participants with confirmed, non-cancelled registrations for the event.
 
 Behavior:
 
 - Subject is required and limited to 180 characters.
-- Message is required plain text and limited to 2,000 characters.
-- A single-use confirmation intent prevents accidental duplicate sends and forged confirmation.
-- Recipient resolution and announcement persistence are transactional.
-- Notifications and email delivery run after commit so transport failure never rolls back the announcement.
-- A stable delivery key prevents duplicate in-app notifications for the same announcement and participant.
-- Delivery counters record attempted and successful notification/email outcomes without storing secrets.
+- Message is required plain text and limited to 1,000 characters.
+- A unique request key prevents accidental duplicate sends and forged confirmation replay.
+- Recipient resolution, announcement persistence, notification fan-out, recipient count, and activity audit are one transaction.
+- Notifications use one bounded `INSERT ... SELECT` operation rather than synchronous SMTP fan-out.
+- A repeated request key returns the original truthful result without duplicate notifications.
 - History shows subject, sent time, author, audience, and counts. Message output is escaped.
 
 ## Module 4: Analytics and Reports
@@ -128,7 +125,7 @@ The organizer analytics page is ownership-scoped and supports an allowlisted dat
 
 - Event counts by lifecycle state.
 - Confirmed, pending, cancelled, and attended participant counts.
-- Gross verified revenue, refunded amount, and net revenue using exact decimal money handling.
+- Gross verified payments by currency and paid-cancellation refund-attention count using exact decimal money handling.
 - Capacity utilization and attendance rate with zero-safe calculations.
 - A per-event breakdown and CSV export.
 
@@ -139,7 +136,7 @@ The super-admin analytics page supports the same bounded date range and shows:
 - Active users and approved organizers.
 - Events by lifecycle state.
 - Registration and attendance totals.
-- Verified gross revenue, refunds, and net revenue.
+- Verified gross payments by currency and paid-cancellation refund-attention count.
 - Pending moderation and payment queues.
 - Top categories and events based on real stored data.
 
@@ -167,21 +164,24 @@ Operational or secret values remain environment-owned. SMTP credentials, applica
 
 Values have type-specific normalization, bounds, safe defaults, and transactional updates. Public pages receive only `is_public = true` catalog values. Invalid database values fall back safely.
 
-### CMS pages
+### CMS pages, FAQs, and banners
 
-Super admins can list, create, edit, publish, and unpublish pages. Content is stored and rendered as plain text paragraphs for this release. Arbitrary HTML is not accepted, which keeps CSP and sanitization boundaries simple.
+Super admins can edit and publish the fixed About, Contact, Privacy, and Terms pages. They can also create or edit FAQs and scheduled home banners. Content is stored and rendered as plain text for this release. Arbitrary HTML is not accepted, which keeps CSP and sanitization boundaries simple.
 
 Rules:
 
 - Title, slug, content, meta title, and meta description are bounded.
-- Slugs are normalized and unique.
-- Reserved application route prefixes are rejected.
+- Fixed page route identities cannot be renamed or deleted.
 - Publishing sets `published_at`; unpublishing clears it.
-- Public access is `/pages/{slug}` and returns only published pages.
+- Public access uses `/about`, `/contact`, `/privacy`, and `/terms`, and returns only published pages.
 - Admin output and public content are escaped.
 - Meta title and description are integrated without changing existing event SEO.
 
-FAQs and banners remain schema-ready but are not exposed as incomplete editors. Pages plus the allowlisted home/footer settings satisfy the original CMS requirement without creating unsafe or unused interfaces.
+FAQ questions, answers, optional categories, and sort order are bounded. Inactive FAQs remain in admin history and are excluded publicly. Public FAQs use native `details` and `summary` controls.
+
+Banner titles, subtitles, schedules, sort order, and same-origin relative links are validated. Images use the existing upload protections in a banner-owned directory. Scheduled, inactive, expired, and future banners are excluded publicly. Home banners are static content blocks, not an automatic carousel.
+
+The CMS does not expose arbitrary HTML, browser-editable secrets, hard deletion, or generic route creation.
 
 ## Routing and Authorization
 
@@ -194,10 +194,10 @@ Expected route groups:
 - `/admin/analytics`
 - `/admin/reports`
 - `/admin/settings`
-- `/admin/pages`
+- `/admin/cms`
 - `/organizer/analytics`
 - `/organizer/events/{id}/announcements`
-- `/pages/{slug}`
+- `/about`, `/contact`, `/privacy`, `/terms`, and `/faq`
 
 Positive integer identifiers are validated at the controller boundary. Cross-owner organizer resources return 404. Unauthorized role access returns 403. Wrong methods return 405. CSRF failure returns 419.
 

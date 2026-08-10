@@ -43,11 +43,9 @@
 
 **Files:**
 
-- Modify: `app/Contracts/UserRepositoryInterface.php`
-- Modify: `app/Contracts/OrganizerRepositoryInterface.php`
+- Add: `app/Contracts/AdminPeopleRepositoryInterface.php`
 - Modify: `app/Contracts/EventRepositoryInterface.php`
-- Modify: `app/Repositories/UserRepository.php`
-- Modify: `app/Repositories/OrganizerRepository.php`
+- Add: `app/Repositories/AdminPeopleRepository.php`
 - Modify: `app/Repositories/EventRepository.php`
 - Add: `app/Services/AdminPeopleService.php`
 - Add: `app/Controllers/AdminUserController.php`
@@ -61,7 +59,7 @@
 - Modify: `app/Views/layouts/dashboard.php`
 - Modify: `routes/web.php`
 - Modify: `bootstrap/app.php`
-- Modify: repository fakes under `tests/Support/`
+- Add: `tests/Support/FakeAdminPeopleRepository.php`
 - Add: `tests/Unit/AdminPeopleRepositoryTest.php`
 - Add: `tests/Unit/AdminPeopleServiceTest.php`
 - Add: `tests/Unit/AdminPeopleControllerTest.php`
@@ -92,7 +90,6 @@
 - Add: `app/Contracts/AnnouncementRepositoryInterface.php`
 - Add: `app/Repositories/AnnouncementRepository.php`
 - Add: `app/Services/AnnouncementService.php`
-- Add: `app/Services/AnnouncementMailer.php`
 - Add: `app/Controllers/OrganizerAnnouncementController.php`
 - Add: `app/Views/organizer/announcements/index.php`
 - Add: `app/Views/organizer/announcements/create.php`
@@ -102,20 +99,19 @@
 - Add: `tests/Support/FakeAnnouncementRepository.php`
 - Add: `tests/Unit/AnnouncementRepositoryTest.php`
 - Add: `tests/Unit/AnnouncementServiceTest.php`
-- Add: `tests/Unit/AnnouncementMailerTest.php`
 - Add: `tests/Unit/OrganizerAnnouncementControllerTest.php`
 - Modify: `tests/Unit/OrganizerEventControllerTest.php`
 
 **RED:**
 
-- Prove owner scope, event lifecycle, organizer approval, recipient eligibility, field bounds, duplicate confirmation, delivery failure isolation, output escaping, and delivery counts are absent.
+- Prove owner scope, event lifecycle, organizer approval, recipient eligibility, field bounds, request replay, atomic delivery failure, output escaping, and recipient counts are absent.
 
 **GREEN:**
 
-- Persist an announcement and recipient snapshot transactionally.
-- Dispatch idempotent in-app notifications and email after commit.
-- Add a single-use confirmation step and history workspace.
-- Keep transport failures visible in counters and logs without rolling back the announcement.
+- Persist an announcement, bulk in-app notifications, recipient count, and audit row transactionally.
+- Use a unique request key for idempotent replay.
+- Add a confirmation step and history workspace.
+- Roll back the complete send if notification persistence fails.
 - Run focused and full verification.
 
 **Commit:** `feat: add organizer participant announcements`
@@ -155,23 +151,26 @@
 
 **Commit:** `feat: add operational analytics and reports`
 
-## Task 5: Allowlisted settings and CMS pages
+## Task 5: Allowlisted settings and CMS content
 
 **Files:**
 
 - Add: `app/Contracts/SettingRepositoryInterface.php`
-- Add: `app/Contracts/PageRepositoryInterface.php`
+- Add: `app/Contracts/CmsRepositoryInterface.php`
 - Add: `app/Repositories/SettingRepository.php`
-- Add: `app/Repositories/PageRepository.php`
+- Add: `app/Repositories/CmsRepository.php`
 - Add: `app/Services/SettingService.php`
-- Add: `app/Services/PageService.php`
+- Add: `app/Services/CmsService.php`
 - Add: `app/Controllers/AdminSettingController.php`
-- Add: `app/Controllers/AdminPageController.php`
-- Add: `app/Controllers/PublicPageController.php`
+- Add: `app/Controllers/AdminCmsController.php`
+- Add: `app/Controllers/PublicContentController.php`
 - Add: `app/Views/admin/settings/edit.php`
-- Add: `app/Views/admin/pages/index.php`
-- Add: `app/Views/admin/pages/form.php`
+- Add: `app/Views/admin/cms/index.php`
+- Add: `app/Views/admin/cms/page-form.php`
+- Add: `app/Views/admin/cms/faq-form.php`
+- Add: `app/Views/admin/cms/banner-form.php`
 - Add: `app/Views/pages/show.php`
+- Add: `app/Views/pages/faq.php`
 - Modify: `app/Controllers/HomeController.php`
 - Modify: `app/Views/home/index.php`
 - Modify: public and dashboard layouts
@@ -180,22 +179,22 @@
 - Add: repository fakes under `tests/Support/`
 - Add: `tests/Unit/SettingRepositoryTest.php`
 - Add: `tests/Unit/SettingServiceTest.php`
-- Add: `tests/Unit/PageRepositoryTest.php`
-- Add: `tests/Unit/PageServiceTest.php`
+- Add: `tests/Unit/CmsRepositoryTest.php`
+- Add: `tests/Unit/CmsServiceTest.php`
 - Add: `tests/Unit/AdminCmsControllerTest.php`
-- Add: `tests/Unit/PublicPageControllerTest.php`
+- Add: `tests/Unit/PublicContentControllerTest.php`
 - Modify: `tests/Unit/HomeControllerTest.php`
 - Modify: `tests/Unit/UiLayoutTest.php`
 
 **RED:**
 
-- Prove arbitrary setting keys, secret exposure, invalid type fallback, duplicate/reserved slugs, raw HTML, draft exposure, publish transitions, metadata, empty/error states, and theme/responsive UI contracts are not implemented.
+- Prove arbitrary setting keys, secret exposure, invalid type fallback, fixed-route mutation, raw HTML, draft exposure, FAQ activation, banner scheduling, link validation, upload cleanup, metadata, empty/error states, and theme/responsive UI contracts are not implemented.
 
 **GREEN:**
 
 - Add catalog-driven public settings with safe defaults.
-- Add transactional page create/update/publish behavior with reserved-route protection.
-- Render public plain-text paragraphs and safe metadata.
+- Add transactional fixed-page update/publish behavior, FAQ management, and scheduled home-banner management.
+- Render public plain-text paragraphs, native FAQ disclosures, static scheduled banners, and safe metadata.
 - Integrate home hero/footer copy without changing established primary navigation or event SEO.
 - Run focused and full verification plus both-theme browser checks.
 
