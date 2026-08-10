@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\App\Repositories\PaymentRepository;
+use OEMS\App\Repositories\CouponRepository;
 use OEMS\App\Repositories\RegistrationRepository;
 use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\CouponService;
 use OEMS\App\Services\NotificationService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
@@ -170,7 +172,7 @@ final class RegistrationServiceTest extends TestCase
             'transaction_reference' => 'ATTACKER-CONTROLLED',
         ]);
 
-        $this->assertTrue($result['success']);
+        $this->assertTrue($result['success'], json_encode($result, JSON_THROW_ON_ERROR));
         $this->assertSame('confirmed', $result['registration']['registration_status']);
         $this->assertSame('0', (string) $result['registration']['amount']);
         $this->assertSame('BDT', $result['registration']['currency']);
@@ -220,6 +222,57 @@ final class RegistrationServiceTest extends TestCase
         ]);
         $this->assertFalse($inactive['success']);
         $this->assertArrayHasKey('payment_method', $inactive['errors']);
+    }
+
+    public function testCouponIsRevalidatedConsumedAndPersistedAtomicallyWithExactPaymentAmount(): void
+    {
+        $result = $this->service->register(1, 11, [
+            'coupon_code' => ' save-2550 ',
+            'transaction_reference' => 'COUPON-PAY-001',
+            'channel' => 'bank',
+        ]);
+
+        $this->assertTrue($result['success'], 'Initial discounted registration failed: ' . json_encode($result, JSON_THROW_ON_ERROR));
+        $this->assertSame('100', (string) $result['registration']['amount']);
+        $this->assertSame(1, (int) $result['registration']['coupon_id']);
+        $this->assertSame('100.00', (string) $result['payment']['amount']);
+        $this->assertSame(1, $this->countRows('coupon_usage'));
+        $this->assertSame(1, (int) $this->connection->query('SELECT used_count FROM coupons WHERE id = 1')->fetchColumn());
+
+        $repeat = $this->service->register(1, 11, ['coupon_code' => 'SAVE-2550']);
+        $this->assertTrue($repeat['success'], 'Idempotent discounted registration failed: ' . json_encode($repeat, JSON_THROW_ON_ERROR));
+        $this->assertSame((int) $result['registration']['id'], (int) $repeat['registration']['id']);
+        $this->assertSame(1, $this->countRows('coupon_usage'));
+    }
+
+    public function testFullDiscountCouponConfirmsAndIssuesWithoutManualPaymentFields(): void
+    {
+        $result = $this->service->register(1, 11, ['coupon_code' => 'COMP-ENTRY']);
+
+        $this->assertTrue($result['success'], json_encode($result, JSON_THROW_ON_ERROR));
+        $this->assertSame('0', (string) $result['registration']['amount']);
+        $this->assertSame('confirmed', $result['registration']['registration_status']);
+        $this->assertSame('paid', $result['payment']['status']);
+        $this->assertSame('valid', $result['ticket']['status']);
+        $this->assertSame(1, $this->countRows('coupon_usage'));
+        $this->assertSame(1, (int) $this->connection->query('SELECT used_count FROM coupons WHERE id = 2')->fetchColumn());
+    }
+
+    public function testFailureAfterCouponConsumptionRollsBackUsageRegistrationAndSeat(): void
+    {
+        $this->connection->exec("CREATE TRIGGER fail_coupon_payment BEFORE INSERT ON payments BEGIN SELECT RAISE(FAIL, 'payment failed'); END");
+
+        $result = $this->service->register(1, 11, [
+            'coupon_code' => 'SAVE-2550',
+            'transaction_reference' => 'ROLLBACK-COUPON-001',
+            'channel' => 'bank',
+        ]);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame(1, $this->countRows('registrations'));
+        $this->assertSame(0, $this->countRows('coupon_usage'));
+        $this->assertSame(0, (int) $this->connection->query('SELECT used_count FROM coupons WHERE id = 1')->fetchColumn());
+        $this->assertSame(2, $this->availableSeats(11));
     }
 
     public function testPaidRegistrationPersistsOnlyServerPriceAndBoundedPaymentMetadata(): void
@@ -634,6 +687,7 @@ final class RegistrationServiceTest extends TestCase
             new Config(['url' => 'http://localhost:8000']),
             new Logger($this->logPath),
         );
+        $couponService = new CouponService(new CouponRepository($connection), new Logger($this->logPath));
 
         return new RegistrationService(
             $connection,
@@ -644,6 +698,7 @@ final class RegistrationServiceTest extends TestCase
             $mailer,
             new Logger($this->logPath),
             $notifications,
+            $couponService,
         );
     }
 
@@ -673,6 +728,8 @@ final class RegistrationServiceTest extends TestCase
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NULL, country TEXT NULL, postal_code TEXT NULL, latitude NUMERIC NULL, longitude NUMERIC NULL, map_url TEXT NULL)');
         $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, category_id INTEGER NOT NULL, venue_id INTEGER NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, registration_deadline TEXT NOT NULL, capacity INTEGER NOT NULL, available_seats INTEGER NOT NULL, ticket_price NUMERIC NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, location_visibility TEXT NOT NULL DEFAULT "public", arrival_notes TEXT NULL, deleted_at TEXT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
         $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, coupon_id INTEGER NULL, registration_number TEXT NOT NULL UNIQUE, status TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT NOT NULL, registered_at TEXT NOT NULL, cancelled_at TEXT NULL, cancellation_reason TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (event_id, user_id))');
+        $this->connection->exec('CREATE TABLE coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NULL, organizer_id INTEGER NOT NULL, code TEXT NOT NULL UNIQUE, discount_type TEXT NOT NULL, discount_value NUMERIC NOT NULL, usage_limit INTEGER NULL, used_count INTEGER NOT NULL DEFAULT 0, starts_at TEXT NULL, expires_at TEXT NULL, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+        $this->connection->exec('CREATE TABLE coupon_usage (id INTEGER PRIMARY KEY AUTOINCREMENT, coupon_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_id INTEGER NOT NULL UNIQUE, discount_amount NUMERIC NOT NULL, used_at TEXT NOT NULL, UNIQUE(coupon_id, user_id))');
         $this->connection->exec('CREATE TABLE payment_methods (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, configuration TEXT NULL, is_active INTEGER NOT NULL)');
         $this->connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY AUTOINCREMENT, registration_id INTEGER NOT NULL, payment_method_id INTEGER NULL, transaction_reference TEXT NULL UNIQUE, amount NUMERIC NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, gateway_response TEXT NULL, paid_at TEXT NULL, refunded_at TEXT NULL, reviewed_by INTEGER NULL, reviewed_at TEXT NULL, review_note TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
         $this->connection->exec('CREATE TABLE tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, registration_id INTEGER NOT NULL UNIQUE, ticket_number TEXT NOT NULL UNIQUE, qr_payload_hash TEXT NOT NULL UNIQUE, qr_path TEXT NULL, pdf_path TEXT NULL, status TEXT NOT NULL, issued_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
@@ -696,6 +753,9 @@ final class RegistrationServiceTest extends TestCase
             (17, 1, 1, 1, 'Reject Event', 'reject-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 1, 80, 'BDT', 'published', NULL)");
         $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (50, 16, 3, 'REG-FULL', 'pending', 0, 'BDT', CURRENT_TIMESTAMP)");
         $this->connection->exec("INSERT INTO payment_methods (id, name, slug, configuration, is_active) VALUES (1, 'Free registration', 'free', '{}', 1), (2, 'Manual payment', 'manual', '{}', 1)");
+        $this->connection->exec("INSERT INTO coupons (id, event_id, organizer_id, code, discount_type, discount_value, usage_limit, starts_at, expires_at, is_active) VALUES
+            (1, 11, 1, 'SAVE-2550', 'fixed', 25.50, 10, datetime('now', '-1 day'), datetime('now', '+5 days'), 1),
+            (2, 11, 1, 'COMP-ENTRY', 'fixed', 125.50, 10, datetime('now', '-1 day'), datetime('now', '+5 days'), 1)");
         $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, deleted_at) VALUES (18, 1, 1, 1, 'Attendance Event', 'attendance-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 1, 0, 'BDT', 'published', NULL)");
     }
 

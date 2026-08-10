@@ -10,6 +10,7 @@ use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\GeocoderInterface;
 use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
+use OEMS\App\Contracts\CouponRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\HttpClientInterface;
 use OEMS\App\Contracts\MailTransportInterface;
@@ -34,6 +35,7 @@ use OEMS\App\Repositories\AnalyticsRepository;
 use OEMS\App\Repositories\AdminPeopleRepository;
 use OEMS\App\Repositories\AnnouncementRepository;
 use OEMS\App\Repositories\CategoryRepository;
+use OEMS\App\Repositories\CouponRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\FavoriteRepository;
@@ -56,6 +58,7 @@ use OEMS\App\Services\AdminPeopleService;
 use OEMS\App\Services\AnnouncementService;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
+use OEMS\App\Services\CouponService;
 use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
@@ -239,6 +242,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    CouponRepositoryInterface::class,
+    static fn (Container $container): CouponRepository => new CouponRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     VenueRepositoryInterface::class,
     static fn (Container $container): VenueRepository => new VenueRepository(
         $container->get(Database::class)->connection(),
@@ -404,6 +413,13 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    CouponService::class,
+    static fn (Container $container): CouponService => new CouponService(
+        $container->get(CouponRepositoryInterface::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
     EventService::class,
     static fn (Container $container): EventService => new EventService(
         $container->get(EventRepositoryInterface::class),
@@ -477,6 +493,7 @@ $container->singleton(
         $container->get(TransactionMailer::class),
         $container->get(Logger::class),
         $container->get(NotificationService::class),
+        $container->get(CouponService::class),
     ),
 );
 $container->singleton(

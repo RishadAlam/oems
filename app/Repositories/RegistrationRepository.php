@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OEMS\App\Repositories;
 
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
+use OEMS\App\Support\Money;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -220,6 +221,8 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             || $this->reservedCount($eventId) >= (int) $event['capacity']) {
             return null;
         }
+        $amount = $this->reservationAmount($event, $attributes);
+        if ($amount === null) return null;
 
         $statement = $this->connection->prepare(
             'INSERT INTO registrations
@@ -235,7 +238,7 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
                 'coupon_id' => $attributes['coupon_id'] ?? null,
                 'registration_number' => (string) $attributes['registration_number'],
                 'registration_status' => $status,
-                'amount' => (string) $event['ticket_price'],
+                'amount' => $amount,
                 'currency' => (string) $event['currency'],
                 'registered_at' => (string) $attributes['registered_at'],
             ]);
@@ -290,6 +293,8 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             || $this->reservedCount($eventId) >= (int) $event['capacity']) {
             return false;
         }
+        $amount = $this->reservationAmount($event, $attributes);
+        if ($amount === null) return false;
 
         $statement = $this->connection->prepare(
             "UPDATE registrations
@@ -309,7 +314,7 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
             'coupon_id' => $attributes['coupon_id'] ?? null,
             'registration_number' => (string) $attributes['registration_number'],
             'registration_status' => $status,
-            'amount' => (string) $event['ticket_price'],
+            'amount' => $amount,
             'currency' => (string) $event['currency'],
             'registered_at' => (string) $attributes['registered_at'],
             'registration_id' => $registrationId,
@@ -754,6 +759,18 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         $statement->execute(['event_id' => $eventId]);
 
         return $statement->rowCount() === 1;
+    }
+
+    private function reservationAmount(array $event, array $attributes): ?string
+    {
+        $base = Money::minorUnits((string) ($event['ticket_price'] ?? ''));
+        if (($attributes['coupon_id'] ?? null) === null) {
+            return $base === null ? null : intdiv($base, 100) . '.' . str_pad((string) ($base % 100), 2, '0', STR_PAD_LEFT);
+        }
+
+        $amount = Money::minorUnits(is_scalar($attributes['amount'] ?? null) ? (string) $attributes['amount'] : (string) ($event['ticket_price'] ?? ''));
+        if ($base === null || $amount === null || $amount > $base) return null;
+        return intdiv($amount, 100) . '.' . str_pad((string) ($amount % 100), 2, '0', STR_PAD_LEFT);
     }
 
     private function restoreSeat(int $eventId): void

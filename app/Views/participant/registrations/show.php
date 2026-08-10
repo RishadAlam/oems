@@ -78,6 +78,7 @@ $paymentDetailLabel = $eventCancelled
     <section class="money-summary dashboard-panel" aria-labelledby="payment-status-heading">
         <h2 id="payment-status-heading" class="text-xl font-bold">Payment and ticket</h2>
         <dl class="status-list mt-5">
+            <?php if (!empty($registration['coupon_applied'])): ?><div><dt>Original price</dt><dd><?= e($registration['base_amount_display']) ?> <?= e($registration['currency']) ?></dd></div><div><dt>Discount</dt><dd><?= e($registration['discount_amount_display']) ?> <?= e($registration['currency']) ?> <span class="status-badge status-badge--success">Coupon applied</span></dd></div><?php endif; ?>
             <div><dt>Total</dt><dd><?= e($registration['amount_display']) ?> <?= e($registration['currency']) ?></dd></div>
             <div><dt>Payment</dt><dd><?= e($paymentDetailLabel) ?></dd></div>
             <div><dt>Ticket</dt><dd><?php if (is_array($registration['ticket'])): ?><a class="text-link" href="/participant/tickets/<?= e($registration['ticket']['id']) ?>">View ticket <?= e($registration['ticket']['ticket_number']) ?></a><?php else: ?>Not issued<?php endif; ?></dd></div>

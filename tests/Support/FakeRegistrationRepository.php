@@ -181,7 +181,7 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
             'event_id' => $eventId,
             'user_id' => $participantId,
             'status' => $attributes['status'] ?? 'pending',
-            'amount' => (string) ($event['ticket_price'] ?? '0'),
+            'amount' => (string) ($attributes['amount'] ?? $event['ticket_price'] ?? '0'),
             'currency' => (string) ($event['currency'] ?? 'BDT'),
             'event_title' => (string) ($event['title'] ?? 'Event'),
             'event_slug' => (string) ($event['slug'] ?? ''),
@@ -206,6 +206,7 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
 
         $this->registrations[$registrationId] = array_merge($registration, $attributes, [
             'status' => $attributes['status'] ?? 'pending',
+            'amount' => (string) ($attributes['amount'] ?? $registration['amount'] ?? '0'),
             'cancelled_at' => null,
             'cancellation_reason' => null,
         ]);

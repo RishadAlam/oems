@@ -1,5 +1,6 @@
 <?php
 $channel = old_value($old, 'channel');
+$couponCode = old_value($old, 'coupon_code');
 $described = static function (string $field, string $help, array $errors): string {
     $ids = [$help];
     if (field_error($errors, $field) !== null) {
@@ -47,8 +48,14 @@ $described = static function (string $field, string $help, array $errors): strin
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
             <?php if (!$isFree): ?>
                 <div class="field-group">
+                    <label for="coupon_code">Coupon code <span class="field-label-note">Optional</span></label>
+                    <input id="coupon_code" name="coupon_code" type="text" maxlength="80" autocomplete="off" value="<?= e($couponCode) ?>"<?= $described('coupon_code', 'coupon-code-help', $errors) ?>>
+                    <p id="coupon-code-help" class="field-help">Enter a code if you have one. Pricing and availability are rechecked when you submit. If it covers the total, payment fields may be left blank.</p>
+                    <?php if ($error = field_error($errors, 'coupon_code')): ?><p id="coupon_code-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+                </div>
+                <div class="field-group">
                     <label for="channel">Payment channel</label>
-                    <select id="channel" name="channel" required<?= $described('channel', 'channel-help', $errors) ?>>
+                    <select id="channel" name="channel"<?= $described('channel', 'channel-help', $errors) ?>>
                         <option value="">Select a channel</option>
                         <?php foreach (['bank' => 'Bank', 'mobile' => 'Mobile banking', 'cash' => 'Cash', 'bank_transfer' => 'Bank transfer', 'mobile_banking' => 'Mobile banking transfer', 'cash_deposit' => 'Cash deposit'] as $value => $label): ?>
                             <option value="<?= e($value) ?>"<?= $channel === $value ? ' selected' : '' ?>><?= e($label) ?></option>
@@ -59,7 +66,7 @@ $described = static function (string $field, string $help, array $errors): strin
                 </div>
                 <div class="field-group">
                     <label for="transaction_reference">Transaction reference</label>
-                    <input id="transaction_reference" name="transaction_reference" type="text" minlength="6" maxlength="190" autocomplete="off" required<?= $described('transaction_reference', 'transaction-reference-help', $errors) ?>>
+                    <input id="transaction_reference" name="transaction_reference" type="text" minlength="6" maxlength="190" autocomplete="off"<?= $described('transaction_reference', 'transaction-reference-help', $errors) ?>>
                     <p id="transaction-reference-help" class="field-help">Enter the reference issued by your payment provider. Do not enter card or account secrets.</p>
                     <?php if ($error = field_error($errors, 'transaction_reference')): ?><p id="transaction_reference-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
                 </div>

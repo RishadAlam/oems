@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\App\Services;
 
+use DateTimeImmutable;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
@@ -32,6 +33,7 @@ final class RegistrationService
         private readonly TransactionMailer $mailer,
         private readonly ?Logger $logger = null,
         private readonly ?NotificationService $notifications = null,
+        private readonly ?CouponService $coupons = null,
     ) {
     }
 
@@ -71,7 +73,31 @@ final class RegistrationService
                 return $result;
             }
 
-            $isFree = Money::isFree($event['ticket_price'] ?? null);
+            $requestedCoupon = is_scalar($paymentDetails['coupon_code'] ?? null)
+                ? trim((string) $paymentDetails['coupon_code'])
+                : '';
+            $couponQuote = null;
+            if ($requestedCoupon !== '') {
+                if ($this->coupons === null) {
+                    return $this->rollbackFailure(['coupon_code' => ['Coupon redemption is unavailable.']]);
+                }
+                $couponQuote = $this->coupons->lockedQuoteForRegistration(
+                    $actorId,
+                    $eventId,
+                    $requestedCoupon,
+                    new DateTimeImmutable(),
+                );
+                if (!($couponQuote['success'] ?? false)) {
+                    return $this->rollbackFailure(is_array($couponQuote['errors'] ?? null)
+                        ? $couponQuote['errors']
+                        : ['coupon_code' => ['This coupon could not be applied.']]);
+                }
+            }
+            $registrationAmount = $couponQuote['final_amount'] ?? Money::normalize((string) ($event['ticket_price'] ?? ''));
+            if (!is_string($registrationAmount)) {
+                return $this->rollbackFailure(['event' => ['This event has invalid pricing.']]);
+            }
+            $isFree = Money::isFree($registrationAmount);
             $methodSlug = $isFree ? 'free' : 'manual';
             $method = $this->payments->findActiveMethodBySlug($methodSlug);
 
@@ -88,7 +114,8 @@ final class RegistrationService
             }
 
             $attributes = [
-                'coupon_id' => null,
+                'coupon_id' => $couponQuote['coupon']['id'] ?? null,
+                'amount' => $registrationAmount,
                 'registration_number' => $this->registrationNumber(),
                 'status' => 'pending',
                 'registered_at' => date('Y-m-d H:i:s'),
@@ -115,6 +142,16 @@ final class RegistrationService
                 }
 
                 return $this->rollbackFailure(['event' => ['A seat could not be reserved.']]);
+            }
+
+            if ($couponQuote !== null && !$this->coupons?->consume(
+                (int) $couponQuote['coupon']['id'],
+                $actorId,
+                (int) $registration['id'],
+                (string) $couponQuote['discount_amount'],
+                new DateTimeImmutable(),
+            )) {
+                return $this->rollbackFailure(['coupon_code' => ['This coupon was used or exhausted before registration completed.']]);
             }
 
             $paymentId = $this->payments->createForRegistration((int) $registration['id'], [

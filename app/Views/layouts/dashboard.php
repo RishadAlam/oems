@@ -23,6 +23,7 @@
     $organizerOperationsActive = preg_match('#^/organizer/events/[^/]+/(participants|check-in)#', $currentPath) === 1;
     $organizerEventsActive = $organizerEventsActive && !$organizerOperationsActive;
     $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
+    $organizerCouponsActive = str_starts_with($currentPath, '/organizer/coupons');
     $organizerAnalyticsActive = str_starts_with($currentPath, '/organizer/analytics');
     $participantReviewFormActive = str_starts_with($currentPath, '/participant/events/')
         && str_ends_with($currentPath, '/review');
@@ -72,6 +73,7 @@
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
                         <a class="dashboard-nav-link<?= $organizerOperationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerOperationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-users-three" aria-hidden="true"></i><span>Event operations</span></a>
                         <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
+                        <a class="dashboard-nav-link<?= $organizerCouponsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/coupons"<?= $organizerCouponsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Coupons</span></a>
                         <a class="dashboard-nav-link<?= $organizerReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/reviews"<?= $organizerReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Reviews</span></a>
                         <a class="dashboard-nav-link<?= $organizerAnalyticsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/analytics"<?= $organizerAnalyticsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chart-line-up" aria-hidden="true"></i><span>Analytics</span></a>
                     <?php endif; ?>

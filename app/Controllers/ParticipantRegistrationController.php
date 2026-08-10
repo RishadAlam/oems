@@ -11,6 +11,7 @@ use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\CouponService;
 use OEMS\App\Services\LocationService;
 use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
@@ -38,6 +39,7 @@ final class ParticipantRegistrationController extends Controller
         private readonly RegistrationService $registrationService,
         private readonly RateLimiter $limiter,
         private readonly ?LocationService $locations = null,
+        private readonly ?CouponService $coupons = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -130,6 +132,7 @@ final class ParticipantRegistrationController extends Controller
         }
 
         $paymentDetails = [
+            'coupon_code' => is_scalar($request->input('coupon_code')) ? (string) $request->input('coupon_code') : '',
             'channel' => is_scalar($request->input('channel')) ? (string) $request->input('channel') : '',
             'transaction_reference' => is_scalar($request->input('transaction_reference'))
                 ? (string) $request->input('transaction_reference')
@@ -138,10 +141,17 @@ final class ParticipantRegistrationController extends Controller
         $result = $this->registrationService->register($userId, (int) $event['id'], $paymentDetails);
 
         if (!$result['success']) {
+            $old = [
+                'channel' => is_scalar($paymentDetails['channel'] ?? null) ? (string) $paymentDetails['channel'] : '',
+            ];
+            if (is_scalar($paymentDetails['coupon_code'] ?? null) && trim((string) $paymentDetails['coupon_code']) !== '') {
+                $old['coupon_code'] = (string) $paymentDetails['coupon_code'];
+            }
+
             return $this->redirectWithErrors(
                 '/participant/events/' . rawurlencode((string) $event['slug']) . '/register',
                 is_array($result['errors'] ?? null) ? $result['errors'] : ['registration' => ['The registration could not be completed.']],
-                ['channel' => is_scalar($paymentDetails['channel'] ?? null) ? (string) $paymentDetails['channel'] : ''],
+                $old,
             );
         }
 
@@ -153,7 +163,7 @@ final class ParticipantRegistrationController extends Controller
         return $this->redirectWith(
             '/participant/registrations/' . $registrationId,
             'success',
-            Money::isFree($event['ticket_price'] ?? null)
+            Money::isFree($result['registration']['amount'] ?? null)
                 ? 'Your registration is confirmed.'
                 : 'Your payment reference was submitted for review.',
         );
@@ -318,6 +328,12 @@ final class ParticipantRegistrationController extends Controller
             'payment_status' => $paymentStatus,
             'ticket' => $ticket,
             'amount_display' => Money::format($registration['amount'] ?? null, (string) ($registration['currency'] ?? 'BDT')),
+            'base_amount_display' => Money::format($registration['ticket_price'] ?? null, (string) ($registration['currency'] ?? 'BDT')),
+            'discount_amount_display' => Money::format(
+                $this->discountAmount($registration['ticket_price'] ?? null, $registration['amount'] ?? null),
+                (string) ($registration['currency'] ?? 'BDT'),
+            ),
+            'coupon_applied' => (int) ($registration['coupon_id'] ?? 0) > 0,
             'registered_display' => $this->date((string) $registration['registered_at'])->format('M j, Y, g:i A'),
             'event_start_display' => $start === '' ? 'Schedule unavailable' : $this->date($start)->format('M j, Y, g:i A'),
             'can_cancel' => (bool) ($cancellationState['allowed'] ?? false),
@@ -332,6 +348,14 @@ final class ParticipantRegistrationController extends Controller
         }
 
         return (int) $value;
+    }
+
+    private function discountAmount(mixed $base, mixed $final): string
+    {
+        $baseMinor = Money::minorUnits(is_scalar($base) ? (string) $base : null) ?? 0;
+        $finalMinor = Money::minorUnits(is_scalar($final) ? (string) $final : null) ?? 0;
+        $discount = max(0, $baseMinor - $finalMinor);
+        return intdiv($discount, 100) . '.' . str_pad((string) ($discount % 100), 2, '0', STR_PAD_LEFT);
     }
 
     private function notFound(): Response
