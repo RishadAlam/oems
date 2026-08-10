@@ -1,5 +1,7 @@
 # OEMS Remaining Capabilities Completion Implementation Plan
 
+> **Superseded:** This Bangladesh-oriented plan is retained only as project history. Do not execute it. The authoritative replacement is [OEMS International Marketplace Completion Plan](./2026-08-10-oems-international-marketplace-completion.md), based on the [international marketplace design](../specs/2026-08-10-oems-international-marketplace-design.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close every genuine gap identified after the four-week OEMS roadmap: indexed popularity search, automatic image optimization, database-enforced permissions, complete English/Bangla localization, hosted online payments and refunds, opted-in SMS and browser push, Google Calendar OAuth sync, encrypted administrator-managed SMTP overrides, QR round-trip verification, welcome mail, shared Redis operations, and automated PSR-12 enforcement.
