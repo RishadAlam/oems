@@ -1,3 +1,4 @@
+<?php $layoutOld = is_array($old ?? null) ? $old : []; $layoutErrors = is_array($errors ?? null) ? $errors : []; $layoutCsrfToken = is_scalar($csrfToken ?? null) ? (string) $csrfToken : ''; ?>
 <!doctype html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -90,7 +91,7 @@
     <main id="main-content"><?= $content ?></main>
 
     <footer class="site-footer">
-        <div class="page-shell grid gap-10 py-14 md:grid-cols-[1.4fr_1fr_1fr]">
+        <div class="page-shell grid gap-10 py-14 md:grid-cols-2 xl:grid-cols-[1.2fr_.8fr_.8fr_1.2fr]">
             <div>
                 <?php require base_path('app/Views/components/brand.php'); ?>
                 <p class="mt-4 max-w-sm text-sm leading-6 text-[var(--ink-muted)]">
@@ -118,6 +119,19 @@
                     <a class="hover:text-[var(--ink)]" href="mailto:<?= e($siteSettings['contact_email'] ?? 'hello@oems.local') ?>"><?= e($siteSettings['contact_email'] ?? 'hello@oems.local') ?></a>
                     <a class="hover:text-[var(--ink)]" href="tel:<?= e(preg_replace('/[^+0-9]/', '', $siteSettings['support_phone'] ?? '+880200000000')) ?>"><?= e($siteSettings['support_phone'] ?? '+880 2 0000 0000') ?></a>
                 </div>
+            </div>
+            <div id="newsletter">
+                <h2 class="footer-heading">Event updates</h2>
+                <p class="mt-4 text-sm leading-6 text-[var(--ink-muted)]">Confirm your address before OEMS sends occasional event news.</p>
+                <form class="mt-4 grid gap-3" action="/newsletter/subscribe" method="post" novalidate>
+                    <input type="hidden" name="_token" value="<?= e($layoutCsrfToken) ?>">
+                    <div class="sr-only" aria-hidden="true"><label for="newsletter-website">Website</label><input id="newsletter-website" name="website" tabindex="-1" autocomplete="off"></div>
+                    <label class="sr-only" for="newsletter-email">Email address</label>
+                    <input id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= field_error($layoutErrors, 'email') ? ' newsletter-error' : '' ?>"<?= field_error($layoutErrors, 'email') ? ' aria-invalid="true"' : '' ?>>
+                    <p id="newsletter-help" class="text-xs leading-5 text-[var(--ink-muted)]">Double opt-in. Unsubscribe from any campaign.</p>
+                    <?php if ($error = field_error($layoutErrors, 'email')): ?><p id="newsletter-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+                    <button class="button button--primary" type="submit">Request confirmation</button>
+                </form>
             </div>
         </div>
         <div class="page-shell flex flex-col gap-3 border-t border-[var(--line)] py-6 text-xs text-[var(--ink-muted)] sm:flex-row sm:items-center sm:justify-between">

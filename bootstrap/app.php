@@ -11,6 +11,8 @@ use OEMS\App\Contracts\GeocoderInterface;
 use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
 use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\CouponRepositoryInterface;
+use OEMS\App\Contracts\ContactRepositoryInterface;
+use OEMS\App\Contracts\NewsletterRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\HttpClientInterface;
 use OEMS\App\Contracts\MailTransportInterface;
@@ -36,6 +38,8 @@ use OEMS\App\Repositories\AdminPeopleRepository;
 use OEMS\App\Repositories\AnnouncementRepository;
 use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\CouponRepository;
+use OEMS\App\Repositories\ContactRepository;
+use OEMS\App\Repositories\NewsletterRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\FavoriteRepository;
@@ -59,6 +63,8 @@ use OEMS\App\Services\AnnouncementService;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\CouponService;
+use OEMS\App\Services\ContactService;
+use OEMS\App\Services\NewsletterService;
 use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
@@ -248,6 +254,14 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    ContactRepositoryInterface::class,
+    static fn (Container $container): ContactRepository => new ContactRepository($container->get(Database::class)->connection()),
+);
+$container->singleton(
+    NewsletterRepositoryInterface::class,
+    static fn (Container $container): NewsletterRepository => new NewsletterRepository($container->get(Database::class)->connection()),
+);
+$container->singleton(
     VenueRepositoryInterface::class,
     static fn (Container $container): VenueRepository => new VenueRepository(
         $container->get(Database::class)->connection(),
@@ -331,6 +345,22 @@ $container->singleton(
     MailOutboxService::class,
     static fn (Container $container): MailOutboxService => new MailOutboxService(
         $container->get(MailOutboxRepositoryInterface::class),
+    ),
+);
+$container->singleton(
+    ContactService::class,
+    static fn (Container $container): ContactService => new ContactService(
+        $container->get(ContactRepositoryInterface::class),
+        $container->get(MailOutboxService::class),
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    NewsletterService::class,
+    static fn (Container $container): NewsletterService => new NewsletterService(
+        $container->get(NewsletterRepositoryInterface::class),
+        $container->get(MailOutboxService::class),
+        $container->get(Database::class)->connection(),
     ),
 );
 $container->singleton(

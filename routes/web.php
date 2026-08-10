@@ -12,6 +12,8 @@ use OEMS\App\Controllers\AdminOrganizerController;
 use OEMS\App\Controllers\AdminUserController;
 use OEMS\App\Controllers\AdminReportController;
 use OEMS\App\Controllers\AdminCmsController;
+use OEMS\App\Controllers\AdminContactController;
+use OEMS\App\Controllers\AdminNewsletterController;
 use OEMS\App\Controllers\AdminSettingsController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
@@ -32,6 +34,8 @@ use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Controllers\PublicEventController;
 use OEMS\App\Controllers\PublicLocationController;
 use OEMS\App\Controllers\PublicContentController;
+use OEMS\App\Controllers\PublicContactController;
+use OEMS\App\Controllers\PublicNewsletterController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
@@ -41,7 +45,11 @@ return static function (Router $router): void {
     $router->post('/events/location/clear', [PublicLocationController::class, 'clear'], ['csrf'], 'events.location.clear');
     $router->get('/events/{slug}', [PublicEventController::class, 'show'], name: 'events.show');
     $router->get('/about', [PublicContentController::class, 'about'], name: 'pages.about');
-    $router->get('/contact', [PublicContentController::class, 'contact'], name: 'pages.contact');
+    $router->get('/contact', [PublicContactController::class, 'index'], name: 'pages.contact');
+    $router->post('/contact/submit', [PublicContactController::class, 'store'], ['csrf'], 'contact.store');
+    $router->post('/newsletter/subscribe', [PublicNewsletterController::class, 'subscribe'], ['csrf'], 'newsletter.subscribe');
+    $router->get('/newsletter/confirm/{token}', [PublicNewsletterController::class, 'confirm'], name: 'newsletter.confirm');
+    $router->get('/newsletter/unsubscribe/{token}', [PublicNewsletterController::class, 'unsubscribe'], name: 'newsletter.unsubscribe');
     $router->get('/privacy', [PublicContentController::class, 'privacy'], name: 'pages.privacy');
     $router->get('/terms', [PublicContentController::class, 'terms'], name: 'pages.terms');
     $router->get('/faq', [PublicContentController::class, 'faq'], name: 'pages.faq');
@@ -118,6 +126,14 @@ return static function (Router $router): void {
     $router->get('/admin/analytics', [AdminAnalyticsController::class, 'index'], ['role:super-admin'], 'admin.analytics.index');
     $router->get('/admin/reports', [AdminReportController::class, 'index'], ['role:super-admin'], 'admin.reports.index');
     $router->get('/admin/reports.csv', [AdminReportController::class, 'export'], ['role:super-admin'], 'admin.reports.export');
+    $router->get('/admin/contact', [AdminContactController::class, 'index'], ['role:super-admin'], 'admin.contact.index');
+    $router->get('/admin/contact/{id}', [AdminContactController::class, 'show'], ['role:super-admin'], 'admin.contact.show');
+    $router->post('/admin/contact/{id}/status', [AdminContactController::class, 'status'], ['role:super-admin', 'csrf'], 'admin.contact.status');
+    $router->post('/admin/contact/{id}/reply', [AdminContactController::class, 'reply'], ['role:super-admin', 'csrf'], 'admin.contact.reply');
+    $router->get('/admin/newsletter', [AdminNewsletterController::class, 'index'], ['role:super-admin'], 'admin.newsletter.index');
+    $router->get('/admin/newsletter/create', [AdminNewsletterController::class, 'create'], ['role:super-admin'], 'admin.newsletter.create');
+    $router->post('/admin/newsletter', [AdminNewsletterController::class, 'store'], ['role:super-admin', 'csrf'], 'admin.newsletter.store');
+    $router->post('/admin/newsletter/{id}/queue', [AdminNewsletterController::class, 'queue'], ['role:super-admin', 'csrf'], 'admin.newsletter.queue');
     $router->get('/admin/users', [AdminUserController::class, 'index'], ['role:super-admin'], 'admin.users.index');
     $router->get('/admin/users/{id}', [AdminUserController::class, 'show'], ['role:super-admin'], 'admin.users.show');
     $router->post('/admin/users/{id}/suspend', [AdminUserController::class, 'suspend'], ['role:super-admin', 'csrf'], 'admin.users.suspend');
