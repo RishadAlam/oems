@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Services\AuthService;
+use OEMS\App\Middleware\MaintenanceMiddleware;
 use OEMS\App\Support\RememberCookie;
 use OEMS\Core\Auth;
 use OEMS\Core\Logger;
@@ -32,7 +33,9 @@ try {
         );
     }
 
-    $response = $router->dispatch($request)->withSecurityHeaders();
+    $response = $app['container']->get(MaintenanceMiddleware::class)
+        ->handle($request, static fn (Request $r): Response => $router->dispatch($r))
+        ->withSecurityHeaders();
 
     if (is_array($rememberResult)) {
         $rememberHeader = (new RememberCookie(

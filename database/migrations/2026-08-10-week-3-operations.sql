@@ -183,6 +183,7 @@ PREPARE oems_statement FROM @statement; EXECUTE oems_statement; DEALLOCATE PREPA
 INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('mail', 'outbox_max_attempts', '5', 'integer', FALSE),
     ('mail', 'reminder_lead_hours', '24', 'integer', FALSE),
+    ('operations', 'maintenance_mode', 'false', 'boolean', FALSE),
     ('operations', 'backup_retention', '14', 'integer', FALSE)
 ON DUPLICATE KEY UPDATE
     `group` = VALUES(`group`),

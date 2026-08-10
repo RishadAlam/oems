@@ -110,7 +110,7 @@ INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('home', 'home_hero_copy', 'Discover workshops, talks, and gatherings across Dhaka, or host an event experience that feels effortless.', 'string', TRUE),
     ('general', 'default_seo_description', 'Discover published workshops, talks, and gatherings with OEMS.', 'string', TRUE),
     ('general', 'default_currency', 'BDT', 'string', TRUE),
-    ('general', 'maintenance_mode', 'false', 'boolean', FALSE),
+    ('operations', 'maintenance_mode', 'false', 'boolean', FALSE),
     ('mail', 'mail_driver', 'smtp', 'string', FALSE),
     ('mail', 'mail_from_address', 'hello@oems.local', 'string', FALSE),
     ('mail', 'outbox_max_attempts', '5', 'integer', FALSE),

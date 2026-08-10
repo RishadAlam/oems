@@ -47,6 +47,7 @@
     $adminContactActive = str_starts_with($currentPath, '/admin/contact');
     $adminNewsletterActive = str_starts_with($currentPath, '/admin/newsletter');
     $adminCmsActive = str_starts_with($currentPath, '/admin/cms');
+    $adminOperationsActive = str_starts_with($currentPath, '/admin/operations');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -93,6 +94,7 @@
                         <a class="dashboard-nav-link<?= $adminNewsletterActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/newsletter"<?= $adminNewsletterActive ? ' aria-current="page"' : '' ?>><i class="ph ph-megaphone" aria-hidden="true"></i><span>Newsletter</span></a>
                         <a class="dashboard-nav-link<?= $adminCmsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/cms"<?= $adminCmsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-browser" aria-hidden="true"></i><span>Content</span></a>
                         <a class="dashboard-nav-link<?= $adminSettingsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/settings"<?= $adminSettingsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span>Settings</span></a>
+                        <a class="dashboard-nav-link<?= $adminOperationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/operations"<?= $adminOperationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-pulse" aria-hidden="true"></i><span>Operations</span></a>
                     <?php endif; ?>
                     <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>

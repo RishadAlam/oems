@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up OEMS every day
+
+[Timer]
+OnCalendar=*-*-* 02:20:00
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

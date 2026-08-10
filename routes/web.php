@@ -15,6 +15,7 @@ use OEMS\App\Controllers\AdminCmsController;
 use OEMS\App\Controllers\AdminContactController;
 use OEMS\App\Controllers\AdminNewsletterController;
 use OEMS\App\Controllers\AdminSettingsController;
+use OEMS\App\Controllers\AdminOperationsController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\EventCalendarController;
 use OEMS\App\Controllers\HomeController;
@@ -37,9 +38,12 @@ use OEMS\App\Controllers\PublicLocationController;
 use OEMS\App\Controllers\PublicContentController;
 use OEMS\App\Controllers\PublicContactController;
 use OEMS\App\Controllers\PublicNewsletterController;
+use OEMS\App\Controllers\HealthController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
+    $router->get('/health/live', [HealthController::class, 'live'], name: 'health.live');
+    $router->get('/health/ready', [HealthController::class, 'ready'], name: 'health.ready');
     $router->get('/', [HomeController::class, 'index'], name: 'home');
     $router->get('/events', [PublicEventController::class, 'index'], name: 'events.index');
     $router->post('/events/location', [PublicLocationController::class, 'store'], ['csrf'], 'events.location.store');
@@ -171,6 +175,8 @@ return static function (Router $router): void {
     $router->post('/admin/payments/{id}/reject', [AdminPaymentController::class, 'reject'], ['role:super-admin', 'csrf'], 'admin.payments.reject');
     $router->get('/admin/settings', [AdminSettingsController::class, 'edit'], ['role:super-admin'], 'admin.settings.edit');
     $router->post('/admin/settings', [AdminSettingsController::class, 'update'], ['role:super-admin', 'csrf'], 'admin.settings.update');
+    $router->get('/admin/operations', [AdminOperationsController::class, 'index'], ['role:super-admin'], 'admin.operations.index');
+    $router->post('/admin/operations/maintenance', [AdminOperationsController::class, 'updateMaintenance'], ['role:super-admin', 'csrf'], 'admin.operations.maintenance');
     $router->get('/admin/cms', [AdminCmsController::class, 'index'], ['role:super-admin'], 'admin.cms.index');
     $router->get('/admin/cms/pages/{slug}', [AdminCmsController::class, 'editPage'], ['role:super-admin'], 'admin.cms.pages.edit');
     $router->post('/admin/cms/pages/{slug}', [AdminCmsController::class, 'updatePage'], ['role:super-admin', 'csrf'], 'admin.cms.pages.update');

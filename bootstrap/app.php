@@ -32,6 +32,7 @@ use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
+use OEMS\App\Middleware\MaintenanceMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
 use OEMS\App\Repositories\AnalyticsRepository;
 use OEMS\App\Repositories\AdminPeopleRepository;
@@ -88,6 +89,8 @@ use OEMS\App\Services\VenueGeocodingService;
 use OEMS\App\Services\PlatformSettingsService;
 use OEMS\App\Services\CmsService;
 use OEMS\App\Services\PublicSiteContentProvider;
+use OEMS\App\Services\HealthCheckService;
+use OEMS\App\Services\MaintenanceService;
 use OEMS\App\Support\StreamHttpClient;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -318,6 +321,20 @@ $container->singleton(
     static fn (Container $container): PlatformSettingsService => new PlatformSettingsService(
         $container->get(PlatformSettingsRepositoryInterface::class),
         $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    HealthCheckService::class,
+    static fn (Container $container): HealthCheckService => new HealthCheckService(
+        static fn (): \PDO => $container->get(Database::class)->connection(),
+        $basePath,
+    ),
+);
+$container->singleton(
+    MaintenanceService::class,
+    static fn (Container $container): MaintenanceService => new MaintenanceService(
+        $container->get(PlatformSettingsRepositoryInterface::class),
+        $basePath . '/storage/cache/maintenance.json',
     ),
 );
 $container->singleton(
@@ -579,6 +596,14 @@ $router->aliasMiddleware('auth', new AuthMiddleware($container->get(Auth::class)
 $router->aliasMiddleware('guest', new GuestMiddleware($container->get(Auth::class)));
 $router->aliasMiddleware('role', new RoleMiddleware($container->get(Auth::class)));
 $router->aliasMiddleware('csrf', new CsrfMiddleware($container->get(Security::class)));
+$container->singleton(
+    MaintenanceMiddleware::class,
+    static fn (Container $container): MaintenanceMiddleware => new MaintenanceMiddleware(
+        $container->get(MaintenanceService::class),
+        $container->get(Auth::class),
+        $container->get(View::class),
+    ),
+);
 
 return [
     'config' => $appConfig,

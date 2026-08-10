@@ -15,6 +15,10 @@ final class FakePlatformSettingsRepository implements PlatformSettingsRepository
 
     public bool $failUpdate = false;
 
+    public array $maintenanceUpdates = [];
+
+    public int $privateReadCalls = 0;
+
     public function __construct(public array $values = [])
     {
     }
@@ -36,5 +40,24 @@ final class FakePlatformSettingsRepository implements PlatformSettingsRepository
         }
 
         $this->values = $values;
+    }
+
+    public function privateValuesForKeys(array $keys): array
+    {
+        $this->privateReadCalls++;
+        if ($this->failRead) {
+            throw new RuntimeException('SQL secret');
+        }
+
+        return array_intersect_key($this->values, array_flip($keys));
+    }
+
+    public function setMaintenance(bool $enabled, int $adminUserId): void
+    {
+        if ($this->failUpdate) {
+            throw new RuntimeException('SQL secret');
+        }
+        $this->maintenanceUpdates[] = [$adminUserId, $enabled];
+        $this->values['maintenance_mode'] = $enabled ? '1' : '0';
     }
 }

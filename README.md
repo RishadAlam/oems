@@ -90,6 +90,7 @@ For an existing populated database created from baseline `5857358`, use this exa
    mysql -u root -p oems < database/migrations/2026-08-09-participant-transactions.sql
    mysql -u root -p oems < database/migrations/2026-08-09-live-location.sql
    mysql -u root -p oems < database/migrations/2026-08-10-spec-completion.sql
+   mysql -u root -p oems < database/migrations/2026-08-10-week-3-operations.sql
    ```
 
 4. Deploy the new PHP code while application traffic remains stopped or drained.
@@ -101,9 +102,33 @@ For an existing populated database created from baseline `5857358`, use this exa
 
 6. Restart the application processes, then run the health and acceptance checks before restoring traffic. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
 
-The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. The specification-completion migration adds persisted organizer announcements. All migrations are repeatable after a partially applied MySQL DDL deployment without replacing existing rows.
+The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. The specification-completion migration adds persisted organizer announcements. The Week 3 operations migration adds durable mail, coupons, newsletter delivery, contact queue indexes, and private operational defaults. All migrations are repeatable after a partially applied MySQL DDL deployment without replacing existing rows.
 
-If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run the live-location migration followed by the specification-completion migration. If it already includes the live-location release, run only `database/migrations/2026-08-10-spec-completion.sql`. Never import `schema.sql` or either seed over a populated production database.
+If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run the live-location, specification-completion, and Week 3 migrations. If it already includes the live-location release, run the specification-completion and Week 3 migrations. Never import `schema.sql` or either seed over a populated production database.
+
+## Production operations
+
+OEMS is designed as a production-ready single-node PHP/MySQL deployment. Copy the examples under `deploy/` into the host configuration only after replacing every `__PLACEHOLDER__`; the files intentionally contain no deployable host paths, users, certificates, or secrets.
+
+- `GET /health/live` is a process-only liveness probe and does not query the database.
+- `GET /health/ready` checks the database, required Week 3 schema, and private writable runtime directories. It returns component booleans only—never paths, versions, credentials, SQL, or exception text.
+- `/admin/operations` gives super administrators a readiness summary and a confirmation-bound maintenance control. Maintenance returns `503` with `Retry-After` for public and non-admin application routes while keeping health probes, login, static assets, and signed-in super administrators available.
+- `php scripts/process-mail-outbox.php --limit=50` delivers durable queued mail.
+- `php scripts/queue-event-reminders.php --limit=100` queues due event reminders idempotently.
+- `php scripts/backup-database.php` creates a gzip-compressed SQL archive only beneath `storage/backups`, passes the database password through `MYSQL_PWD`, enforces private permissions, verifies non-empty output, and retains 1–30 archives according to the private `backup_retention` setting.
+
+Recommended release sequence:
+
+1. Drain writes or enable maintenance, then run and verify a database backup.
+2. Deploy dependencies with `composer install --no-dev --classmap-authoritative` and `npm ci`; build assets with `npm run build:css` and `npm run build:assets` in the release artifact.
+3. Run the required forward migrations in the documented order and run `php scripts/migrate-ticket-artifacts.php` for pre-private-storage installations.
+4. Make only `storage/cache`, `storage/logs`, `storage/tickets`, `storage/backups`, and the documented public upload directories writable by the application user. Keep source, configuration, and vendor files read-only.
+5. Enable the PHP-FPM pool, Nginx site, and the three systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
+6. Probe `/health/live` and `/health/ready`, run the role/CSRF/download acceptance journey, then disable maintenance and restore traffic.
+
+Restore is deliberately operator-only; there is no HTTP restore route. Restore into a new database first, run `gzip -cd storage/backups/<archive>.sql.gz | mysql ...`, verify table counts and integrity, point a maintenance deployment at the restored database, run readiness and acceptance checks, and only then switch traffic. Never restore over a live writable database.
+
+For rollback, keep the previous immutable release artifact. Enable maintenance, stop workers, restore the matching verified database backup if the release performed incompatible data changes, switch the release symlink, restart PHP-FPM/workers, pass readiness and acceptance checks, then reopen traffic. Rotate logs externally and alert on readiness failures, repeated outbox failures, backup failures, disk pressure, and timer failures.
 
 ## Maps and nearby discovery
 
