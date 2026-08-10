@@ -28,7 +28,7 @@ final class DashboardLayoutTest extends TestCase
     {
         $html = $this->renderAdminDashboard();
 
-        $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js"></script>'));
+        $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js?v=20260810-week4-release"></script>'));
         $this->assertTrue(strpos($html, '/assets/js/theme.js') < strpos($html, '/assets/css/app.css'));
         preg_match_all('/<script\b(?![^>]*\bsrc=)([^>]*)>/i', $html, $matches);
         $this->assertSame([], $matches[0] ?? []);

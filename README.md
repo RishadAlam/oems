@@ -134,9 +134,9 @@ Recommended release sequence:
 5. Enable the PHP-FPM pool, Nginx site, and the four systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
 6. Probe `/health/live` and `/health/ready`, run the role/CSRF/download acceptance journey, then disable maintenance and restore traffic.
 
-Restore is deliberately operator-only; there is no HTTP restore route. Restore into a new database first, run `gzip -cd storage/backups/<archive>.sql.gz | mysql ...`, verify table counts and integrity, point a maintenance deployment at the restored database, run readiness and acceptance checks, and only then switch traffic. Never restore over a live writable database.
+Database backup restoration is deliberately operator-only; there is no HTTP database-restore route. Restore into a new database first, run `gzip -cd storage/backups/<archive>.sql.gz | mysql ...`, verify table counts and integrity, point a maintenance deployment at the restored database, run readiness and acceptance checks, and only then switch traffic. Never restore over a live writable database. The separate event trash UI can restore only registration-free soft-deleted draft, rejected, or cancelled events within the authenticated role scope.
 
-For rollback, keep the previous immutable release artifact. Enable maintenance, stop workers, restore the matching verified database backup if the release performed incompatible data changes, switch the release symlink, restart PHP-FPM/workers, pass readiness and acceptance checks, then reopen traffic. Rotate logs externally and alert on readiness failures, repeated outbox failures, backup failures, disk pressure, and timer failures.
+For rollback, keep the previous read-only release artifact. Enable maintenance, stop workers, restore the matching verified database backup if the release performed incompatible data changes, switch the release symlink, restart PHP-FPM/workers, pass readiness and acceptance checks, then reopen traffic. Rotate logs externally and alert on readiness failures, repeated outbox failures, backup failures, disk pressure, and timer failures.
 
 ## Maps and nearby discovery
 
@@ -300,6 +300,9 @@ Use an isolated local database with both seeds imported.
 - Secure banner/gallery validation and storage with bounded uploads and safe cleanup
 - Database-backed home, event search, event details, canonical metadata, Open Graph data, and JSON-LD
 - Waitlist promotion, calendar/API discovery, and private verifiable attendance certificates
+- Owner-scoped and administrator event trash with audited, compare-and-swap recovery and no permanent web purge
+- CSV, bounded PDF, and formula-safe Excel XML aggregate reports with private download headers
+- Publishable Blog discovery and a privacy-safe installable PWA shell with a generic offline fallback
 - Repository-backed organizer and administrator dashboards with enabled workflow actions
 - Role guards, CSRF protection, escaped views, prepared queries, lifecycle validation, and automated regression coverage
 
@@ -334,6 +337,7 @@ node --check public/assets/js/location.js
 node --check public/assets/js/venue-map.js
 node tests/js/location.test.mjs
 node tests/js/venue-map.test.mjs
+node tests/js/pwa.test.mjs
 OEMS_OUTBOX_TEST_MYSQL=1 tests/verify-outbox-concurrency-mysql.sh
 OEMS_BACKUP_RESTORE_MYSQL=1 OEMS_BACKUP_ARCHIVE=storage/backups/<archive>.sql.gz tests/verify-backup-restore-mysql.sh
 OEMS_WEEK4_TEST_MYSQL=1 tests/verify-week-4-migration-mysql.sh

@@ -87,8 +87,8 @@ const lifecycle = async type => {
 };
 await lifecycle('install');
 assert.equal(skipWaiting, 1);
-assert.equal(opened[0], 'oems-public-static-20260810-week4');
-assert.equal(JSON.stringify(opened[1]), JSON.stringify(['/offline.html', '/assets/css/app.css', '/assets/js/theme.js', '/assets/js/app.js', '/assets/js/pwa.js', '/assets/icons/oems-192.png', '/assets/icons/oems-512.png']));
+assert.equal(opened[0], 'oems-public-static-20260810-week4-release');
+assert.equal(JSON.stringify(opened[1]), JSON.stringify(['/offline.html', '/assets/css/app.css?v=20260810-week4-release', '/assets/js/theme.js?v=20260810-week4-release', '/assets/js/app.js?v=20260810-week4-release', '/assets/js/pwa.js?v=20260810-week4-release', '/assets/icons/oems-192.png', '/assets/icons/oems-512.png']));
 await lifecycle('activate');
 assert.deepEqual(deleted, ['oems-public-static-old']);
 assert.equal(claimed, 1);
@@ -115,9 +115,9 @@ assert.equal(offline.offline, true);
 assert.equal(put.length, 0);
 
 fetchImplementation = async request => ({ ok: true, type: 'basic', clone: () => ({ cloned: request.url }) });
-const staticResponse = await dispatchFetch({ method: 'GET', url: 'https://events.example.test/assets/css/app.css', mode: 'cors' });
+const staticResponse = await dispatchFetch({ method: 'GET', url: 'https://events.example.test/assets/css/app.css?v=20260810-week4-release', mode: 'cors' });
 assert.equal(staticResponse.ok, true);
 assert.equal(put.length, 1);
-assert.equal(put[0][0], '/assets/css/app.css');
+assert.equal(put[0][0], '/assets/css/app.css?v=20260810-week4-release');
 
 console.log('PASS PWA registration and static-only service-worker lifecycle');

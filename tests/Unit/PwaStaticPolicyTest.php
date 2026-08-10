@@ -59,11 +59,25 @@ final class PwaStaticPolicyTest extends TestCase
 
         foreach ([$public, $auth, $dashboard] as $html) {
             $this->assertTrue(str_contains($html, '<link rel="manifest" href="/manifest.webmanifest">'));
-            $this->assertTrue(str_contains($html, '<script src="/assets/js/pwa.js" defer></script>'));
+            $this->assertTrue(str_contains($html, '<link rel="stylesheet" href="/assets/css/app.css?v=20260810-week4-release">'));
+            $this->assertTrue(str_contains($html, '<script src="/assets/js/pwa.js?v=20260810-week4-release" defer></script>'));
             $this->assertFalse(str_contains($html, 'navigator.serviceWorker'));
         }
         $this->assertTrue(str_contains($public, 'data-pwa-install'));
         $this->assertTrue(str_contains($public, 'hidden'));
         $this->assertTrue(str_contains($public, 'This page is not here.'));
+    }
+
+    public function testProductionNginxServesPwaTypesWithoutStaleImmutableAssets(): void
+    {
+        $nginx = (string) file_get_contents(base_path('deploy/nginx/oems.conf'));
+
+        $this->assertTrue(str_contains($nginx, 'location = /service-worker.js'));
+        $this->assertTrue(str_contains($nginx, 'default_type application/javascript'));
+        $this->assertTrue(str_contains($nginx, 'location = /manifest.webmanifest'));
+        $this->assertTrue(str_contains($nginx, 'default_type application/manifest+json'));
+        $this->assertTrue(str_contains($nginx, 'Cache-Control "no-cache, no-store, must-revalidate"'));
+        $this->assertFalse(str_contains($nginx, 'immutable'));
+        $this->assertTrue(str_contains($nginx, 'X-Content-Type-Options "nosniff"'));
     }
 }

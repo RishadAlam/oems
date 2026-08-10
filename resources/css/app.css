@@ -766,6 +766,10 @@
         @apply text-xs font-semibold leading-5 text-[var(--error)];
     }
 
+    .newsletter-input {
+        @apply min-h-12 w-full rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] transition focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
     .password-field {
         @apply relative;
     }

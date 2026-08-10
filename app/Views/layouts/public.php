@@ -28,16 +28,16 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($layoutDocumentTitle) ?></title>
-    <script src="/assets/js/theme.js"></script>
+    <script src="/assets/js/theme.js?v=20260810-week4-release"></script>
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260810-week4-release">
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
-    <script src="/assets/js/app.js" defer></script>
-    <script src="/assets/js/pwa.js" defer></script>
+    <script src="/assets/js/app.js?v=20260810-week4-release" defer></script>
+    <script src="/assets/js/pwa.js?v=20260810-week4-release" defer></script>
     <?php if (!empty($leafletEnabled)): ?>
         <script src="/assets/vendor/leaflet/leaflet.js" defer></script>
         <script src="/assets/js/location.js" defer></script>
@@ -147,7 +147,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
                     <input type="hidden" name="_token" value="<?= e($layoutCsrfToken) ?>">
                     <div class="sr-only" aria-hidden="true"><label for="newsletter-website">Website</label><input id="newsletter-website" name="website" tabindex="-1" autocomplete="off"></div>
                     <label class="sr-only" for="newsletter-email">Email address</label>
-                    <input id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= $newsletterError ? ' newsletter-error' : '' ?>"<?= $newsletterError ? ' aria-invalid="true"' : '' ?>>
+                    <input class="newsletter-input" id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= $newsletterError ? ' newsletter-error' : '' ?>"<?= $newsletterError ? ' aria-invalid="true"' : '' ?>>
                     <p id="newsletter-help" class="text-xs leading-5 text-[var(--ink-muted)]">Double opt-in. Unsubscribe from any campaign.</p>
                     <?php if ($newsletterError): ?><p id="newsletter-error" class="field-error" role="alert"><?= e($newsletterError) ?></p><?php endif; ?>
                     <button class="button button--primary" type="submit">Request confirmation</button>

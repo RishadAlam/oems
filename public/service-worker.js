@@ -1,14 +1,14 @@
 'use strict';
 
-const CACHE_NAME = 'oems-public-static-20260810-week4';
+const CACHE_NAME = 'oems-public-static-20260810-week4-release';
 const CACHE_PREFIX = 'oems-public-static-';
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = Object.freeze([
     OFFLINE_URL,
-    '/assets/css/app.css',
-    '/assets/js/theme.js',
-    '/assets/js/app.js',
-    '/assets/js/pwa.js',
+    '/assets/css/app.css?v=20260810-week4-release',
+    '/assets/js/theme.js?v=20260810-week4-release',
+    '/assets/js/app.js?v=20260810-week4-release',
+    '/assets/js/pwa.js?v=20260810-week4-release',
     '/assets/icons/oems-192.png',
     '/assets/icons/oems-512.png',
 ]);
@@ -49,16 +49,17 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (url.search !== '' || !CACHEABLE_PATHS.has(url.pathname)) {
+    const cacheKey = url.pathname + url.search;
+    if (!CACHEABLE_PATHS.has(cacheKey)) {
         return;
     }
 
     event.respondWith(
-        caches.open(CACHE_NAME).then(cache => cache.match(url.pathname).then(cached => cached || fetch(request).then(response => {
+        caches.open(CACHE_NAME).then(cache => cache.match(cacheKey).then(cached => cached || fetch(request).then(response => {
             if (!response.ok || response.type !== 'basic') {
                 return response;
             }
-            return cache.put(url.pathname, response.clone()).then(() => response);
+            return cache.put(cacheKey, response.clone()).then(() => response);
         }))),
     );
 });

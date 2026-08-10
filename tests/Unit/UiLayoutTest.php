@@ -79,6 +79,16 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($newsletterHtml, 'newsletter-help newsletter-error'));
     }
 
+    public function testNewsletterEmailControlUsesTheGlobalTouchTargetAndFocusContract(): void
+    {
+        $html = $this->renderHome();
+        $css = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(str_contains($html, 'class="newsletter-input"'));
+        $this->assertTrue(str_contains($css, '.newsletter-input'));
+        $this->assertTrue(str_contains($css, '@apply min-h-12'));
+    }
+
     public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
     {
         $view = new View(base_path('app/Views'));
@@ -140,7 +150,7 @@ final class UiLayoutTest extends TestCase
         ], 'auth');
 
         foreach ([$public, $auth] as $html) {
-            $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js"></script>'));
+            $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js?v=20260810-week4-release"></script>'));
             $this->assertTrue(
                 strpos($html, '/assets/js/theme.js') < strpos($html, '/assets/css/app.css'),
                 'The synchronous local theme bootstrap must run before stylesheet rendering.',
