@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Support;
 
+use DateTimeImmutable;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use RuntimeException;
 
@@ -37,6 +38,37 @@ final class FakeEventRepository implements EventRepositoryInterface
     public function publicSearch(array $filters): array
     {
         return array_values($this->events);
+    }
+
+    public function publicRange(
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array {
+        $events = array_values(array_filter($this->events, static function (array $event) use ($from, $to): bool {
+            $start = new DateTimeImmutable((string) ($event['start_date'] ?? '1970-01-01'));
+
+            return in_array((string) ($event['status'] ?? ''), ['published', 'completed'], true)
+                && empty($event['deleted_at'])
+                && $start >= $from
+                && $start < $to;
+        }));
+        usort($events, static fn (array $left, array $right): int => [
+            (string) ($left['start_date'] ?? ''),
+            (int) ($left['id'] ?? 0),
+        ] <=> [
+            (string) ($right['start_date'] ?? ''),
+            (int) ($right['id'] ?? 0),
+        ]);
+
+        return array_slice($events, max(0, $offset), max(0, $limit));
+    }
+
+    public function countPublicRange(DateTimeImmutable $from, DateTimeImmutable $to, array $filters): int
+    {
+        return count($this->publicRange($from, $to, $filters, PHP_INT_MAX, 0));
     }
 
     public function publicCities(): array

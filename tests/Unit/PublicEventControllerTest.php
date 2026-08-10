@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Controllers\PublicEventController;
 use OEMS\App\Services\LocationService;
@@ -40,6 +41,16 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
         $this->filters = $filters;
 
         return array_values($this->events);
+    }
+
+    public function publicRange(DateTimeImmutable $from, DateTimeImmutable $to, array $filters, int $limit, int $offset): array
+    {
+        return array_slice(array_values($this->events), $offset, $limit);
+    }
+
+    public function countPublicRange(DateTimeImmutable $from, DateTimeImmutable $to, array $filters): int
+    {
+        return count($this->events);
     }
 
     public function publicCities(): array

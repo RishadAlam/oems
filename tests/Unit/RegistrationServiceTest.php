@@ -685,9 +685,12 @@ final class RegistrationServiceTest extends TestCase
 
     public function testPaidWaitlistPromotionRequiresManualPaymentAndCapsClaimAtRegistrationDeadline(): void
     {
-        $now = new DateTimeImmutable('2026-08-10 10:00:00');
-        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (22, 1, 1, 1, 'Bounded Waitlist Event', 'bounded-waitlist-event', '2026-08-12 10:00:00', '2026-08-10 12:00:00', 1, 1, 90, 'BDT', 'published', 1, NULL)");
-        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (73, 22, 5, 'OEMS-WAIT-BOUNDED', 'waitlisted', 70, 'BDT', '2026-08-10 09:00:00', '2026-08-10 09:00:00')");
+        $now = new DateTimeImmutable('+1 hour');
+        $deadline = $now->modify('+2 hours');
+        $start = $now->modify('+2 days');
+        $joined = $now->modify('-1 hour');
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (22, 1, 1, 1, 'Bounded Waitlist Event', 'bounded-waitlist-event', '" . $start->format('Y-m-d H:i:s') . "', '" . $deadline->format('Y-m-d H:i:s') . "', 1, 1, 90, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (73, 22, 5, 'OEMS-WAIT-BOUNDED', 'waitlisted', 70, 'BDT', '" . $joined->format('Y-m-d H:i:s') . "', '" . $joined->format('Y-m-d H:i:s') . "')");
         $this->connection->exec("UPDATE payment_methods SET is_active = 0 WHERE slug = 'manual'");
 
         $unavailable = $this->service->promoteWaitlist(22, $now);
@@ -698,7 +701,7 @@ final class RegistrationServiceTest extends TestCase
         $this->connection->exec("UPDATE payment_methods SET is_active = 1 WHERE slug = 'manual'");
         $promoted = $this->service->promoteWaitlist(22, $now);
         $this->assertTrue($promoted['success']);
-        $this->assertSame('2026-08-10 12:00:00', $this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 73')->fetchColumn());
+        $this->assertSame($deadline->format('Y-m-d H:i:s'), $this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 73')->fetchColumn());
         $this->assertSame('90', (string) $this->connection->query('SELECT amount FROM registrations WHERE id = 73')->fetchColumn());
     }
 

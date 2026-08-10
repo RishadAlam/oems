@@ -22,8 +22,9 @@ try {
     $rememberResult = null;
     $rememberCookieName = (string) $app['config']['remember_cookie'];
     $healthRequest = in_array($request->path(), ['/health/live', '/health/ready'], true);
+    $statelessApiRequest = str_starts_with($request->path(), '/api/v1/');
 
-    if (!$healthRequest) {
+    if (!$healthRequest && !$statelessApiRequest) {
         $auth = $app['container']->get(Auth::class);
         $rememberCookie = $request->cookie($rememberCookieName);
 

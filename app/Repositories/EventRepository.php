@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\App\Repositories;
 
+use DateTimeImmutable;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use PDO;
 use Throwable;
@@ -41,10 +42,15 @@ final class EventRepository implements EventRepositoryInterface
     {
         $statement = $this->connection->prepare(
             $this->eventSelect()
+            . ' INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id'
             . ' WHERE events.status = :status
                   AND events.deleted_at IS NULL
                   AND events.start_date >= CURRENT_TIMESTAMP
                   AND categories.is_active = 1
+                  AND organizers.approval_status = \'approved\'
+                  AND organizer_users.status = \'active\'
+                  AND organizer_users.email_verified_at IS NOT NULL
+                  AND organizer_users.deleted_at IS NULL
                 ORDER BY events.is_featured DESC, events.start_date ASC, events.id ASC
                 LIMIT :limit',
         );
@@ -62,6 +68,10 @@ final class EventRepository implements EventRepositoryInterface
             'events.deleted_at IS NULL',
             'events.start_date >= CURRENT_TIMESTAMP',
             'categories.is_active = 1',
+            "organizers.approval_status = 'approved'",
+            "organizer_users.status = 'active'",
+            'organizer_users.email_verified_at IS NOT NULL',
+            'organizer_users.deleted_at IS NULL',
         ];
         $parameters = ['published_status' => 'published'];
 
@@ -151,7 +161,8 @@ final class EventRepository implements EventRepositoryInterface
             $sort = str_replace('events.', '', $sort);
         }
 
-        $select = $this->eventSelect($nearby === null ? null : $this->distanceExpression());
+        $select = $this->eventSelect($nearby === null ? null : $this->distanceExpression())
+            . ' INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id';
 
         if ($nearby !== null) {
             $statement = $this->connection->prepare(
@@ -175,6 +186,48 @@ final class EventRepository implements EventRepositoryInterface
         return $this->decodeEvents($statement->fetchAll());
     }
 
+    public function publicRange(
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array {
+        [$clauses, $parameters] = $this->publicRangeParts($from, $to, $filters);
+        $sort = self::SORTS[(string) ($filters['sort'] ?? '')] ?? self::SORTS['soonest'];
+        $statement = $this->connection->prepare(
+            $this->eventSelect()
+            . ' INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id'
+            . ' WHERE ' . implode(' AND ', $clauses)
+            . ' ORDER BY ' . $sort
+            . ' LIMIT :range_limit OFFSET :range_offset',
+        );
+        foreach ($parameters as $name => $value) {
+            $statement->bindValue($name, $value);
+        }
+        $statement->bindValue('range_limit', min(1000, max(1, $limit)), PDO::PARAM_INT);
+        $statement->bindValue('range_offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
+
+        return $this->decodeEvents($statement->fetchAll());
+    }
+
+    public function countPublicRange(DateTimeImmutable $from, DateTimeImmutable $to, array $filters): int
+    {
+        [$clauses, $parameters] = $this->publicRangeParts($from, $to, $filters);
+        $statement = $this->connection->prepare(
+            'SELECT COUNT(*) FROM events
+             INNER JOIN categories ON categories.id = events.category_id
+             LEFT JOIN venues ON venues.id = events.venue_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id
+             WHERE ' . implode(' AND ', $clauses),
+        );
+        $statement->execute($parameters);
+
+        return max(0, (int) $statement->fetchColumn());
+    }
+
     public function publicCities(): array
     {
         $statement = $this->connection->prepare(
@@ -182,10 +235,16 @@ final class EventRepository implements EventRepositoryInterface
              FROM events
              INNER JOIN venues ON venues.id = events.venue_id
              INNER JOIN categories ON categories.id = events.category_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id
              WHERE events.status = :status
                AND events.deleted_at IS NULL
                AND events.start_date >= CURRENT_TIMESTAMP
                AND categories.is_active = 1
+               AND organizers.approval_status = \'approved\'
+               AND organizer_users.status = \'active\'
+               AND organizer_users.email_verified_at IS NOT NULL
+               AND organizer_users.deleted_at IS NULL
                AND venues.city IS NOT NULL
              ORDER BY venues.city ASC',
         );
@@ -198,10 +257,15 @@ final class EventRepository implements EventRepositoryInterface
     {
         $statement = $this->connection->prepare(
             $this->eventSelect()
+            . ' INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id'
             . ' WHERE events.slug = :slug
                   AND events.status IN (\'published\', \'completed\')
                   AND events.deleted_at IS NULL
                   AND categories.is_active = 1
+                  AND organizers.approval_status = \'approved\'
+                  AND organizer_users.status = \'active\'
+                  AND organizer_users.email_verified_at IS NOT NULL
+                  AND organizer_users.deleted_at IS NULL
                 LIMIT 1',
         );
         $statement->execute(['slug' => $slug]);
@@ -855,6 +919,60 @@ final class EventRepository implements EventRepositoryInterface
                 INNER JOIN categories ON categories.id = events.category_id
                 LEFT JOIN venues ON venues.id = events.venue_id
                 INNER JOIN organizers ON organizers.id = events.organizer_id';
+    }
+
+    private function publicRangeParts(DateTimeImmutable $from, DateTimeImmutable $to, array $filters): array
+    {
+        $clauses = [
+            "events.status IN ('published', 'completed')",
+            'events.deleted_at IS NULL',
+            'events.start_date >= :range_start',
+            'events.start_date < :range_end',
+            'categories.is_active = 1',
+            "organizers.approval_status = 'approved'",
+            "organizer_users.status = 'active'",
+            'organizer_users.email_verified_at IS NOT NULL',
+            'organizer_users.deleted_at IS NULL',
+        ];
+        $parameters = [
+            'range_start' => $from->format('Y-m-d H:i:s'),
+            'range_end' => $to->format('Y-m-d H:i:s'),
+        ];
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $searchValue = '%' . mb_strtolower($search) . '%';
+            $columns = [
+                'range_search_title' => 'events.title',
+                'range_search_description' => 'events.description',
+                'range_search_speaker' => "COALESCE(events.speaker, '')",
+                'range_search_organizer' => 'organizers.organization_name',
+                'range_search_category' => 'categories.name',
+                'range_search_venue' => "CASE WHEN events.location_visibility = 'public' THEN COALESCE(venues.name, '') ELSE '' END",
+                'range_search_city' => "COALESCE(venues.city, '')",
+            ];
+            $parts = [];
+            foreach ($columns as $parameter => $column) {
+                $parts[] = 'LOWER(' . $column . ') LIKE :' . $parameter;
+                $parameters[$parameter] = $searchValue;
+            }
+            $clauses[] = '(' . implode(' OR ', $parts) . ')';
+        }
+        if (($category = trim((string) ($filters['category'] ?? ''))) !== '') {
+            $clauses[] = 'categories.slug = :range_category';
+            $parameters['range_category'] = $category;
+        }
+        if (($city = trim((string) ($filters['city'] ?? ''))) !== '') {
+            $clauses[] = 'venues.city = :range_city';
+            $parameters['range_city'] = $city;
+        }
+        if (($filters['price'] ?? '') === 'free') {
+            $clauses[] = 'events.ticket_price = 0';
+        } elseif (($filters['price'] ?? '') === 'paid') {
+            $clauses[] = 'events.ticket_price > 0';
+        }
+
+        return [$clauses, $parameters];
     }
 
     /**

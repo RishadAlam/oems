@@ -237,6 +237,13 @@ Administrator actions:
 
 Only non-deleted `published` events appear in public discovery.
 
+### Calendar and public event API
+
+- `/events/calendar` provides a no-JavaScript month grid plus a canonical chronological list. `month` must be a bounded `YYYY-MM` value.
+- `/api/v1/events`, `/api/v1/events/{slug}`, and `/api/v1/events/calendar` are versioned, read-only JSON endpoints with bounded scalar filters, exact decimal prices, pagination, rate limits, short public cache validators, and no cross-origin access header.
+- List filters are `search`, `category`, `city`, `date_from`, `date_to`, `price`, `sort`, `page`, and `limit`. Unsupported, nested, malformed, or overlong input returns JSON `422`.
+- Public calendar and API queries include only published or completed, non-deleted events from active categories and approved, active, verified organizers. Registered-only locations expose city and country but never the venue identity, address, coordinates, map, or arrival notes.
+
 ### Event images
 
 - Banner and gallery uploads accept JPEG, PNG, or WebP images only.
@@ -281,6 +288,7 @@ Use an isolated local database with both seeds imported.
 
 - Participant registration, manual payment review, seat reconciliation, QR and PDF ticket issuance, attendance, favorites, notifications, and reviews
 - FIFO event waitlists with participant-owned queue controls, automatic seat promotion, bounded payment claims, expiry reconciliation, and native MySQL concurrency verification
+- Privacy-safe month calendar and versioned read-only event API with strict filters, pagination, rate limits, and ETag validation
 - Owner-scoped organizer participant operations, CSV export, camera-enhanced check-in, revenue metrics, and review replies
 - Administrator payment, event, category, and participant-review moderation queues
 - Responsive transaction tables that become explicitly labeled mobile cards, accessible forms, and light and dark token themes

@@ -4,11 +4,23 @@ declare(strict_types=1);
 
 namespace OEMS\App\Contracts;
 
+use DateTimeImmutable;
+
 interface EventRepositoryInterface
 {
     public function featured(int $limit): array;
 
     public function publicSearch(array $filters): array;
+
+    public function publicRange(
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+        array $filters,
+        int $limit,
+        int $offset,
+    ): array;
+
+    public function countPublicRange(DateTimeImmutable $from, DateTimeImmutable $to, array $filters): int;
 
     public function publicCities(): array;
 

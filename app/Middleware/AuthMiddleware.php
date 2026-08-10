@@ -12,17 +12,17 @@ use OEMS\Core\Response;
 
 final class AuthMiddleware implements Middleware
 {
-    public function __construct(private readonly Auth $auth)
+    public function __construct(private readonly Auth|Closure $auth)
     {
     }
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->auth->guest()) {
+        $auth = $this->auth instanceof Closure ? ($this->auth)() : $this->auth;
+        if ($auth->guest()) {
             return Response::redirect('/login');
         }
 
         return $next($request);
     }
 }
-

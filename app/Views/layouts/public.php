@@ -38,6 +38,7 @@
 
             <nav class="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
                 <a class="nav-link" href="/events">Explore events</a>
+                <a class="nav-link" href="/events/calendar">Calendar</a>
                 <a class="nav-link" href="/register?role=organizer">For organizers</a>
                 <a class="nav-link" href="/#how-it-works">How it works</a>
             </nav>
@@ -69,6 +70,7 @@
         <div id="mobile-menu" class="mobile-menu lg:hidden" data-mobile-menu hidden>
             <nav class="page-shell grid gap-2 py-5" aria-label="Mobile navigation">
                 <a class="mobile-menu__link" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
+                <a class="mobile-menu__link" href="/events/calendar"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Event calendar</span></a>
                 <a class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>
                 <a class="mobile-menu__link" href="/#how-it-works"><i class="ph ph-path" aria-hidden="true"></i><span>How it works</span></a>
                 <button class="mobile-menu__link text-left" type="button" data-theme-toggle aria-label="Switch to dark theme">
@@ -102,6 +104,7 @@
                 <h2 class="footer-heading">Discover</h2>
                 <div class="mt-4 grid gap-3 text-sm text-[var(--ink-muted)]">
                     <a class="hover:text-[var(--ink)]" href="/events">All events</a>
+                    <a class="hover:text-[var(--ink)]" href="/events/calendar">Event calendar</a>
                     <a class="hover:text-[var(--ink)]" href="/events?category=technology">Technology</a>
                     <a class="hover:text-[var(--ink)]" href="/events?category=community">Community</a>
                 </div>

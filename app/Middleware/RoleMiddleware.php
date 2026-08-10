@@ -14,7 +14,7 @@ final class RoleMiddleware implements Middleware
 {
     private array $roles = [];
 
-    public function __construct(private readonly Auth $auth)
+    public function __construct(private readonly Auth|Closure $auth)
     {
     }
 
@@ -28,15 +28,15 @@ final class RoleMiddleware implements Middleware
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($this->auth->guest()) {
+        $auth = $this->auth instanceof Closure ? ($this->auth)() : $this->auth;
+        if ($auth->guest()) {
             return Response::redirect('/login');
         }
 
-        if ($this->roles === [] || !$this->auth->hasRole(...$this->roles)) {
+        if ($this->roles === [] || !$auth->hasRole(...$this->roles)) {
             return Response::text('Forbidden', 403);
         }
 
         return $next($request);
     }
 }
-

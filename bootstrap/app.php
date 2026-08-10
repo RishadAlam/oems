@@ -60,6 +60,7 @@ use OEMS\App\Repositories\WaitlistRepository;
 use OEMS\App\Repositories\PlatformSettingsRepository;
 use OEMS\App\Repositories\CmsRepository;
 use OEMS\App\Mail\PhpMailerTransport;
+use OEMS\App\Controllers\ApiEventController;
 use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AdminPeopleService;
 use OEMS\App\Services\AnnouncementService;
@@ -92,6 +93,7 @@ use OEMS\App\Services\WaitlistService;
 use OEMS\App\Services\PlatformSettingsService;
 use OEMS\App\Services\CmsService;
 use OEMS\App\Services\PublicSiteContentProvider;
+use OEMS\App\Services\PublicEventApiService;
 use OEMS\App\Services\HealthCheckService;
 use OEMS\App\Services\MaintenanceService;
 use OEMS\App\Support\StreamHttpClient;
@@ -377,6 +379,21 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    PublicEventApiService::class,
+    static fn (Container $container): PublicEventApiService => new PublicEventApiService(
+        $container->get(EventRepositoryInterface::class),
+        (string) $container->get(Config::class)->get('timezone', 'Asia/Dhaka'),
+        (string) $container->get(Config::class)->get('url', 'http://localhost:8000'),
+    ),
+);
+$container->singleton(
+    ApiEventController::class,
+    static fn (Container $container): ApiEventController => new ApiEventController(
+        $container->get(PublicEventApiService::class),
+        new RateLimiter($basePath . '/storage/cache/rate-limits/public-event-api', 120, 60),
+    ),
+);
+$container->singleton(
     EventReminderService::class,
     static fn (Container $container): EventReminderService => new EventReminderService(
         $container->get(RegistrationRepositoryInterface::class),
@@ -611,10 +628,10 @@ $container->singleton(
 $container->singleton(Logger::class, static fn (): Logger => new Logger($basePath . '/storage/logs/oems.log'));
 
 $router = new Router($container);
-$router->aliasMiddleware('auth', new AuthMiddleware($container->get(Auth::class)));
-$router->aliasMiddleware('guest', new GuestMiddleware($container->get(Auth::class)));
-$router->aliasMiddleware('role', new RoleMiddleware($container->get(Auth::class)));
-$router->aliasMiddleware('csrf', new CsrfMiddleware($container->get(Security::class)));
+$router->aliasMiddleware('auth', new AuthMiddleware(static fn (): Auth => $container->get(Auth::class)));
+$router->aliasMiddleware('guest', new GuestMiddleware(static fn (): Auth => $container->get(Auth::class)));
+$router->aliasMiddleware('role', new RoleMiddleware(static fn (): Auth => $container->get(Auth::class)));
+$router->aliasMiddleware('csrf', new CsrfMiddleware(static fn (): Security => $container->get(Security::class)));
 $container->singleton(
     MaintenanceMiddleware::class,
     static fn (Container $container): MaintenanceMiddleware => new MaintenanceMiddleware(

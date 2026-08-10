@@ -18,7 +18,7 @@ final class HealthCheckServiceTest extends TestCase
         $auth = strpos($entrypoint, '$auth =');
         $this->assertTrue(is_int($guard) && is_int($auth) && $guard < $auth);
         $this->assertTrue(str_contains($entrypoint, "['/health/live', '/health/ready']"));
-        $this->assertTrue(str_contains($entrypoint, 'if (!$healthRequest)'));
+        $this->assertTrue(str_contains($entrypoint, 'if (!$healthRequest && !$statelessApiRequest)'));
     }
 
     public function testLivenessIsProcessOnlyAndReadinessIsSanitized(): void

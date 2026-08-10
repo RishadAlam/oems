@@ -6,6 +6,7 @@ namespace OEMS\Tests\Unit;
 
 use OEMS\App\Repositories\EventRepository;
 use OEMS\Tests\Support\TestCase;
+use DateTimeImmutable;
 use PDO;
 use PDOStatement;
 
@@ -47,6 +48,27 @@ final class EventRepositoryTest extends TestCase
         $this->createSchema();
         $this->seedEvents();
         $this->repository = new EventRepository($this->connection);
+    }
+
+    public function testPublicRangeUsesOneLifecycleAndOrganizerPrivacyContract(): void
+    {
+        $this->connection->exec("UPDATE events SET status = 'completed' WHERE id = 504");
+        $this->connection->exec("UPDATE users SET status = 'suspended' WHERE id = 20");
+
+        $from = new DateTimeImmutable('-10 days');
+        $to = new DateTimeImmutable('+60 days');
+        $events = $this->repository->publicRange($from, $to, [], 50, 0);
+
+        $this->assertTrue(in_array('free-dhaka-summit', array_column($events, 'slug'), true));
+        $this->assertTrue(in_array('past-dhaka-summit', array_column($events, 'slug'), true));
+        $this->assertFalse(in_array('paid-chittagong-summit', array_column($events, 'slug'), true));
+        $this->assertFalse(in_array('draft-dhaka-summit', array_column($events, 'slug'), true));
+        $this->assertFalse(in_array('deleted-dhaka-summit', array_column($events, 'slug'), true));
+        $this->assertSame(count($events), $this->repository->countPublicRange($from, $to, []));
+        $this->assertNull($this->repository->findPublishedBySlug('paid-chittagong-summit'));
+        $this->assertFalse(in_array('paid-chittagong-summit', array_column($this->repository->publicSearch([]), 'slug'), true));
+        $this->assertFalse(in_array('paid-chittagong-summit', array_column($this->repository->featured(20), 'slug'), true));
+        $this->assertFalse(in_array('Chittagong', $this->repository->publicCities(), true));
     }
 
     public function testPublicSearchCombinesCategoryCityFreeAndSoonestFilters(): void
@@ -699,7 +721,7 @@ final class EventRepositoryTest extends TestCase
 
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
+        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL DEFAULT "active", email_verified_at TEXT NULL, deleted_at TEXT NULL)');
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL UNIQUE, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL DEFAULT "pending")');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1)');
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, organizer_id INTEGER NULL, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NOT NULL, country TEXT NOT NULL, postal_code TEXT NULL, latitude REAL NULL, longitude REAL NULL, map_url TEXT NULL)');
@@ -747,6 +769,7 @@ final class EventRepositoryTest extends TestCase
 
     private function seedEvents(): void
     {
+        $this->connection->exec("INSERT INTO users (id, status, email_verified_at, deleted_at) VALUES (10, 'active', CURRENT_TIMESTAMP, NULL), (20, 'active', CURRENT_TIMESTAMP, NULL), (30, 'active', CURRENT_TIMESTAMP, NULL)");
         $this->connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status) VALUES (1, 10, 'First organization', 'approved'), (2, 20, 'Second organization', 'approved'), (3, 30, 'Needle Organization', 'approved')");
         $this->connection->exec("INSERT INTO categories (id, name, slug, is_active) VALUES (1, 'Technology', 'technology', 1), (2, 'Arts', 'arts', 1), (3, 'Needle Category', 'needle-category', 1)");
         $this->connection->exec("INSERT INTO venues (id, organizer_id, name, city, country) VALUES (1, 1, 'Dhaka Hall', 'Dhaka', 'Bangladesh'), (2, 2, 'Chittagong Hall', 'Chittagong', 'Bangladesh'), (3, 3, 'Needle Venue', 'Needle City', 'Bangladesh')");
