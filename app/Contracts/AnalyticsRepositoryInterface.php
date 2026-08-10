@@ -24,6 +24,15 @@ interface AnalyticsRepositoryInterface
 
     public function adminSummary(string $startAt, string $endExclusive, array $filters = []): array;
 
+    public function organizerSeries(
+        int $organizerUserId,
+        string $startAt,
+        string $endExclusive,
+        ?int $eventId = null,
+    ): ?array;
+
+    public function adminSeries(string $startAt, string $endExclusive, array $filters = []): array;
+
     public function adminReportRows(
         string $type,
         string $startAt,

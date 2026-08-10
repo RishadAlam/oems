@@ -84,6 +84,8 @@ final class OrganizerAnalyticsController extends Controller
             'eventId' => $data['event_id'] ?? null,
             'summary' => $data['summary'] ?? [],
             'rows' => $data['rows'] ?? [],
+            'charts' => $data['charts'] ?? [],
+            'analyticsChartsEnabled' => true,
             'filterError' => $filterError,
         ], 'dashboard');
     }

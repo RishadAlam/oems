@@ -43,6 +43,8 @@ final class AnalyticsControllerTest extends TestCase
         }
         $this->assertTrue(str_contains($response->body(), 'aria-label="Capacity utilization: 40.0 percent"'));
         $this->assertTrue(str_contains($response->body(), 'BDT 42.30'));
+        $this->assertTrue(str_contains($response->body(), '/assets/vendor/chartjs/chart.umd.min.js'));
+        $this->assertTrue(str_contains($response->body(), 'id="analytics-chart-data"'));
         foreach (['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'] as $status) {
             $this->assertTrue(str_contains($response->body(), 'data-lifecycle-status="' . $status . '"'));
         }
@@ -109,6 +111,8 @@ final class AnalyticsControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'name="currency" maxlength="3" value="USD"'));
         $this->assertTrue(str_contains($response->body(), '&lt;img src=x onerror=alert(1)&gt;'));
         $this->assertFalse(str_contains($response->body(), '<img src=x onerror=alert(1)>'));
+        $this->assertTrue(str_contains($response->body(), '/assets/js/analytics-charts.js'));
+        $this->assertFalse(str_contains($response->body(), '<script>Chart category</script>'));
         $this->assertSame(['event_status' => 'published', 'currency' => 'USD'], $repository->calls[0][3]);
         foreach (['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'] as $status) {
             $this->assertTrue(str_contains($response->body(), 'data-lifecycle-status="' . $status . '"'));
@@ -192,6 +196,17 @@ final class AnalyticsControllerTest extends TestCase
             'verified_payments' => ['BDT' => '42.30'],
             'refund_attention_count' => 1,
         ]];
+        $series = [
+            'granularity' => 'day',
+            'periods' => ['2026-08-05'],
+            'events' => ['2026-08-05' => 1],
+            'registrations' => ['2026-08-05' => 4],
+            'attendance' => ['2026-08-05' => 3],
+            'payments' => ['BDT' => ['2026-08-05' => '42.30']],
+            'categories' => [['label' => '<script>Chart category</script>', 'count' => 4]],
+        ];
+        $repository->organizerSeries = $series;
+        $repository->adminSeries = $series;
 
         return $repository;
     }

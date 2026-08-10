@@ -16,6 +16,10 @@ final class FakeAnalyticsRepository implements AnalyticsRepositoryInterface
 
     public array $reportRows = [];
 
+    public array $organizerSeries = [];
+
+    public array $adminSeries = [];
+
     public array $calls = [];
 
     public array $foreignEventIds = [];
@@ -54,6 +58,26 @@ final class FakeAnalyticsRepository implements AnalyticsRepositoryInterface
         $this->calls[] = ['adminSummary', $startAt, $endExclusive, $filters];
 
         return $this->adminSummary;
+    }
+
+    public function organizerSeries(
+        int $organizerUserId,
+        string $startAt,
+        string $endExclusive,
+        ?int $eventId = null,
+    ): ?array {
+        $this->calls[] = ['organizerSeries', $organizerUserId, $startAt, $endExclusive, $eventId];
+
+        return $eventId !== null && in_array($eventId, $this->foreignEventIds, true)
+            ? null
+            : $this->organizerSeries;
+    }
+
+    public function adminSeries(string $startAt, string $endExclusive, array $filters = []): array
+    {
+        $this->calls[] = ['adminSeries', $startAt, $endExclusive, $filters];
+
+        return $this->adminSeries;
     }
 
     public function adminReportRows(

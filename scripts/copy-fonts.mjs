@@ -9,6 +9,9 @@ const phosphorTarget = new URL('../public/assets/css/Phosphor.woff2', import.met
 const leafletSource = new URL('../node_modules/leaflet/dist/', import.meta.url);
 const leafletLicenseSource = new URL('../node_modules/leaflet/LICENSE', import.meta.url);
 const leafletTarget = new URL('../public/assets/vendor/leaflet/', import.meta.url);
+const chartSource = new URL('../node_modules/chart.js/dist/chart.umd.min.js', import.meta.url);
+const chartLicenseSource = new URL('../node_modules/chart.js/LICENSE.md', import.meta.url);
+const chartTarget = new URL('../public/assets/vendor/chartjs/', import.meta.url);
 
 await mkdir(cssDirectory, { recursive: true });
 await mkdir(manropeTarget, { recursive: true });
@@ -32,5 +35,10 @@ await writeFile(new URL('leaflet.css', leafletTarget), leafletCss.replaceAll('\r
 await cp(new URL('images/', leafletSource), new URL('images/', leafletTarget), { recursive: true });
 const leafletLicense = await readFile(leafletLicenseSource, 'utf8');
 await writeFile(new URL('LICENSE', leafletTarget), leafletLicense.replaceAll('\r\n', '\n'));
+await rm(chartTarget, { recursive: true, force: true });
+await mkdir(chartTarget, { recursive: true });
+await cp(chartSource, new URL('chart.umd.min.js', chartTarget));
+const chartLicense = await readFile(chartLicenseSource, 'utf8');
+await writeFile(new URL('LICENSE.md', chartTarget), chartLicense.replaceAll('\r\n', '\n'));
 
-console.log(`Copied ${manropeFiles.length + 1} local font files and Leaflet assets to ${join('public', 'assets')}.`);
+console.log(`Copied ${manropeFiles.length + 1} local font files, Leaflet assets, and Chart.js to ${join('public', 'assets')}.`);

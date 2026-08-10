@@ -53,6 +53,8 @@ final class AdminAnalyticsController extends Controller
             'range' => $data['range'] ?? $this->reports->dateRange(null, null),
             'filters' => $data['filters'] ?? [],
             'summary' => $data['summary'] ?? [],
+            'charts' => $data['charts'] ?? [],
+            'analyticsChartsEnabled' => true,
             'filterError' => $filterError,
         ], 'dashboard');
     }

@@ -152,7 +152,23 @@ final class ReportService
             return ['success' => false, 'code' => 'not_found', 'data' => []];
         }
 
-        return ['success' => true, 'data' => ['range' => $range, 'event_id' => $eventId, 'summary' => $summary, 'rows' => $rows]];
+        $series = $this->analytics->organizerSeries(
+            $organizerUserId,
+            $range['start_at'],
+            $range['end_exclusive'],
+            $eventId,
+        );
+        if ($series === null) {
+            return ['success' => false, 'code' => 'not_found', 'data' => []];
+        }
+
+        return ['success' => true, 'data' => [
+            'range' => $range,
+            'event_id' => $eventId,
+            'summary' => $summary,
+            'rows' => $rows,
+            'charts' => $this->chartData($series),
+        ]];
     }
 
     public function adminData(mixed $start, mixed $end, mixed $eventStatus, mixed $currency): array
@@ -172,7 +188,72 @@ final class ReportService
             'range' => $range,
             'filters' => $filters['filters'],
             'summary' => $this->analytics->adminSummary($range['start_at'], $range['end_exclusive'], $filters['filters']),
+            'charts' => $this->chartData(
+                $this->analytics->adminSeries($range['start_at'], $range['end_exclusive'], $filters['filters']),
+            ),
         ]];
+    }
+
+    private function chartData(array $series): array
+    {
+        $labels = array_values(array_filter(
+            array_slice(is_array($series['periods'] ?? null) ? $series['periods'] : [], 0, 366),
+            static fn (mixed $period): bool => is_string($period)
+                && preg_match('/\A[0-9]{4}-(?:[0-9]{2})(?:-[0-9]{2})?\z/D', $period) === 1,
+        ));
+        $integerValues = static function (mixed $values) use ($labels): array {
+            $values = is_array($values) ? $values : [];
+
+            return array_map(
+                static fn (string $label): int => max(0, (int) ($values[$label] ?? 0)),
+                $labels,
+            );
+        };
+        $payments = [];
+        foreach (array_slice(is_array($series['payments'] ?? null) ? $series['payments'] : [], 0, 10, true) as $currency => $values) {
+            if (!is_string($currency) || preg_match('/\A[A-Z]{3}\z/D', $currency) !== 1 || !is_array($values)) {
+                continue;
+            }
+            $payments[$currency] = array_map(
+                fn (string $label): string => $this->chartMoney($values[$label] ?? '0.00'),
+                $labels,
+            );
+        }
+        $categoryLabels = [];
+        $categoryCounts = [];
+        foreach (array_slice(is_array($series['categories'] ?? null) ? $series['categories'] : [], 0, 8) as $category) {
+            if (!is_array($category)) {
+                continue;
+            }
+            $label = trim(strip_tags(is_scalar($category['label'] ?? null) ? (string) $category['label'] : ''));
+            if ($label === '') {
+                continue;
+            }
+            $categoryLabels[] = mb_substr($label, 0, 100);
+            $categoryCounts[] = max(0, (int) ($category['count'] ?? 0));
+        }
+
+        return [
+            'timeline' => [
+                'labels' => $labels,
+                'events' => $integerValues($series['events'] ?? []),
+                'registrations' => $integerValues($series['registrations'] ?? []),
+                'attendance' => $integerValues($series['attendance'] ?? []),
+                'payments' => $payments,
+            ],
+            'categories' => ['labels' => $categoryLabels, 'registrations' => $categoryCounts],
+        ];
+    }
+
+    private function chartMoney(mixed $value): string
+    {
+        $value = is_scalar($value) ? trim((string) $value) : '';
+        if (preg_match('/\A[0-9]+(?:\.([0-9]{1,2}))?\z/D', $value, $matches) !== 1) {
+            return '0.00';
+        }
+        [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
+
+        return (ltrim($whole, '0') ?: '0') . '.' . str_pad($fraction, 2, '0');
     }
 
     public function reportData(mixed $type, mixed $start, mixed $end, mixed $eventStatus, mixed $currency): array

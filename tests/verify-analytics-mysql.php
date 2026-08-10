@@ -30,8 +30,11 @@ $endExclusive = '2100-01-01 00:00:00';
 $organizerSummary = $repository->organizerSummary($organizerUserId, $startAt, $endExclusive, $eventId);
 $organizerRows = $repository->organizerEventRows($organizerUserId, $startAt, $endExclusive, $eventId, 100, 0);
 $adminSummary = $repository->adminSummary($startAt, $endExclusive, ['event_status' => 'published', 'currency' => 'BDT']);
+$organizerSeries = $repository->organizerSeries($organizerUserId, '2026-01-01 00:00:00', '2027-01-01 00:00:00', $eventId);
+$adminSeries = $repository->adminSeries('2026-01-01 00:00:00', '2027-01-01 00:00:00', ['currency' => 'BDT']);
 
-if ($organizerSummary === null || $organizerRows === null || !isset($adminSummary['verified_payments'])) {
+if ($organizerSummary === null || $organizerRows === null || $organizerSeries === null
+    || !isset($adminSummary['verified_payments'], $adminSeries['payments'])) {
     throw new RuntimeException('Native MySQL analytics scope verification failed.');
 }
 

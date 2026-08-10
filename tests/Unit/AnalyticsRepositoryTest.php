@@ -111,6 +111,33 @@ final class AnalyticsRepositoryTest extends TestCase
         $this->assertTrue(in_array('35.30', array_column($payments, 'amount_total'), true));
     }
 
+    public function testChartSeriesUseIndependentAggregatesExactMoneyAndHistoricalRows(): void
+    {
+        $repository = new AnalyticsRepository($this->connection);
+        $series = $repository->organizerSeries(100, '2026-08-01 00:00:00', '2026-08-11 00:00:00');
+
+        $this->assertNotNull($series);
+        $this->assertSame('day', $series['granularity']);
+        $this->assertSame(10, count($series['periods']));
+        $this->assertSame(1, $series['events']['2026-08-08']);
+        $this->assertSame(2, $series['registrations']['2026-08-05']);
+        $this->assertSame(2, $series['attendance']['2026-08-05']);
+        $this->assertSame('30.30', $series['payments']['BDT']['2026-08-05']);
+        $this->assertSame('7.05', $series['payments']['USD']['2026-08-07']);
+        $this->assertSame([['label' => 'Technology', 'count' => 4]], $series['categories']);
+        $this->assertNull($repository->organizerSeries(100, '2026-08-01 00:00:00', '2026-08-11 00:00:00', 4));
+
+        $admin = $repository->adminSeries('2026-08-01 00:00:00', '2026-08-11 00:00:00', [
+            'event_status' => 'published',
+            'currency' => 'BDT',
+        ]);
+        $this->assertSame(['BDT'], array_keys($admin['payments']));
+        $serialized = strtolower(serialize($admin));
+        foreach (['email', 'participant_name', 'reference', 'gateway', 'address', 'latitude', 'longitude'] as $secret) {
+            $this->assertFalse(str_contains($serialized, $secret));
+        }
+    }
+
     private function schema(): void
     {
         $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, deleted_at TEXT NULL)');

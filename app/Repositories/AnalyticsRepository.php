@@ -105,6 +105,44 @@ final class AnalyticsRepository implements AnalyticsRepositoryInterface
         return $summary;
     }
 
+    public function organizerSeries(
+        int $organizerUserId,
+        string $startAt,
+        string $endExclusive,
+        ?int $eventId = null,
+    ): ?array {
+        if ($eventId !== null && !$this->organizerOwnsEvent($organizerUserId, $eventId)) {
+            return null;
+        }
+        $scope = 'organizers.user_id = :series_organizer_user_id';
+        $parameters = ['series_organizer_user_id' => $organizerUserId];
+        if ($eventId !== null) {
+            $scope .= ' AND events.id = :series_event_id';
+            $parameters['series_event_id'] = $eventId;
+        }
+
+        return $this->series($startAt, $endExclusive, $scope, $parameters);
+    }
+
+    public function adminSeries(string $startAt, string $endExclusive, array $filters = []): array
+    {
+        $scope = '1 = 1';
+        $parameters = [];
+        if (is_string($filters['event_status'] ?? null)
+            && in_array($filters['event_status'], self::EVENT_STATUSES, true)) {
+            $scope .= ' AND events.status = :series_event_status';
+            $parameters['series_event_status'] = $filters['event_status'];
+        }
+
+        return $this->series(
+            $startAt,
+            $endExclusive,
+            $scope,
+            $parameters,
+            is_string($filters['currency'] ?? null) ? $filters['currency'] : null,
+        );
+    }
+
     public function adminReportRows(
         string $type,
         string $startAt,
@@ -332,6 +370,143 @@ final class AnalyticsRepository implements AnalyticsRepositoryInterface
                 'refund_attention_count' => (int) $row['refund_attention_count'],
             ];
         }, $rows);
+    }
+
+    private function series(
+        string $startAt,
+        string $endExclusive,
+        string $scope,
+        array $scopeParameters,
+        ?string $currency = null,
+    ): array {
+        $start = new \DateTimeImmutable($startAt);
+        $end = new \DateTimeImmutable($endExclusive);
+        $granularity = (int) $start->diff($end)->format('%a') > 90 ? 'month' : 'day';
+        $length = $granularity === 'month' ? 7 : 10;
+        $periodExpression = static fn (string $column): string => "SUBSTR({$column}, 1, {$length})";
+        $periods = [];
+        $cursor = $granularity === 'month'
+            ? $start->modify('first day of this month')
+            : $start;
+        while ($cursor < $end) {
+            $periods[] = $cursor->format($granularity === 'month' ? 'Y-m' : 'Y-m-d');
+            $cursor = $cursor->modify($granularity === 'month' ? '+1 month' : '+1 day');
+        }
+        $dateParameters = array_merge($scopeParameters, [
+            'series_start_at' => $startAt,
+            'series_end_exclusive' => $endExclusive,
+        ]);
+
+        $events = $this->seriesCounts(
+            "SELECT {$periodExpression('events.start_date')} AS period, COUNT(*) AS aggregate_count
+             FROM events
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE {$scope}
+               AND events.start_date >= :series_start_at
+               AND events.start_date < :series_end_exclusive
+             GROUP BY period ORDER BY period",
+            $dateParameters,
+        );
+        $registrations = $this->seriesCounts(
+            "SELECT {$periodExpression('registrations.registered_at')} AS period, COUNT(*) AS aggregate_count
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE {$scope}
+               AND registrations.registered_at >= :series_start_at
+               AND registrations.registered_at < :series_end_exclusive
+             GROUP BY period ORDER BY period",
+            $dateParameters,
+        );
+        $attendance = $this->seriesCounts(
+            "SELECT {$periodExpression('attendance.scanned_at')} AS period, COUNT(*) AS aggregate_count
+             FROM attendance
+             INNER JOIN registrations ON registrations.id = attendance.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE {$scope}
+               AND attendance.status = 'present'
+               AND attendance.scanned_at >= :series_start_at
+               AND attendance.scanned_at < :series_end_exclusive
+             GROUP BY period ORDER BY period",
+            $dateParameters,
+        );
+        $paymentScope = $scope;
+        $paymentParameters = $dateParameters;
+        if ($currency !== null) {
+            $paymentScope .= ' AND payments.currency = :series_currency';
+            $paymentParameters['series_currency'] = $currency;
+        }
+        $paymentRows = $this->fetchAll(
+            "SELECT {$periodExpression('payments.paid_at')} AS period,
+                    payments.currency,
+                    SUM(payments.amount) AS amount_total
+             FROM payments
+             INNER JOIN registrations ON registrations.id = payments.registration_id
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             WHERE {$paymentScope}
+               AND payments.status = 'paid'
+               AND payments.paid_at >= :series_start_at
+               AND payments.paid_at < :series_end_exclusive
+             GROUP BY period, payments.currency
+             ORDER BY period, payments.currency",
+            $paymentParameters,
+        );
+        $payments = [];
+        foreach ($paymentRows as $row) {
+            $payments[(string) $row['currency']][(string) $row['period']] = $this->moneyDecimal($row['amount_total'] ?? 0);
+        }
+        $categoryRows = $this->fetchAll(
+            "SELECT categories.name AS category_label, COUNT(*) AS aggregate_count
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN organizers ON organizers.id = events.organizer_id
+             INNER JOIN categories ON categories.id = events.category_id
+             WHERE {$scope}
+               AND registrations.registered_at >= :series_start_at
+               AND registrations.registered_at < :series_end_exclusive
+             GROUP BY categories.id, categories.name
+             ORDER BY aggregate_count DESC, categories.id ASC
+             LIMIT 8",
+            $dateParameters,
+        );
+
+        return [
+            'granularity' => $granularity,
+            'periods' => $periods,
+            'events' => $this->fillSeries($periods, $events, 0),
+            'registrations' => $this->fillSeries($periods, $registrations, 0),
+            'attendance' => $this->fillSeries($periods, $attendance, 0),
+            'payments' => array_map(
+                fn (array $values): array => $this->fillSeries($periods, $values, '0.00'),
+                $payments,
+            ),
+            'categories' => array_map(static fn (array $row): array => [
+                'label' => (string) $row['category_label'],
+                'count' => (int) $row['aggregate_count'],
+            ], $categoryRows),
+        ];
+    }
+
+    private function seriesCounts(string $sql, array $parameters): array
+    {
+        $counts = [];
+        foreach ($this->fetchAll($sql, $parameters) as $row) {
+            $counts[(string) $row['period']] = (int) $row['aggregate_count'];
+        }
+
+        return $counts;
+    }
+
+    private function fillSeries(array $periods, array $values, int|string $default): array
+    {
+        $filled = [];
+        foreach ($periods as $period) {
+            $filled[$period] = $values[$period] ?? $default;
+        }
+
+        return $filled;
     }
 
     private function adminEventReportRows(
