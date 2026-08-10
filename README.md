@@ -91,6 +91,7 @@ For an existing populated database created from baseline `5857358`, use this exa
    mysql -u root -p oems < database/migrations/2026-08-09-live-location.sql
    mysql -u root -p oems < database/migrations/2026-08-10-spec-completion.sql
    mysql -u root -p oems < database/migrations/2026-08-10-week-3-operations.sql
+   mysql -u root -p oems < database/migrations/2026-08-10-week-4-growth-experience.sql
    ```
 
 4. Deploy the new PHP code while application traffic remains stopped or drained.
@@ -102,9 +103,9 @@ For an existing populated database created from baseline `5857358`, use this exa
 
 6. Restart the application processes, then run the health and acceptance checks before restoring traffic. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
 
-The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. The specification-completion migration adds persisted organizer announcements. The Week 3 operations migration adds durable mail, coupons, newsletter delivery, contact queue indexes, and private operational defaults. All migrations are repeatable after a partially applied MySQL DDL deployment without replacing existing rows.
+The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. The specification-completion migration adds persisted organizer announcements. The Week 3 operations migration adds durable mail, coupons, newsletter delivery, contact queue indexes, and private operational defaults. The Week 4 migration adds event waitlist controls and queue timestamps, private attendance-certificate records, and Blog publication records. All migrations are repeatable after a partially applied MySQL DDL deployment without replacing existing rows.
 
-If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run the live-location, specification-completion, and Week 3 migrations. If it already includes the live-location release, run the specification-completion and Week 3 migrations. Never import `schema.sql` or either seed over a populated production database.
+If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run the live-location, specification-completion, Week 3, and Week 4 migrations. If it already includes the live-location release, run the specification-completion, Week 3, and Week 4 migrations. A current Week 3 deployment needs only the Week 4 migration. Never import `schema.sql` or either seed over a populated production database.
 
 ## Production operations
 
@@ -308,6 +309,7 @@ node tests/js/location.test.mjs
 node tests/js/venue-map.test.mjs
 OEMS_OUTBOX_TEST_MYSQL=1 tests/verify-outbox-concurrency-mysql.sh
 OEMS_BACKUP_RESTORE_MYSQL=1 OEMS_BACKUP_ARCHIVE=storage/backups/<archive>.sql.gz tests/verify-backup-restore-mysql.sh
+OEMS_WEEK4_TEST_MYSQL=1 tests/verify-week-4-migration-mysql.sh
 git diff --check
 ```
 

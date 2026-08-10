@@ -182,6 +182,7 @@ CREATE TABLE events (
     approved_at DATETIME NULL,
     published_at DATETIME NULL,
     is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+    waitlist_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL,
@@ -282,12 +283,15 @@ CREATE TABLE registrations (
     amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
     currency CHAR(3) NOT NULL DEFAULT 'BDT',
     registered_at DATETIME NOT NULL,
+    waitlisted_at DATETIME NULL,
+    promoted_at DATETIME NULL,
     cancelled_at DATETIME NULL,
     cancellation_reason VARCHAR(500) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_registrations_event_user (event_id, user_id),
     INDEX idx_registrations_event_status (event_id, status),
+    INDEX idx_registrations_event_waitlist (event_id, status, waitlisted_at, id),
     INDEX idx_registrations_user_status (user_id, status),
     CONSTRAINT fk_registrations_event FOREIGN KEY (event_id) REFERENCES events (id),
     CONSTRAINT fk_registrations_user FOREIGN KEY (user_id) REFERENCES users (id),
@@ -342,6 +346,31 @@ CREATE TABLE attendance (
     CONSTRAINT fk_attendance_registration FOREIGN KEY (registration_id) REFERENCES registrations (id),
     CONSTRAINT fk_attendance_ticket FOREIGN KEY (ticket_id) REFERENCES tickets (id),
     CONSTRAINT fk_attendance_scanned_by FOREIGN KEY (scanned_by) REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE event_certificates (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    registration_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    participant_id BIGINT UNSIGNED NOT NULL,
+    certificate_number VARCHAR(48) NOT NULL UNIQUE,
+    verification_token_hash CHAR(64) NOT NULL UNIQUE,
+    pdf_path VARCHAR(255) NOT NULL,
+    status ENUM('valid', 'revoked') NOT NULL DEFAULT 'valid',
+    issued_at DATETIME NOT NULL,
+    revoked_at DATETIME NULL,
+    revoked_by BIGINT UNSIGNED NULL,
+    revocation_reason VARCHAR(500) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_event_certificates_participant_issued (participant_id, issued_at, id),
+    INDEX idx_event_certificates_status_issued (status, issued_at, id),
+    CONSTRAINT fk_event_certificates_registration FOREIGN KEY (registration_id) REFERENCES registrations (id) ON DELETE CASCADE,
+    CONSTRAINT fk_event_certificates_participant FOREIGN KEY (participant_id) REFERENCES users (id),
+    CONSTRAINT fk_event_certificates_revoked_by FOREIGN KEY (revoked_by) REFERENCES users (id) ON DELETE SET NULL,
+    CONSTRAINT chk_event_certificates_revocation CHECK (
+        (status = 'valid' AND revoked_at IS NULL AND revocation_reason IS NULL)
+        OR (status = 'revoked' AND revoked_at IS NOT NULL AND revocation_reason IS NOT NULL)
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE coupon_usage (
@@ -541,6 +570,31 @@ CREATE TABLE banners (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ,INDEX idx_banners_home_schedule (location, is_active, starts_at, ends_at, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE blog_posts (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    author_id BIGINT UNSIGNED NULL,
+    title VARCHAR(180) NOT NULL,
+    slug VARCHAR(200) NOT NULL UNIQUE,
+    excerpt VARCHAR(500) NOT NULL,
+    body LONGTEXT NOT NULL,
+    category VARCHAR(100) NULL,
+    cover_image VARCHAR(255) NULL,
+    status ENUM('draft', 'published') NOT NULL DEFAULT 'draft',
+    meta_title VARCHAR(190) NULL,
+    meta_description VARCHAR(300) NULL,
+    published_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    INDEX idx_blog_posts_public (status, published_at, id),
+    INDEX idx_blog_posts_category_public (category, status, published_at, id),
+    CONSTRAINT fk_blog_posts_author FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE SET NULL,
+    CONSTRAINT chk_blog_posts_publication CHECK (
+        (status = 'draft' AND published_at IS NULL)
+        OR (status = 'published' AND published_at IS NOT NULL)
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE password_resets (

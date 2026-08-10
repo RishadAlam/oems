@@ -483,4 +483,31 @@ ON DUPLICATE KEY UPDATE
     review = VALUES(review),
     status = VALUES(status);
 
+INSERT INTO blog_posts (
+    author_id, title, slug, excerpt, body, category, status,
+    meta_title, meta_description, published_at
+) VALUES (
+    @admin_user_id,
+    'How to choose an event worth your time',
+    'how-to-choose-an-event-worth-your-time',
+    'A practical guide to reading an event page, comparing formats, and arriving prepared.',
+    'Start with the outcome you want from the event. Look for a clear schedule, a credible organizer, and a format that matches how you learn.\n\nCheck the venue, timing, accessibility details, and cancellation rules before you register. Save the event, add it to your calendar, and review the arrival notes after your registration is confirmed.',
+    'Guides',
+    'published',
+    'How to choose an event worth your time | OEMS',
+    'Use schedules, organizer evidence, venue details, and event formats to choose a better event.',
+    '2026-08-08 09:00:00'
+)
+ON DUPLICATE KEY UPDATE
+    author_id = VALUES(author_id),
+    title = VALUES(title),
+    excerpt = VALUES(excerpt),
+    body = VALUES(body),
+    category = VALUES(category),
+    status = VALUES(status),
+    meta_title = VALUES(meta_title),
+    meta_description = VALUES(meta_description),
+    published_at = VALUES(published_at),
+    deleted_at = NULL;
+
 COMMIT;
