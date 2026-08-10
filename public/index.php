@@ -19,18 +19,21 @@ $request = Request::fromGlobals((array) ($app['config']['trusted_proxies'] ?? []
 header_remove('X-Powered-By');
 
 try {
-    $auth = $app['container']->get(Auth::class);
-    $rememberCookieName = (string) $app['config']['remember_cookie'];
-    $rememberCookie = $request->cookie($rememberCookieName);
-
     $rememberResult = null;
+    $rememberCookieName = (string) $app['config']['remember_cookie'];
+    $healthRequest = in_array($request->path(), ['/health/live', '/health/ready'], true);
 
-    if ($auth->guest() && is_string($rememberCookie) && $rememberCookie !== '') {
-        $rememberResult = $app['container']->get(AuthService::class)->consumeRememberCookie(
-            $rememberCookie,
-            $request->ip(),
-            (string) $request->header('User-Agent', ''),
-        );
+    if (!$healthRequest) {
+        $auth = $app['container']->get(Auth::class);
+        $rememberCookie = $request->cookie($rememberCookieName);
+
+        if ($auth->guest() && is_string($rememberCookie) && $rememberCookie !== '') {
+            $rememberResult = $app['container']->get(AuthService::class)->consumeRememberCookie(
+                $rememberCookie,
+                $request->ip(),
+                (string) $request->header('User-Agent', ''),
+            );
+        }
     }
 
     $response = $app['container']->get(MaintenanceMiddleware::class)

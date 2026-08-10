@@ -599,8 +599,8 @@ $router->aliasMiddleware('csrf', new CsrfMiddleware($container->get(Security::cl
 $container->singleton(
     MaintenanceMiddleware::class,
     static fn (Container $container): MaintenanceMiddleware => new MaintenanceMiddleware(
-        $container->get(MaintenanceService::class),
-        $container->get(Auth::class),
+        static fn (): MaintenanceService => $container->get(MaintenanceService::class),
+        static fn (): Auth => $container->get(Auth::class),
         $container->get(View::class),
     ),
 );

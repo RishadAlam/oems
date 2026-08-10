@@ -699,6 +699,24 @@
         @apply grid gap-2;
     }
 
+    .form-field {
+        @apply grid min-w-0 gap-2;
+    }
+
+    .form-field > span {
+        @apply text-sm font-bold;
+    }
+
+    .form-field > input,
+    .form-field > select,
+    .form-field > textarea {
+        @apply min-h-12 w-full min-w-0 rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] transition focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
+    .form-field > small {
+        @apply text-xs leading-5 text-[var(--ink-muted)];
+    }
+
     .field-group label,
     .field-group legend {
         @apply text-sm font-bold;

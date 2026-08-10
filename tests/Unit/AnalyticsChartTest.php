@@ -42,6 +42,7 @@ final class AnalyticsChartTest extends TestCase
         $admin = file_get_contents(base_path('app/Views/admin/analytics/index.php')) ?: '';
         $component = file_get_contents(base_path('app/Views/components/analytics-charts.php')) ?: '';
         $assets = file_get_contents(base_path('scripts/copy-fonts.mjs')) ?: '';
+        $styles = file_get_contents(base_path('resources/css/app.css')) ?: '';
 
         $this->assertTrue(str_contains($layout, '/assets/vendor/chartjs/chart.umd.min.js'));
         $this->assertTrue(str_contains($layout, '/assets/js/analytics-charts.js'));
@@ -52,6 +53,9 @@ final class AnalyticsChartTest extends TestCase
         $this->assertTrue(str_contains($organizer, '<table'));
         $this->assertTrue(str_contains($admin, '<table'));
         $this->assertTrue(str_contains($assets, 'chart.umd.min.js'));
+        $this->assertTrue(str_contains($styles, '.form-field {'));
+        $this->assertTrue(str_contains($styles, '.form-field > span {'));
+        $this->assertFalse(str_contains($component, '<?= e($currency) ?> <?= e($values[$index]'));
         $this->assertFalse(str_contains($layout, 'cdn.'));
     }
 

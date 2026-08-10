@@ -10,6 +10,17 @@ use PDO;
 
 final class HealthCheckServiceTest extends TestCase
 {
+    public function testHttpEntrypointSkipsAuthenticationForBothHealthEndpoints(): void
+    {
+        $entrypoint = file_get_contents(base_path('public/index.php'));
+        $this->assertTrue(is_string($entrypoint));
+        $guard = strpos($entrypoint, '$healthRequest');
+        $auth = strpos($entrypoint, '$auth =');
+        $this->assertTrue(is_int($guard) && is_int($auth) && $guard < $auth);
+        $this->assertTrue(str_contains($entrypoint, "['/health/live', '/health/ready']"));
+        $this->assertTrue(str_contains($entrypoint, 'if (!$healthRequest)'));
+    }
+
     public function testLivenessIsProcessOnlyAndReadinessIsSanitized(): void
     {
         $root = sys_get_temp_dir() . '/oems-health-' . bin2hex(random_bytes(5));

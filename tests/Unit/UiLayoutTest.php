@@ -59,6 +59,26 @@ final class UiLayoutTest extends TestCase
         $this->assertFalse(str_contains($html, '</script><script>alert'));
     }
 
+    public function testNewsletterErrorsAreScopedToNewsletterSubmissions(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $data = [
+            'app' => ['name' => 'OEMS'],
+            'currentUser' => null,
+            'flash' => [],
+            'pageTitle' => 'Contact',
+            'errors' => ['email' => ['Enter a valid email address.']],
+        ];
+
+        $contactHtml = $view->render('errors/404', $data + ['old' => ['email' => 'bad']], 'public');
+        $newsletterHtml = $view->render('errors/404', $data + ['old' => ['newsletter_email' => 'bad']], 'public');
+
+        $this->assertFalse(str_contains($contactHtml, 'id="newsletter-error"'));
+        $this->assertFalse(str_contains($contactHtml, 'newsletter-help newsletter-error'));
+        $this->assertTrue(str_contains($newsletterHtml, 'id="newsletter-error"'));
+        $this->assertTrue(str_contains($newsletterHtml, 'newsletter-help newsletter-error'));
+    }
+
     public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
     {
         $view = new View(base_path('app/Views'));

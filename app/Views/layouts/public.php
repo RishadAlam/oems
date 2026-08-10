@@ -1,4 +1,4 @@
-<?php $layoutOld = is_array($old ?? null) ? $old : []; $layoutErrors = is_array($errors ?? null) ? $errors : []; $layoutCsrfToken = is_scalar($csrfToken ?? null) ? (string) $csrfToken : ''; ?>
+<?php $layoutOld = is_array($old ?? null) ? $old : []; $layoutErrors = is_array($errors ?? null) ? $errors : []; $layoutCsrfToken = is_scalar($csrfToken ?? null) ? (string) $csrfToken : ''; $newsletterError = array_key_exists('newsletter_email', $layoutOld) ? field_error($layoutErrors, 'email') : null; ?>
 <!doctype html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -127,9 +127,9 @@
                     <input type="hidden" name="_token" value="<?= e($layoutCsrfToken) ?>">
                     <div class="sr-only" aria-hidden="true"><label for="newsletter-website">Website</label><input id="newsletter-website" name="website" tabindex="-1" autocomplete="off"></div>
                     <label class="sr-only" for="newsletter-email">Email address</label>
-                    <input id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= field_error($layoutErrors, 'email') ? ' newsletter-error' : '' ?>"<?= field_error($layoutErrors, 'email') ? ' aria-invalid="true"' : '' ?>>
+                    <input id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= $newsletterError ? ' newsletter-error' : '' ?>"<?= $newsletterError ? ' aria-invalid="true"' : '' ?>>
                     <p id="newsletter-help" class="text-xs leading-5 text-[var(--ink-muted)]">Double opt-in. Unsubscribe from any campaign.</p>
-                    <?php if ($error = field_error($layoutErrors, 'email')): ?><p id="newsletter-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+                    <?php if ($newsletterError): ?><p id="newsletter-error" class="field-error" role="alert"><?= e($newsletterError) ?></p><?php endif; ?>
                     <button class="button button--primary" type="submit">Request confirmation</button>
                 </form>
             </div>

@@ -63,12 +63,7 @@ final class MailOutboxRepository implements MailOutboxRepositoryInterface
                 $this->beginWriteTransaction();
             }
 
-            $recover = $this->connection->prepare(
-                "UPDATE mail_outbox
-                 SET status = 'queued', lock_token = NULL, locked_at = NULL
-                 WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at <= :stale_at",
-            );
-            $recover->execute(['stale_at' => $staleValue]);
+            $this->recoverStaleLocks($staleValue);
 
             $sql = "SELECT id FROM mail_outbox
                     WHERE status = 'queued' AND available_at <= :available_at
@@ -204,7 +199,46 @@ final class MailOutboxRepository implements MailOutboxRepositoryInterface
 
     private function beginWriteTransaction(): void
     {
+        if ($this->driver() === 'mysql') {
+            $this->connection->exec('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        }
         $this->connection->beginTransaction();
+    }
+
+    private function recoverStaleLocks(string $staleAt): void
+    {
+        if ($this->driver() !== 'mysql') {
+            $recover = $this->connection->prepare(
+                "UPDATE mail_outbox
+                 SET status = 'queued', lock_token = NULL, locked_at = NULL
+                 WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at <= :stale_at",
+            );
+            $recover->execute(['stale_at' => $staleAt]);
+
+            return;
+        }
+
+        $select = $this->connection->prepare(
+            "SELECT id FROM mail_outbox
+             WHERE status = 'processing' AND locked_at IS NOT NULL AND locked_at <= :stale_at
+             ORDER BY id ASC
+             LIMIT 100
+             FOR UPDATE SKIP LOCKED",
+        );
+        $select->execute(['stale_at' => $staleAt]);
+        $ids = array_map('intval', $select->fetchAll(PDO::FETCH_COLUMN));
+        if ($ids === []) {
+            return;
+        }
+
+        $recover = $this->connection->prepare(
+            "UPDATE mail_outbox
+             SET status = 'queued', lock_token = NULL, locked_at = NULL
+             WHERE id = :id AND status = 'processing' AND locked_at IS NOT NULL AND locked_at <= :stale_at",
+        );
+        foreach ($ids as $id) {
+            $recover->execute(['id' => $id, 'stale_at' => $staleAt]);
+        }
     }
 
     private function isUniqueViolation(PDOException $exception): bool

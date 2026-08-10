@@ -26,20 +26,32 @@ final class MaintenanceMiddlewareTest extends TestCase
         $session = new Session(false);
         $users = new FakeUserRepository();
         $auth = new Auth($session, $users);
-        $middleware = new MaintenanceMiddleware($service, $auth, new View(base_path('app/Views')));
+        $maintenanceResolutions = 0;
+        $authResolutions = 0;
+        $middleware = new MaintenanceMiddleware(static function () use ($service, &$maintenanceResolutions): MaintenanceService {
+            $maintenanceResolutions++;
+            return $service;
+        }, static function () use ($auth, &$authResolutions): Auth {
+            $authResolutions++;
+            return $auth;
+        }, new View(base_path('app/Views')));
         $next = static fn (): Response => Response::text('next');
 
         $this->assertSame(200, $middleware->handle(Request::create('GET', '/health/live'), $next)->status());
         $this->assertSame(0, $settings->privateReadCalls);
+        $this->assertSame(0, $maintenanceResolutions);
+        $this->assertSame(0, $authResolutions);
         $blocked = $middleware->handle(Request::create('GET', '/events'), $next);
         $this->assertSame(503, $blocked->status());
         $this->assertSame('300', $blocked->header('Retry-After'));
+        $this->assertTrue($maintenanceResolutions > 0);
         $this->assertTrue(str_contains($blocked->body(), 'temporarily unavailable'));
         $this->assertSame(200, $middleware->handle(Request::create('GET', '/login'), $next)->status());
 
         $users->users[1] = ['id' => 1, 'role_id' => 1, 'name' => 'Admin', 'email' => 'admin@example.test', 'password' => password_hash('AdminPass!2026', PASSWORD_DEFAULT), 'status' => 'active'];
         $this->authenticateSession($session, $users, 1);
         $this->assertSame(200, $middleware->handle(Request::create('GET', '/admin/operations'), $next)->status());
+        $this->assertTrue($authResolutions > 0);
         @unlink($cache);
         $_SESSION = [];
     }

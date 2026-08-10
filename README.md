@@ -115,7 +115,7 @@ OEMS is designed as a production-ready single-node PHP/MySQL deployment. Copy th
 - `/admin/operations` gives super administrators a readiness summary and a confirmation-bound maintenance control. Maintenance returns `503` with `Retry-After` for public and non-admin application routes while keeping health probes, login, static assets, and signed-in super administrators available.
 - `php scripts/process-mail-outbox.php --limit=50` delivers durable queued mail.
 - `php scripts/queue-event-reminders.php --limit=100` queues due event reminders idempotently.
-- `php scripts/backup-database.php` creates a gzip-compressed SQL archive only beneath `storage/backups`, passes the database password through `MYSQL_PWD`, enforces private permissions, verifies non-empty output, and retains 1–30 archives according to the private `backup_retention` setting.
+- `php scripts/backup-database.php` creates a portable gzip-compressed SQL archive only beneath `storage/backups`, excludes server-specific GTID state, passes the database password through `MYSQL_PWD`, enforces private permissions, verifies non-empty output, and retains 1–30 archives according to the private `backup_retention` setting.
 
 Recommended release sequence:
 
@@ -283,6 +283,12 @@ Use an isolated local database with both seeds imported.
 - Responsive transaction tables that become explicitly labeled mobile cards, accessible forms, and light and dark token themes
 - Dependency-injected custom MVC foundations, role guards, CSRF protection, prepared queries, escaped views, and automated regression coverage
 
+- Durable SMTP outbox delivery with bounded retries, stale-lock recovery, idempotency keys, and concurrent MySQL worker claims
+- Organizer-owned coupons with percentage/fixed discounts, usage limits, date windows, exact-money calculations, and concurrency-safe redemption
+- Public contact intake, double-opt-in newsletter subscriptions, administrator inbox/campaign operations, and private operational evidence
+- Participant and organizer calendar exports, event reminders, accessible administrator/organizer analytics charts, and semantic table fallbacks
+- Process-only liveness, dependency readiness, maintenance mode, portable private database backups, and Nginx/PHP-FPM/systemd deployment examples
+
 ## Quality checks
 
 ```bash
@@ -300,6 +306,8 @@ node --check public/assets/js/location.js
 node --check public/assets/js/venue-map.js
 node tests/js/location.test.mjs
 node tests/js/venue-map.test.mjs
+OEMS_OUTBOX_TEST_MYSQL=1 tests/verify-outbox-concurrency-mysql.sh
+OEMS_BACKUP_RESTORE_MYSQL=1 OEMS_BACKUP_ARCHIVE=storage/backups/<archive>.sql.gz tests/verify-backup-restore-mysql.sh
 git diff --check
 ```
 

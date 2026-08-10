@@ -39,6 +39,7 @@ final class BackupScriptTest extends TestCase
             gzclose($stream);
         };
         $service = new DatabaseBackupService($root, $runner);
+        putenv('MAIL_PASSWORD=must-not-reach-mysqldump');
         for ($index = 0; $index < 3; $index++) {
             $service->backup(['host' => '127.0.0.1', 'port' => 3306, 'database' => 'oems', 'username' => 'oems', 'password' => 'top-secret'], 2, new DateTimeImmutable('2026-08-10 12:00:0' . $index));
         }
@@ -47,7 +48,10 @@ final class BackupScriptTest extends TestCase
         $this->assertTrue(filesize($files[0]) > 0);
         $this->assertSame(0600, fileperms($files[0]) & 0777);
         $this->assertFalse(str_contains(implode(' ', $captured[0]), 'top-secret'));
+        $this->assertTrue(in_array('--set-gtid-purged=OFF', $captured[0], true));
         $this->assertSame('top-secret', $captured[1]['MYSQL_PWD']);
+        $this->assertFalse(array_key_exists('MAIL_PASSWORD', $captured[1]));
+        putenv('MAIL_PASSWORD');
     }
 
     public function testBackupRejectsUnsafeDatabaseRetentionAndCleansFailedOutput(): void

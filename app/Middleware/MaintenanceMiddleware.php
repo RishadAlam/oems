@@ -17,17 +17,25 @@ final class MaintenanceMiddleware implements Middleware
     private const PUBLIC_PATHS = ['/health/live', '/health/ready', '/login'];
 
     public function __construct(
-        private readonly MaintenanceService $maintenance,
-        private readonly Auth $auth,
+        private readonly MaintenanceService|Closure $maintenance,
+        private readonly Auth|Closure $auth,
         private readonly View $view,
     ) {
     }
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (in_array($request->path(), self::PUBLIC_PATHS, true)
-            || !$this->maintenance->isEnabled()
-            || $this->auth->hasRole('super-admin')) {
+        if (in_array($request->path(), self::PUBLIC_PATHS, true)) {
+            return $next($request);
+        }
+
+        $maintenance = $this->maintenance instanceof Closure ? ($this->maintenance)() : $this->maintenance;
+        if (!$maintenance->isEnabled()) {
+            return $next($request);
+        }
+
+        $auth = $this->auth instanceof Closure ? ($this->auth)() : $this->auth;
+        if ($auth->hasRole('super-admin')) {
             return $next($request);
         }
 

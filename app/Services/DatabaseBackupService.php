@@ -33,13 +33,19 @@ final class DatabaseBackupService
         $now ??= new DateTimeImmutable();
         $destination = $directory . '/oems-' . $now->format('Ymd-His') . '-' . bin2hex(random_bytes(4)) . '.sql.gz';
         $command = [
-            'mysqldump', '--single-transaction', '--quick', '--skip-lock-tables', '--no-tablespaces',
+            'mysqldump', '--single-transaction', '--quick', '--skip-lock-tables', '--no-tablespaces', '--set-gtid-purged=OFF',
             '--host=' . (string) ($database['host'] ?? '127.0.0.1'),
             '--port=' . (int) ($database['port'] ?? 3306),
             '--user=' . (string) ($database['username'] ?? ''),
             '--default-character-set=utf8mb4', '--', $name,
         ];
-        $environment = array_merge(is_array(getenv()) ? getenv() : [], ['MYSQL_PWD' => (string) ($database['password'] ?? '')]);
+        $environment = ['MYSQL_PWD' => (string) ($database['password'] ?? '')];
+        foreach (['PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL'] as $key) {
+            $value = getenv($key);
+            if (is_string($value) && $value !== '') {
+                $environment[$key] = $value;
+            }
+        }
 
         try {
             ($this->runner)($command, $environment, $destination);
