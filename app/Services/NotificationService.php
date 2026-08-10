@@ -24,6 +24,7 @@ final class NotificationService
         'review_hidden',
         'review_reply',
         'event_cancelled',
+        'event_announcement',
         'organizer_application_approved',
         'organizer_application_rejected',
     ];

@@ -11,6 +11,7 @@ use OEMS\App\Controllers\AdminOrganizerController;
 use OEMS\App\Controllers\AdminUserController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
+use OEMS\App\Controllers\OrganizerAnnouncementController;
 use OEMS\App\Controllers\OrganizerEventController;
 use OEMS\App\Controllers\OrganizerParticipantController;
 use OEMS\App\Controllers\OrganizerCheckInController;
@@ -77,6 +78,9 @@ return static function (Router $router): void {
     $router->post('/organizer/events/{id}/publish', [OrganizerEventController::class, 'publish'], ['role:organizer', 'csrf'], 'organizer.events.publish');
     $router->post('/organizer/events/{id}/cancel', [OrganizerEventController::class, 'cancel'], ['role:organizer', 'csrf'], 'organizer.events.cancel');
     $router->post('/organizer/events/{id}/delete', [OrganizerEventController::class, 'delete'], ['role:organizer', 'csrf'], 'organizer.events.delete');
+    $router->get('/organizer/events/{id}/announcements', [OrganizerAnnouncementController::class, 'index'], ['role:organizer'], 'organizer.announcements.index');
+    $router->get('/organizer/events/{id}/announcements/create', [OrganizerAnnouncementController::class, 'create'], ['role:organizer'], 'organizer.announcements.create');
+    $router->post('/organizer/events/{id}/announcements', [OrganizerAnnouncementController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.announcements.store');
     $router->get('/organizer/events/{id}/participants', [OrganizerParticipantController::class, 'index'], ['role:organizer'], 'organizer.participants.index');
     $router->get('/organizer/events/{id}/participants.csv', [OrganizerParticipantController::class, 'export'], ['role:organizer'], 'organizer.participants.export');
     $router->get('/organizer/events/{id}/check-in', [OrganizerCheckInController::class, 'index'], ['role:organizer'], 'organizer.check-in.index');

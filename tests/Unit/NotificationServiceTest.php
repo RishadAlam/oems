@@ -11,6 +11,24 @@ use OEMS\Tests\Support\TestCase;
 
 final class NotificationServiceTest extends TestCase
 {
+    public function testEventAnnouncementTypeAcceptsOwnedParticipantRegistrationActions(): void
+    {
+        $repository = new \OEMS\Tests\Support\FakeNotificationRepository();
+        $service = new \OEMS\App\Services\NotificationService($repository);
+
+        $sent = $service->notify(
+            7,
+            'event_announcement',
+            'Doors open earlier',
+            'Please arrive at 8:30 AM.',
+            '/participant/registrations/41',
+            ['event_id' => 11, 'announcement_id' => 9],
+        );
+
+        $this->assertTrue($sent);
+        $this->assertSame('event_announcement', $repository->notifications[1]['type'] ?? null);
+    }
+
     private FakeNotificationRepository $repository;
 
     private NotificationService $service;

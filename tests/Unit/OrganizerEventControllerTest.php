@@ -134,6 +134,11 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($show->body(), 'Draft'));
         $this->assertFalse(str_contains($show->body(), 'Register now'));
         $this->assertFalse(str_contains($show->body(), 'Checkout'));
+
+        $this->events->events[11]['status'] = 'published';
+        $published = $this->controller->show($this->routed('GET', '/organizer/events/11', '11'));
+        $this->assertTrue(str_contains($published->body(), '/organizer/events/11/announcements'));
+        $this->assertTrue(str_contains($published->body(), 'Announcements'));
     }
 
     public function testOwnedShowAndEditRenderEscapedBannerGalleryTagsAndMapEvidence(): void
