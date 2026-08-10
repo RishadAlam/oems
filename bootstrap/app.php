@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Contracts\EmailLogRepositoryInterface;
+use OEMS\App\Contracts\AnalyticsRepositoryInterface;
 use OEMS\App\Contracts\AdminPeopleRepositoryInterface;
 use OEMS\App\Contracts\AnnouncementRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
@@ -26,6 +27,7 @@ use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
+use OEMS\App\Repositories\AnalyticsRepository;
 use OEMS\App\Repositories\AdminPeopleRepository;
 use OEMS\App\Repositories\AnnouncementRepository;
 use OEMS\App\Repositories\CategoryRepository;
@@ -56,6 +58,7 @@ use OEMS\App\Services\LocationService;
 use OEMS\App\Services\NotificationService;
 use OEMS\App\Services\NominatimGeocoder;
 use OEMS\App\Services\RegistrationService;
+use OEMS\App\Services\ReportService;
 use OEMS\App\Services\ReviewService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
@@ -155,6 +158,22 @@ $container->singleton(
     DashboardMetricsRepository::class,
     static fn (Container $container): DashboardMetricsRepository => new DashboardMetricsRepository(
         $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    AnalyticsRepositoryInterface::class,
+    static fn (Container $container): AnalyticsRepository => new AnalyticsRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    ReportService::class,
+    static fn (Container $container): ReportService => new ReportService(
+        $container->get(AnalyticsRepositoryInterface::class),
+        new DateTimeImmutable(
+            'now',
+            new DateTimeZone((string) $container->get(Config::class)->get('timezone', 'Asia/Dhaka')),
+        ),
     ),
 );
 $container->singleton(

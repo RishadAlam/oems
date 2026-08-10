@@ -384,6 +384,22 @@ final class DashboardLayoutTest extends TestCase
         }
     }
 
+    public function testAnalyticsAndReportsNavigationIsRoleScopedAndNamesRemainDistinct(): void
+    {
+        $admin = $this->renderAdminDashboard();
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', ['summary' => [], 'events' => []]);
+
+        $this->assertTrue(str_contains($admin, 'href="/admin/analytics"'));
+        $this->assertTrue(str_contains($admin, 'href="/admin/reports"'));
+        $this->assertTrue(str_contains($organizer, 'href="/organizer/analytics"'));
+        $this->assertFalse(str_contains($organizer, 'href="/admin/analytics"'));
+        $this->assertFalse(str_contains($organizer, 'href="/admin/reports"'));
+        $this->assertFalse(str_contains($participant, 'href="/organizer/analytics"'));
+        $this->assertFalse(str_contains($participant, 'href="/admin/analytics"'));
+        $this->assertFalse(str_contains($participant, 'href="/admin/reports"'));
+    }
+
     public function testOrganizerControllerLoadsAuthenticatedRepositorySummaryAndRecentEvents(): void
     {
         [$controller, $events] = $this->dashboardController('organizer', 10);

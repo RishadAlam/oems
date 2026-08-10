@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 use OEMS\App\Controllers\AuthController;
 use OEMS\App\Controllers\AdminCategoryController;
+use OEMS\App\Controllers\AdminAnalyticsController;
 use OEMS\App\Controllers\AdminEventController;
 use OEMS\App\Controllers\AdminReviewController;
 use OEMS\App\Controllers\AdminPaymentController;
 use OEMS\App\Controllers\AdminOrganizerController;
 use OEMS\App\Controllers\AdminUserController;
+use OEMS\App\Controllers\AdminReportController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerAnnouncementController;
+use OEMS\App\Controllers\OrganizerAnalyticsController;
 use OEMS\App\Controllers\OrganizerEventController;
 use OEMS\App\Controllers\OrganizerParticipantController;
 use OEMS\App\Controllers\OrganizerCheckInController;
@@ -68,6 +71,8 @@ return static function (Router $router): void {
     $router->get('/participant/events/{id}/review', [ParticipantReviewController::class, 'create'], ['role:participant'], 'participant.reviews.create');
     $router->post('/participant/events/{id}/review', [ParticipantReviewController::class, 'store'], ['role:participant', 'csrf'], 'participant.reviews.store');
     $router->get('/organizer/dashboard', [DashboardController::class, 'organizer'], ['role:organizer'], 'organizer.dashboard');
+    $router->get('/organizer/analytics', [OrganizerAnalyticsController::class, 'index'], ['role:organizer'], 'organizer.analytics.index');
+    $router->get('/organizer/analytics.csv', [OrganizerAnalyticsController::class, 'export'], ['role:organizer'], 'organizer.analytics.export');
     $router->get('/organizer/events', [OrganizerEventController::class, 'index'], ['role:organizer'], 'organizer.events.index');
     $router->get('/organizer/events/create', [OrganizerEventController::class, 'create'], ['role:organizer'], 'organizer.events.create');
     $router->post('/organizer/events', [OrganizerEventController::class, 'store'], ['role:organizer', 'csrf'], 'organizer.events.store');
@@ -95,6 +100,9 @@ return static function (Router $router): void {
     $router->get('/organizer/reviews', [OrganizerReviewController::class, 'index'], ['role:organizer'], 'organizer.reviews.index');
     $router->post('/organizer/reviews/{id}/reply', [OrganizerReviewController::class, 'reply'], ['role:organizer', 'csrf'], 'organizer.reviews.reply');
     $router->get('/admin/dashboard', [DashboardController::class, 'admin'], ['role:super-admin'], 'admin.dashboard');
+    $router->get('/admin/analytics', [AdminAnalyticsController::class, 'index'], ['role:super-admin'], 'admin.analytics.index');
+    $router->get('/admin/reports', [AdminReportController::class, 'index'], ['role:super-admin'], 'admin.reports.index');
+    $router->get('/admin/reports.csv', [AdminReportController::class, 'export'], ['role:super-admin'], 'admin.reports.export');
     $router->get('/admin/users', [AdminUserController::class, 'index'], ['role:super-admin'], 'admin.users.index');
     $router->get('/admin/users/{id}', [AdminUserController::class, 'show'], ['role:super-admin'], 'admin.users.show');
     $router->post('/admin/users/{id}/suspend', [AdminUserController::class, 'suspend'], ['role:super-admin', 'csrf'], 'admin.users.suspend');
