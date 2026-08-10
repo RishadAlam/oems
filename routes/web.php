@@ -16,6 +16,7 @@ use OEMS\App\Controllers\AdminContactController;
 use OEMS\App\Controllers\AdminNewsletterController;
 use OEMS\App\Controllers\AdminSettingsController;
 use OEMS\App\Controllers\DashboardController;
+use OEMS\App\Controllers\EventCalendarController;
 use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerAnnouncementController;
 use OEMS\App\Controllers\OrganizerAnalyticsController;
@@ -43,6 +44,8 @@ return static function (Router $router): void {
     $router->get('/events', [PublicEventController::class, 'index'], name: 'events.index');
     $router->post('/events/location', [PublicLocationController::class, 'store'], ['csrf'], 'events.location.store');
     $router->post('/events/location/clear', [PublicLocationController::class, 'clear'], ['csrf'], 'events.location.clear');
+    $router->get('/events/{slug}/calendar.ics', [EventCalendarController::class, 'publicIcs'], name: 'events.calendar');
+    $router->get('/events/{slug}/google-calendar', [EventCalendarController::class, 'publicGoogle'], name: 'events.google-calendar');
     $router->get('/events/{slug}', [PublicEventController::class, 'show'], name: 'events.show');
     $router->get('/about', [PublicContentController::class, 'about'], name: 'pages.about');
     $router->get('/contact', [PublicContactController::class, 'index'], name: 'pages.contact');
@@ -79,6 +82,8 @@ return static function (Router $router): void {
     $router->post('/participant/events/{slug}/register', [ParticipantRegistrationController::class, 'store'], ['role:participant', 'csrf'], 'participant.registrations.store');
     $router->get('/participant/registrations', [ParticipantRegistrationController::class, 'index'], ['role:participant'], 'participant.registrations.index');
     $router->get('/participant/registrations/{id}', [ParticipantRegistrationController::class, 'show'], ['role:participant'], 'participant.registrations.show');
+    $router->get('/participant/registrations/{id}/calendar.ics', [EventCalendarController::class, 'registrationIcs'], ['role:participant'], 'participant.registrations.calendar');
+    $router->get('/participant/registrations/{id}/google-calendar', [EventCalendarController::class, 'registrationGoogle'], ['role:participant'], 'participant.registrations.google-calendar');
     $router->post('/participant/registrations/{id}/cancel', [ParticipantRegistrationController::class, 'cancel'], ['role:participant', 'csrf'], 'participant.registrations.cancel');
     $router->get('/participant/tickets', [ParticipantTicketController::class, 'index'], ['role:participant'], 'participant.tickets.index');
     $router->get('/participant/tickets/{id}', [ParticipantTicketController::class, 'show'], ['role:participant'], 'participant.tickets.show');

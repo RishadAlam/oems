@@ -21,6 +21,7 @@ final class FakeMailOutboxRepository implements MailOutboxRepositoryInterface
 
         foreach ($this->jobs as $existing) {
             if ($existing['idempotency_key'] === $job['idempotency_key']) {
+                $existing['was_created'] = false;
                 return $existing;
             }
         }
@@ -34,6 +35,7 @@ final class FakeMailOutboxRepository implements MailOutboxRepositoryInterface
             'sent_at' => null,
             'provider_message_id' => null,
             'last_error' => null,
+            'was_created' => true,
         ]);
         $this->jobs[] = $job;
 

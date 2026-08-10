@@ -62,11 +62,13 @@ use OEMS\App\Services\AdminPeopleService;
 use OEMS\App\Services\AnnouncementService;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
+use OEMS\App\Services\CalendarService;
 use OEMS\App\Services\CouponService;
 use OEMS\App\Services\ContactService;
 use OEMS\App\Services\NewsletterService;
 use OEMS\App\Services\DashboardLayoutDataProvider;
 use OEMS\App\Services\EventService;
+use OEMS\App\Services\EventReminderService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\LocationService;
@@ -345,6 +347,21 @@ $container->singleton(
     MailOutboxService::class,
     static fn (Container $container): MailOutboxService => new MailOutboxService(
         $container->get(MailOutboxRepositoryInterface::class),
+    ),
+);
+$container->singleton(
+    CalendarService::class,
+    static fn (Container $container): CalendarService => new CalendarService(
+        (string) $container->get(Config::class)->get('timezone', 'Asia/Dhaka'),
+        (string) $container->get(Config::class)->get('url', 'http://localhost:8000'),
+    ),
+);
+$container->singleton(
+    EventReminderService::class,
+    static fn (Container $container): EventReminderService => new EventReminderService(
+        $container->get(RegistrationRepositoryInterface::class),
+        $container->get(MailOutboxService::class),
+        (string) $container->get(Config::class)->get('timezone', 'Asia/Dhaka'),
     ),
 );
 $container->singleton(

@@ -20,6 +20,7 @@ final class MailOutboxRepository implements MailOutboxRepositoryInterface
     public function enqueue(array $job): ?array
     {
         $payload = json_encode($job['payload'] ?? [], JSON_THROW_ON_ERROR);
+        $created = false;
 
         try {
             $statement = $this->connection->prepare(
@@ -35,13 +36,19 @@ final class MailOutboxRepository implements MailOutboxRepositoryInterface
                 'idempotency_key' => (string) $job['idempotency_key'],
                 'available_at' => (string) $job['available_at'],
             ]);
+            $created = true;
         } catch (PDOException $exception) {
             if (!$this->isUniqueViolation($exception)) {
                 throw $exception;
             }
         }
 
-        return $this->findByIdempotencyKey((string) $job['idempotency_key']);
+        $stored = $this->findByIdempotencyKey((string) $job['idempotency_key']);
+        if ($stored !== null) {
+            $stored['was_created'] = $created;
+        }
+
+        return $stored;
     }
 
     public function claimBatch(int $limit, string $lockToken, DateTimeImmutable $now): array

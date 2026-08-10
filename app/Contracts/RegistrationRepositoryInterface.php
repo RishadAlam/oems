@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OEMS\App\Contracts;
 
+use DateTimeImmutable;
+
 interface RegistrationRepositoryInterface
 {
     public function findEligibleEventForReservation(int $eventId): ?array;
@@ -19,6 +21,15 @@ interface RegistrationRepositoryInterface
     public function findForParticipantCurrent(int $participantId, int $registrationId): ?array;
 
     public function forParticipant(int $participantId): array;
+
+    public function dueReminderRecipients(
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+        int $limit,
+        int $offset = 0,
+    ): array;
+
+    public function findCalendarForParticipant(int $participantId, int $registrationId): ?array;
 
     public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array;
 

@@ -74,6 +74,12 @@ $paymentDetailLabel = $eventCancelled
             <div><dt>Starts</dt><dd><?= e($registration['event_start_display']) ?></dd></div>
             <div><dt>Venue</dt><dd><?= e($registration['venue_display'] ?? 'Venue to be announced') ?></dd></div>
         </dl>
+        <?php if ($registrationStatus === 'confirmed' && in_array((string) ($registration['event_status'] ?? ''), ['published', 'completed'], true)): ?>
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a class="button button--primary" href="/participant/registrations/<?= e($registration['id']) ?>/calendar.ics"><i class="ph ph-calendar-plus" aria-hidden="true"></i><span>Download calendar</span></a>
+                <a class="button button--quiet" href="/participant/registrations/<?= e($registration['id']) ?>/google-calendar" target="_blank" rel="noopener noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i><span>Google Calendar</span></a>
+            </div>
+        <?php endif; ?>
     </section>
     <section class="money-summary dashboard-panel" aria-labelledby="payment-status-heading">
         <h2 id="payment-status-heading" class="text-xl font-bold">Payment and ticket</h2>

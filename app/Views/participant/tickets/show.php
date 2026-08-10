@@ -44,5 +44,11 @@ $hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
             <div><dt>Registration</dt><dd><a class="text-link break-all" href="/participant/registrations/<?= e($ticket['registration_id']) ?>"><?= e($ticket['registration_number']) ?></a></dd></div>
             <div><dt>Issued</dt><dd><?= e($ticket['issued_display']) ?></dd></div>
         </dl>
+        <?php if ($canUseArtifacts): ?>
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <a class="button button--primary" href="/participant/registrations/<?= e($ticket['registration_id']) ?>/calendar.ics"><i class="ph ph-calendar-plus" aria-hidden="true"></i><span>Download calendar</span></a>
+                <a class="button button--quiet" href="/participant/registrations/<?= e($ticket['registration_id']) ?>/google-calendar" target="_blank" rel="noopener noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i><span>Google Calendar</span></a>
+            </div>
+        <?php endif; ?>
     </section>
 </div>

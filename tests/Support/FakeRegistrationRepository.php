@@ -8,6 +8,8 @@ use OEMS\App\Contracts\RegistrationRepositoryInterface;
 
 final class FakeRegistrationRepository implements RegistrationRepositoryInterface
 {
+    public array $reminderCandidates = [];
+
     public ?\ArrayObject $lockTrace = null;
 
     public array $registrations = [];
@@ -84,6 +86,26 @@ final class FakeRegistrationRepository implements RegistrationRepositoryInterfac
         ]);
 
         return array_map($this->withAliases(...), $registrations);
+    }
+
+    public function dueReminderRecipients(
+        \DateTimeImmutable $from,
+        \DateTimeImmutable $to,
+        int $limit,
+        int $offset = 0,
+    ): array {
+        return array_slice($this->reminderCandidates, max(0, $offset), min(100, max(1, $limit)));
+    }
+
+    public function findCalendarForParticipant(int $participantId, int $registrationId): ?array
+    {
+        $registration = $this->findForParticipant($participantId, $registrationId);
+
+        return is_array($registration)
+            && ($registration['registration_status'] ?? '') === 'confirmed'
+            && in_array(($registration['event_status'] ?? ''), ['published', 'completed'], true)
+                ? $registration
+                : null;
     }
 
     public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array

@@ -111,6 +111,17 @@
                 <span><i class="ph ph-buildings" aria-hidden="true"></i></span>
                 <div><small>Organized by</small><strong><?= e($event['organization_name'] ?? 'OEMS organizer') ?></strong></div>
             </section>
+            <section class="public-event__registration" aria-labelledby="calendar-heading">
+                <span><i class="ph ph-calendar-plus" aria-hidden="true"></i></span>
+                <div>
+                    <h2 id="calendar-heading">Add to calendar</h2>
+                    <p>Save the public event schedule. Restricted venues remain coarse until your registration is confirmed.</p>
+                    <div class="mt-4 grid gap-3">
+                        <a class="button button--quiet w-full" href="/events/<?= e($event['slug']) ?>/calendar.ics"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download calendar file</span></a>
+                        <a class="text-link justify-center" href="/events/<?= e($event['slug']) ?>/google-calendar" target="_blank" rel="noopener noreferrer"><span>Open Google Calendar</span><i class="ph ph-arrow-square-out" aria-hidden="true"></i></a>
+                    </div>
+                </div>
+            </section>
             <section class="public-event__registration" aria-labelledby="registration-heading">
                 <span><i class="ph ph-ticket" aria-hidden="true"></i></span>
                 <div>

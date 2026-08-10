@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\App\Repositories;
 
+use DateTimeImmutable;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Support\Money;
 use PDO;
@@ -112,6 +113,92 @@ final class RegistrationRepository implements RegistrationRepositoryInterface
         $statement->execute(['user_id' => $participantId]);
 
         return $statement->fetchAll();
+    }
+
+    public function dueReminderRecipients(
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+        int $limit,
+        int $offset = 0,
+    ): array {
+        $statement = $this->connection->prepare(
+            "SELECT registrations.id AS registration_id,
+                    registrations.status AS registration_status,
+                    events.id AS event_id,
+                    events.title AS event_title,
+                    events.start_date,
+                    events.status AS event_status,
+                    events.deleted_at AS event_deleted_at,
+                    users.id AS user_id,
+                    users.name AS participant_name,
+                    users.email AS recipient_email,
+                    users.status AS user_status,
+                    users.email_verified_at,
+                    users.deleted_at AS user_deleted_at
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id
+             WHERE registrations.status = 'confirmed'
+               AND events.status = 'published'
+               AND events.deleted_at IS NULL
+               AND users.status = 'active'
+               AND users.email_verified_at IS NOT NULL
+               AND users.deleted_at IS NULL
+               AND events.start_date > :reminder_from
+               AND events.start_date <= :reminder_to
+             ORDER BY events.start_date ASC, registrations.id ASC
+             LIMIT :reminder_limit OFFSET :reminder_offset",
+        );
+        $statement->bindValue('reminder_from', $from->format('Y-m-d H:i:s'));
+        $statement->bindValue('reminder_to', $to->format('Y-m-d H:i:s'));
+        $statement->bindValue('reminder_limit', min(100, max(1, $limit)), PDO::PARAM_INT);
+        $statement->bindValue('reminder_offset', max(0, $offset), PDO::PARAM_INT);
+        $statement->execute();
+        $rows = $statement->fetchAll();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    public function findCalendarForParticipant(int $participantId, int $registrationId): ?array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT registrations.id,
+                    registrations.id AS registration_id,
+                    registrations.status,
+                    registrations.status AS registration_status,
+                    events.id AS event_id,
+                    events.title,
+                    events.title AS event_title,
+                    events.slug AS event_slug,
+                    events.description,
+                    events.start_date,
+                    events.end_date,
+                    events.status AS event_status,
+                    events.location_visibility,
+                    venues.name AS venue_name,
+                    venues.address_line AS venue_address_line,
+                    venues.city AS venue_city,
+                    venues.country AS venue_country
+             FROM registrations
+             INNER JOIN events ON events.id = registrations.event_id
+             INNER JOIN users ON users.id = registrations.user_id
+             LEFT JOIN venues ON venues.id = events.venue_id
+             WHERE registrations.user_id = :calendar_user_id
+                  AND registrations.id = :calendar_registration_id
+                  AND registrations.status = 'confirmed'
+                  AND events.status IN ('published', 'completed')
+                  AND events.deleted_at IS NULL
+                  AND users.status = 'active'
+                  AND users.email_verified_at IS NOT NULL
+                  AND users.deleted_at IS NULL
+                LIMIT 1",
+        );
+        $statement->execute([
+            'calendar_user_id' => $participantId,
+            'calendar_registration_id' => $registrationId,
+        ]);
+
+        return $this->rowOrNull($statement->fetch());
     }
 
     public function findOrganizerEvent(int $organizerUserId, int $eventId): ?array

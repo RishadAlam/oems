@@ -72,7 +72,7 @@ final class MailOutboxService
 
         return $job === null
             ? ['ok' => false, 'job' => null, 'errors' => ['outbox' => 'Email delivery could not be queued.']]
-            : ['ok' => true, 'job' => $job, 'errors' => []];
+            : ['ok' => true, 'created' => (bool) ($job['was_created'] ?? false), 'job' => $job, 'errors' => []];
     }
 
     private function validPayload(string $template, array $payload): bool

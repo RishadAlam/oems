@@ -47,7 +47,7 @@ final class FakeEventRepository implements EventRepositoryInterface
     public function findPublishedBySlug(string $slug): ?array
     {
         foreach ($this->events as $event) {
-            if ($event['slug'] === $slug && $event['status'] === 'published') {
+            if ($event['slug'] === $slug && in_array($event['status'], ['published', 'completed'], true)) {
                 return $event;
             }
         }
