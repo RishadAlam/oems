@@ -1,10 +1,10 @@
 <section class="hero-section">
     <div class="page-shell hero-layout">
         <div class="hero-content" data-reveal>
-            <p class="eyebrow"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Events made for showing up</span></p>
-            <h1 class="hero-title">Find your next <span>standout event.</span></h1>
+            <p class="eyebrow"><i class="ph ph-sparkle" aria-hidden="true"></i><span><?= e($siteSettings['home_hero_kicker'] ?? 'Events made for showing up') ?></span></p>
+            <h1 class="hero-title"><?= e($siteSettings['home_hero_title'] ?? 'Find your next standout event.') ?></h1>
             <p class="hero-copy">
-                Discover workshops, talks, and gatherings across Dhaka, or give your own audience an event experience that feels effortless.
+                <?= e($siteSettings['home_hero_copy'] ?? 'Discover workshops, talks, and gatherings across Dhaka, or host an event experience that feels effortless.') ?>
             </p>
             <div class="hero-actions">
                 <a href="/events" class="button button--primary"><span>Explore events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
@@ -35,6 +35,10 @@
         </div>
     </div>
 </section>
+
+<?php if (($homeBanners ?? []) !== []): ?>
+<section class="section-space pt-0" aria-label="Platform announcements"><div class="page-shell grid gap-5 lg:grid-cols-2"><?php foreach ($homeBanners as $banner): ?><article class="dashboard-panel overflow-hidden p-0"><img class="aspect-[16/7] w-full object-cover" src="<?= e($banner['image_path']) ?>" alt="" width="1200" height="525" loading="lazy"><div class="p-6"><h2 class="text-xl font-bold"><?= e($banner['title']) ?></h2><?php if (!empty($banner['subtitle'])): ?><p class="mt-2 text-[var(--ink-muted)]"><?= e($banner['subtitle']) ?></p><?php endif; ?><?php if (!empty($banner['link_url'])): ?><a class="text-link mt-4 inline-flex" href="<?= e($banner['link_url']) ?>"><span>Learn more</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a><?php endif; ?></div></article><?php endforeach; ?></div></section>
+<?php endif; ?>
 
 <section class="category-rail" aria-label="Popular event categories">
     <div class="page-shell category-rail__grid">

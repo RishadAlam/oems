@@ -101,6 +101,14 @@ INSERT INTO payment_methods (name, slug, configuration, is_active, sort_order) V
 INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('general', 'site_name', 'OEMS', 'string', TRUE),
     ('general', 'site_tagline', 'Find your next room full of ideas.', 'string', TRUE),
+    ('general', 'contact_email', 'hello@oems.local', 'string', TRUE),
+    ('general', 'support_phone', '+880 2 0000 0000', 'string', TRUE),
+    ('general', 'footer_blurb', 'Better tools for finding a crowd, filling a room, and running an event people remember.', 'string', TRUE),
+    ('general', 'footer_location', 'Dhaka, Bangladesh', 'string', TRUE),
+    ('home', 'home_hero_kicker', 'Events made for showing up', 'string', TRUE),
+    ('home', 'home_hero_title', 'Find your next standout event.', 'string', TRUE),
+    ('home', 'home_hero_copy', 'Discover workshops, talks, and gatherings across Dhaka, or host an event experience that feels effortless.', 'string', TRUE),
+    ('general', 'default_seo_description', 'Discover published workshops, talks, and gatherings with OEMS.', 'string', TRUE),
     ('general', 'default_currency', 'BDT', 'string', TRUE),
     ('general', 'maintenance_mode', 'false', 'boolean', FALSE),
     ('mail', 'mail_driver', 'smtp', 'string', FALSE),
@@ -113,9 +121,14 @@ SET location_visibility = 'public'
 WHERE location_visibility IS NULL;
 
 INSERT INTO pages (title, slug, content, status, published_at, created_by, updated_by) VALUES
-    ('About', 'about', '<p>OEMS connects people with meaningful events and helps organizers run them confidently.</p>', 'published', NOW(), 1, 1),
-    ('Privacy', 'privacy', '<p>OEMS handles account and event data according to the published privacy policy.</p>', 'published', NOW(), 1, 1),
-    ('Terms', 'terms', '<p>Use of OEMS is subject to the platform terms and organizer policies.</p>', 'published', NOW(), 1, 1);
+    ('About', 'about', 'OEMS connects people with meaningful events and helps organizers run them confidently.', 'published', NOW(), 1, 1),
+    ('Contact', 'contact', 'Email hello@oems.local for public support about accounts, events, registrations, or tickets.', 'published', NOW(), 1, 1),
+    ('Privacy', 'privacy', 'OEMS handles account and event data according to the published privacy policy.', 'published', NOW(), 1, 1),
+    ('Terms', 'terms', 'Use of OEMS is subject to the platform terms and organizer policies.', 'published', NOW(), 1, 1);
+
+INSERT INTO faqs (question, answer, category, sort_order, is_active) VALUES
+    ('How do I receive my ticket?', 'Your ticket appears in the participant workspace after the registration and payment requirements are confirmed.', 'Tickets', 10, TRUE),
+    ('Can an organizer update participants?', 'Organizers can review participants and send event announcements from the event workspace.', 'Events', 20, TRUE);
 
 -- Development Super Admin login:
 -- Email: admin@oems.local

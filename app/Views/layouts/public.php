@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="<?= e($metaDescription ?? 'Discover and host memorable events with OEMS.') ?>">
+    <meta name="description" content="<?= e($metaDescription ?? $siteSettings['default_seo_description'] ?? 'Discover and host memorable events with OEMS.') ?>">
     <?php if (!empty($canonicalUrl)): ?>
         <link rel="canonical" href="<?= e($canonicalUrl) ?>">
     <?php endif; ?>
@@ -13,7 +13,7 @@
         <?php endif; ?>
     <?php endforeach; ?>
     <meta name="theme-color" content="#f5f7fb">
-    <title><?= e($pageTitle ?? $app['name']) ?> | <?= e($app['name']) ?></title>
+    <title><?= e($pageTitle ?? $siteSettings['site_name'] ?? $app['name']) ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
@@ -94,7 +94,7 @@
             <div>
                 <?php require base_path('app/Views/components/brand.php'); ?>
                 <p class="mt-4 max-w-sm text-sm leading-6 text-[var(--ink-muted)]">
-                    Better tools for finding a crowd, filling a room, and running an event people remember.
+                    <?= e($siteSettings['footer_blurb'] ?? 'Better tools for finding a crowd, filling a room, and running an event people remember.') ?>
                 </p>
             </div>
             <div>
@@ -109,14 +109,20 @@
                 <h2 class="footer-heading">OEMS</h2>
                 <div class="mt-4 grid gap-3 text-sm text-[var(--ink-muted)]">
                     <a class="hover:text-[var(--ink)]" href="/register?role=organizer">Host an event</a>
+                    <a class="hover:text-[var(--ink)]" href="/about">About</a>
+                    <a class="hover:text-[var(--ink)]" href="/faq">FAQ</a>
+                    <a class="hover:text-[var(--ink)]" href="/privacy">Privacy</a>
+                    <a class="hover:text-[var(--ink)]" href="/terms">Terms</a>
                     <a class="hover:text-[var(--ink)]" href="/login">Sign in</a>
-                    <a class="hover:text-[var(--ink)]" href="mailto:hello@oems.local">Contact</a>
+                    <a class="hover:text-[var(--ink)]" href="/contact">Contact</a>
+                    <a class="hover:text-[var(--ink)]" href="mailto:<?= e($siteSettings['contact_email'] ?? 'hello@oems.local') ?>"><?= e($siteSettings['contact_email'] ?? 'hello@oems.local') ?></a>
+                    <a class="hover:text-[var(--ink)]" href="tel:<?= e(preg_replace('/[^+0-9]/', '', $siteSettings['support_phone'] ?? '+880200000000')) ?>"><?= e($siteSettings['support_phone'] ?? '+880 2 0000 0000') ?></a>
                 </div>
             </div>
         </div>
         <div class="page-shell flex flex-col gap-3 border-t border-[var(--line)] py-6 text-xs text-[var(--ink-muted)] sm:flex-row sm:items-center sm:justify-between">
-            <p>&copy; <?= date('Y') ?> OEMS. Built for real communities.</p>
-            <p>Dhaka, Bangladesh</p>
+            <p>&copy; <?= date('Y') ?> <?= e($siteSettings['site_name'] ?? 'OEMS') ?>. <?= e($siteSettings['site_tagline'] ?? 'Built for real communities.') ?></p>
+            <p><?= e($siteSettings['footer_location'] ?? 'Dhaka, Bangladesh') ?></p>
         </div>
     </footer>
 </body>

@@ -22,6 +22,8 @@ use OEMS\App\Contracts\ReviewRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\App\Contracts\PlatformSettingsRepositoryInterface;
+use OEMS\App\Contracts\CmsRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
@@ -44,6 +46,8 @@ use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
+use OEMS\App\Repositories\PlatformSettingsRepository;
+use OEMS\App\Repositories\CmsRepository;
 use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Services\AccountMailer;
 use OEMS\App\Services\AdminPeopleService;
@@ -65,6 +69,9 @@ use OEMS\App\Services\TicketService;
 use OEMS\App\Services\TransactionMailer;
 use OEMS\App\Services\VenueService;
 use OEMS\App\Services\VenueGeocodingService;
+use OEMS\App\Services\PlatformSettingsService;
+use OEMS\App\Services\CmsService;
+use OEMS\App\Services\PublicSiteContentProvider;
 use OEMS\App\Support\StreamHttpClient;
 use OEMS\Core\Auth;
 use OEMS\Core\Container;
@@ -114,7 +121,7 @@ $container->instance(
     new View(
         $basePath . '/app/Views',
         static function (array $data, string $layout) use ($container): array {
-            return $container->get(DashboardLayoutDataProvider::class)->forLayout($data, $layout);
+            return $container->get(PublicSiteContentProvider::class)->forLayout($data, $layout);
         },
     ),
 );
@@ -197,6 +204,18 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    PlatformSettingsRepositoryInterface::class,
+    static fn (Container $container): PlatformSettingsRepository => new PlatformSettingsRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
+    CmsRepositoryInterface::class,
+    static fn (Container $container): CmsRepository => new CmsRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ProfileRepositoryInterface::class,
     static fn (Container $container): ProfileRepository => new ProfileRepository(
         $container->get(Database::class)->connection(),
@@ -256,6 +275,29 @@ $container->singleton(
     DashboardLayoutDataProvider::class,
     static fn (Container $container): DashboardLayoutDataProvider => new DashboardLayoutDataProvider(
         $container->get(NotificationRepositoryInterface::class),
+    ),
+);
+$container->singleton(
+    PlatformSettingsService::class,
+    static fn (Container $container): PlatformSettingsService => new PlatformSettingsService(
+        $container->get(PlatformSettingsRepositoryInterface::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    CmsService::class,
+    static fn (Container $container): CmsService => new CmsService(
+        $container->get(CmsRepositoryInterface::class),
+        new ImageUploadService($basePath . '/public/uploads/banners', '/uploads/banners'),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    PublicSiteContentProvider::class,
+    static fn (Container $container): PublicSiteContentProvider => new PublicSiteContentProvider(
+        $container->get(PlatformSettingsService::class),
+        $container->get(CmsRepositoryInterface::class),
+        $container->get(DashboardLayoutDataProvider::class),
     ),
 );
 $container->singleton(

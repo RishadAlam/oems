@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
-    <title><?= e($pageTitle ?? 'Account') ?> | <?= e($app['name']) ?></title>
+    <title><?= e($pageTitle ?? 'Account') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js"></script>
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
@@ -17,7 +17,7 @@
             <div class="auth-visual__content">
                 <p class="eyebrow eyebrow--inverse"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Made for real communities</span></p>
                 <p class="auth-visual__title">Good events begin before anyone enters the room.</p>
-                <p class="auth-visual__copy">Build the account that helps you discover, organize, and remember what matters.</p>
+                <p class="auth-visual__copy"><?= e($siteSettings['site_tagline'] ?? 'Build the account that helps you discover, organize, and remember what matters.') ?></p>
                 <div class="auth-visual__list" aria-label="OEMS account benefits">
                     <span><i class="ph ph-ticket" aria-hidden="true"></i>One account for every ticket</span>
                     <span><i class="ph ph-shield-check" aria-hidden="true"></i>Secure role-based workspaces</span>

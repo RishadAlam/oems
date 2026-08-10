@@ -11,6 +11,8 @@ use OEMS\App\Controllers\AdminPaymentController;
 use OEMS\App\Controllers\AdminOrganizerController;
 use OEMS\App\Controllers\AdminUserController;
 use OEMS\App\Controllers\AdminReportController;
+use OEMS\App\Controllers\AdminCmsController;
+use OEMS\App\Controllers\AdminSettingsController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\HomeController;
 use OEMS\App\Controllers\OrganizerAnnouncementController;
@@ -28,6 +30,7 @@ use OEMS\App\Controllers\ParticipantReviewController;
 use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Controllers\PublicEventController;
 use OEMS\App\Controllers\PublicLocationController;
+use OEMS\App\Controllers\PublicContentController;
 use OEMS\Core\Router;
 
 return static function (Router $router): void {
@@ -36,6 +39,11 @@ return static function (Router $router): void {
     $router->post('/events/location', [PublicLocationController::class, 'store'], ['csrf'], 'events.location.store');
     $router->post('/events/location/clear', [PublicLocationController::class, 'clear'], ['csrf'], 'events.location.clear');
     $router->get('/events/{slug}', [PublicEventController::class, 'show'], name: 'events.show');
+    $router->get('/about', [PublicContentController::class, 'about'], name: 'pages.about');
+    $router->get('/contact', [PublicContentController::class, 'contact'], name: 'pages.contact');
+    $router->get('/privacy', [PublicContentController::class, 'privacy'], name: 'pages.privacy');
+    $router->get('/terms', [PublicContentController::class, 'terms'], name: 'pages.terms');
+    $router->get('/faq', [PublicContentController::class, 'faq'], name: 'pages.faq');
 
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest'], 'login');
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf'], 'login.submit');
@@ -133,6 +141,23 @@ return static function (Router $router): void {
     $router->get('/admin/payments/{id}', [AdminPaymentController::class, 'show'], ['role:super-admin'], 'admin.payments.show');
     $router->post('/admin/payments/{id}/verify', [AdminPaymentController::class, 'verify'], ['role:super-admin', 'csrf'], 'admin.payments.verify');
     $router->post('/admin/payments/{id}/reject', [AdminPaymentController::class, 'reject'], ['role:super-admin', 'csrf'], 'admin.payments.reject');
+    $router->get('/admin/settings', [AdminSettingsController::class, 'edit'], ['role:super-admin'], 'admin.settings.edit');
+    $router->post('/admin/settings', [AdminSettingsController::class, 'update'], ['role:super-admin', 'csrf'], 'admin.settings.update');
+    $router->get('/admin/cms', [AdminCmsController::class, 'index'], ['role:super-admin'], 'admin.cms.index');
+    $router->get('/admin/cms/pages/{slug}', [AdminCmsController::class, 'editPage'], ['role:super-admin'], 'admin.cms.pages.edit');
+    $router->post('/admin/cms/pages/{slug}', [AdminCmsController::class, 'updatePage'], ['role:super-admin', 'csrf'], 'admin.cms.pages.update');
+    $router->post('/admin/cms/pages/{slug}/publish', [AdminCmsController::class, 'publishPage'], ['role:super-admin', 'csrf'], 'admin.cms.pages.publish');
+    $router->post('/admin/cms/pages/{slug}/unpublish', [AdminCmsController::class, 'unpublishPage'], ['role:super-admin', 'csrf'], 'admin.cms.pages.unpublish');
+    $router->get('/admin/cms/faqs/create', [AdminCmsController::class, 'createFaq'], ['role:super-admin'], 'admin.cms.faqs.create');
+    $router->post('/admin/cms/faqs', [AdminCmsController::class, 'storeFaq'], ['role:super-admin', 'csrf'], 'admin.cms.faqs.store');
+    $router->get('/admin/cms/faqs/{id}/edit', [AdminCmsController::class, 'editFaq'], ['role:super-admin'], 'admin.cms.faqs.edit');
+    $router->post('/admin/cms/faqs/{id}', [AdminCmsController::class, 'updateFaq'], ['role:super-admin', 'csrf'], 'admin.cms.faqs.update');
+    $router->post('/admin/cms/faqs/{id}/status', [AdminCmsController::class, 'setFaqActive'], ['role:super-admin', 'csrf'], 'admin.cms.faqs.status');
+    $router->get('/admin/cms/banners/create', [AdminCmsController::class, 'createBanner'], ['role:super-admin'], 'admin.cms.banners.create');
+    $router->post('/admin/cms/banners', [AdminCmsController::class, 'storeBanner'], ['role:super-admin', 'csrf'], 'admin.cms.banners.store');
+    $router->get('/admin/cms/banners/{id}/edit', [AdminCmsController::class, 'editBanner'], ['role:super-admin'], 'admin.cms.banners.edit');
+    $router->post('/admin/cms/banners/{id}', [AdminCmsController::class, 'updateBanner'], ['role:super-admin', 'csrf'], 'admin.cms.banners.update');
+    $router->post('/admin/cms/banners/{id}/status', [AdminCmsController::class, 'setBannerActive'], ['role:super-admin', 'csrf'], 'admin.cms.banners.status');
     $router->get('/settings/password', [AuthController::class, 'showChangePassword'], ['auth'], 'password.change');
     $router->post('/settings/password', [AuthController::class, 'changePassword'], ['auth', 'csrf'], 'password.change.submit');
 };

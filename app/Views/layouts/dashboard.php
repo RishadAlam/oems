@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
-    <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($app['name']) ?></title>
+    <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
     <link rel="stylesheet" href="/assets/css/app.css">
@@ -41,6 +41,8 @@
     $adminReviewsActive = str_starts_with($currentPath, '/admin/reviews');
     $adminAnalyticsActive = str_starts_with($currentPath, '/admin/analytics');
     $adminReportsActive = str_starts_with($currentPath, '/admin/reports');
+    $adminSettingsActive = str_starts_with($currentPath, '/admin/settings');
+    $adminCmsActive = str_starts_with($currentPath, '/admin/cms');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -82,6 +84,8 @@
                         <a class="dashboard-nav-link<?= $adminReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/reviews"<?= $adminReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Review moderation</span></a>
                         <a class="dashboard-nav-link<?= $adminAnalyticsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/analytics"<?= $adminAnalyticsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chart-line-up" aria-hidden="true"></i><span>Analytics</span></a>
                         <a class="dashboard-nav-link<?= $adminReportsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/reports"<?= $adminReportsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-files" aria-hidden="true"></i><span>Reports</span></a>
+                        <a class="dashboard-nav-link<?= $adminCmsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/cms"<?= $adminCmsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-browser" aria-hidden="true"></i><span>Content</span></a>
+                        <a class="dashboard-nav-link<?= $adminSettingsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/settings"<?= $adminSettingsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span>Settings</span></a>
                     <?php endif; ?>
                     <a class="dashboard-nav-link<?= $currentPath === '/events' ? ' dashboard-nav-link--active' : '' ?>" href="/events"<?= $currentPath === '/events' ? ' aria-current="page"' : '' ?>><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                     <a class="dashboard-nav-link<?= $currentPath === '/profile' ? ' dashboard-nav-link--active' : '' ?>" href="/profile"<?= $currentPath === '/profile' ? ' aria-current="page"' : '' ?>><i class="ph ph-user-circle" aria-hidden="true"></i><span>Profile</span></a>

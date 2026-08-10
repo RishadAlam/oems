@@ -10,6 +10,7 @@ use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Services\LocationService;
+use OEMS\App\Services\PlatformSettingsService;
 use OEMS\App\Support\Money;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
@@ -32,6 +33,7 @@ final class HomeController extends Controller
         private readonly ?FavoriteRepositoryInterface $favorites = null,
         private readonly ?RegistrationRepositoryInterface $registrations = null,
         private readonly ?LocationService $locations = null,
+        private readonly ?PlatformSettingsService $settings = null,
     ) {
         parent::__construct($view, $session, $security, $auth, $config);
     }
@@ -45,15 +47,16 @@ final class HomeController extends Controller
             $featured,
         );
         $canonicalUrl = rtrim((string) $this->config->get('url', 'http://localhost:8000'), '/') . '/';
-        $description = 'Discover published workshops, talks, and gatherings with OEMS.';
+        $siteSettings = $this->settings?->publicValues() ?? PlatformSettingsService::defaults();
+        $description = $siteSettings['default_seo_description'];
 
         return $this->render('home/index', [
-            'pageTitle' => 'Events worth showing up for',
+            'pageTitle' => $siteSettings['home_hero_title'],
             'metaDescription' => $description,
             'canonicalUrl' => $canonicalUrl,
             'openGraph' => [
                 'type' => 'website',
-                'title' => 'Events worth showing up for',
+                'title' => $siteSettings['home_hero_title'],
                 'description' => $description,
                 'url' => $canonicalUrl,
             ],
