@@ -188,7 +188,41 @@ final class ParticipantRegistrationController extends Controller
         return $this->render('participant/registrations/show', [
             'pageTitle' => 'Registration ' . (string) $registration['registration_number'],
             'registration' => $this->presentRegistration($registration, $payment, $ticket, $cancellationState),
+            'manualPayment' => $this->manualPaymentPresentation($this->payments->findActiveMethodBySlug('manual')),
         ], 'dashboard');
+    }
+
+    public function submitPromotedPayment(Request $request): Response
+    {
+        $registration = $this->ownedRegistration($request);
+        if ($registration === null) {
+            return $this->notFound();
+        }
+        $userId = $this->auth->id();
+        if ($userId === null) {
+            return Response::redirect('/login');
+        }
+        $registrationId = (int) $registration['id'];
+        $limitKey = 'participant-waitlist-payment:' . $userId . ':' . $registrationId . ':' . hash('sha256', $request->ip());
+        if (!$this->limiter->consumeAttempt($limitKey)) {
+            return Response::html('<h1>Too many payment attempts</h1><p>Wait before trying again.</p>', 429);
+        }
+        $details = [
+            'channel' => is_scalar($request->input('channel')) ? (string) $request->input('channel') : '',
+            'transaction_reference' => is_scalar($request->input('transaction_reference'))
+                ? (string) $request->input('transaction_reference')
+                : '',
+        ];
+        $result = $this->registrationService->submitPromotedPayment($userId, $registrationId, $details);
+        if (!($result['success'] ?? false)) {
+            return $this->redirectWithErrors(
+                '/participant/registrations/' . $registrationId,
+                is_array($result['errors'] ?? null) ? $result['errors'] : ['payment' => ['The payment details could not be submitted.']],
+                ['channel' => is_scalar($details['channel']) ? (string) $details['channel'] : ''],
+            );
+        }
+
+        return $this->redirectWith('/participant/registrations/' . $registrationId, 'success', 'Your payment reference was submitted for review.');
     }
 
     public function cancel(Request $request): Response
@@ -338,6 +372,14 @@ final class ParticipantRegistrationController extends Controller
             'event_start_display' => $start === '' ? 'Schedule unavailable' : $this->date($start)->format('M j, Y, g:i A'),
             'can_cancel' => (bool) ($cancellationState['allowed'] ?? false),
             'cancellation_state' => $cancellationState,
+            'promoted_claim_active' => $status === 'pending'
+                && !empty($registration['promoted_at'])
+                && !empty($registration['waitlist_claim_expires_at'])
+                && $payment === null
+                && $this->date((string) $registration['waitlist_claim_expires_at']) > new DateTimeImmutable('now', $this->timezone()),
+            'waitlist_claim_expires_display' => empty($registration['waitlist_claim_expires_at'])
+                ? null
+                : $this->date((string) $registration['waitlist_claim_expires_at'])->format('M j, Y, g:i A'),
         ]);
     }
 

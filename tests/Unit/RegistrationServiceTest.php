@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
 use OEMS\App\Repositories\PaymentRepository;
 use OEMS\App\Repositories\CouponRepository;
 use OEMS\App\Repositories\RegistrationRepository;
 use OEMS\App\Repositories\TicketRepository;
+use OEMS\App\Repositories\WaitlistRepository;
 use OEMS\App\Services\RegistrationService;
 use OEMS\App\Services\CouponService;
 use OEMS\App\Services\NotificationService;
@@ -650,6 +652,106 @@ final class RegistrationServiceTest extends TestCase
         $this->assertSame(1, $this->countRows('payments'));
     }
 
+    public function testWaitlistPromotionCreatesAPaidClaimThenAcceptsParticipantPayment(): void
+    {
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (19, 1, 1, 1, 'Paid Waitlist Event', 'paid-waitlist-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 1, 90, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (70, 19, 5, 'OEMS-WAIT-PAID', 'waitlisted', 90, 'BDT', datetime('now', '-1 hour'), datetime('now', '-1 hour'))");
+
+        $promoted = $this->service->promoteWaitlist(19);
+
+        $this->assertTrue($promoted['success'], json_encode($promoted) . (is_file($this->logPath) ? file_get_contents($this->logPath) : ''));
+        $this->assertTrue($promoted['promoted']);
+        $this->assertSame('pending', $promoted['registration']['registration_status']);
+        $this->assertSame(0, $this->availableSeats(19));
+        $this->assertSame(0, $this->countRows('payments'));
+        $this->assertNotNull($this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 70')->fetchColumn());
+
+        $paid = $this->service->submitPromotedPayment(5, 70, [
+            'transaction_reference' => 'WAITLIST-PAY-001',
+            'channel' => 'bank_transfer',
+        ]);
+        $this->assertTrue($paid['success']);
+        $this->assertSame('pending', $paid['payment']['payment_status']);
+        $this->assertSame(1, $this->countRows('payments'));
+        $this->assertSame(null, $this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 70')->fetchColumn());
+
+        $repeat = $this->service->submitPromotedPayment(5, 70, [
+            'transaction_reference' => 'WAITLIST-PAY-001',
+            'channel' => 'bank_transfer',
+        ]);
+        $this->assertTrue($repeat['success']);
+        $this->assertSame(1, $this->countRows('payments'));
+    }
+
+    public function testPaidWaitlistPromotionRequiresManualPaymentAndCapsClaimAtRegistrationDeadline(): void
+    {
+        $now = new DateTimeImmutable('2026-08-10 10:00:00');
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (22, 1, 1, 1, 'Bounded Waitlist Event', 'bounded-waitlist-event', '2026-08-12 10:00:00', '2026-08-10 12:00:00', 1, 1, 90, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (73, 22, 5, 'OEMS-WAIT-BOUNDED', 'waitlisted', 70, 'BDT', '2026-08-10 09:00:00', '2026-08-10 09:00:00')");
+        $this->connection->exec("UPDATE payment_methods SET is_active = 0 WHERE slug = 'manual'");
+
+        $unavailable = $this->service->promoteWaitlist(22, $now);
+        $this->assertFalse($unavailable['success']);
+        $this->assertSame('waitlisted', $this->connection->query('SELECT status FROM registrations WHERE id = 73')->fetchColumn());
+        $this->assertSame(1, $this->availableSeats(22));
+
+        $this->connection->exec("UPDATE payment_methods SET is_active = 1 WHERE slug = 'manual'");
+        $promoted = $this->service->promoteWaitlist(22, $now);
+        $this->assertTrue($promoted['success']);
+        $this->assertSame('2026-08-10 12:00:00', $this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 73')->fetchColumn());
+        $this->assertSame('90', (string) $this->connection->query('SELECT amount FROM registrations WHERE id = 73')->fetchColumn());
+    }
+
+    public function testFreeWaitlistPromotionConfirmsAndIssuesTicketAtomically(): void
+    {
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (20, 1, 1, 1, 'Free Waitlist Event', 'free-waitlist-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 1, 0, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (71, 20, 5, 'OEMS-WAIT-FREE', 'waitlisted', 0, 'BDT', datetime('now', '-1 hour'), datetime('now', '-1 hour'))");
+
+        $result = $this->service->promoteWaitlist(20);
+
+        $this->assertTrue($result['success'], json_encode($result) . (is_file($this->logPath) ? file_get_contents($this->logPath) : ''));
+        $this->assertTrue($result['promoted']);
+        $this->assertSame('confirmed', $result['registration']['registration_status']);
+        $this->assertSame('paid', $result['payment']['payment_status']);
+        $this->assertSame('valid', $result['ticket']['ticket_status']);
+        $this->assertSame(0, $this->availableSeats(20));
+        $this->assertSame(null, $this->connection->query('SELECT waitlist_claim_expires_at FROM registrations WHERE id = 71')->fetchColumn());
+    }
+
+    public function testWaitlistPromotionRollsBackWhenRequiredPaymentMethodIsUnavailable(): void
+    {
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (21, 1, 1, 1, 'Unavailable Method Event', 'unavailable-method-event', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 1, 0, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES (72, 21, 5, 'OEMS-WAIT-METHOD', 'waitlisted', 0, 'BDT', datetime('now', '-1 hour'), datetime('now', '-1 hour'))");
+        $this->connection->exec("UPDATE payment_methods SET is_active = 0 WHERE slug = 'free'");
+
+        $result = $this->service->promoteWaitlist(21);
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('waitlisted', $this->connection->query('SELECT status FROM registrations WHERE id = 72')->fetchColumn());
+        $this->assertSame(1, $this->availableSeats(21));
+        $this->assertSame(0, $this->countRows('payments'));
+        $this->assertSame(0, $this->countRows('tickets'));
+    }
+
+    public function testParticipantCancellationAutomaticallyOffersReleasedSeatToOldestWaitlistEntry(): void
+    {
+        $digest = str_repeat('b', 64);
+        $this->connection->exec("INSERT INTO events (id, organizer_id, category_id, venue_id, title, slug, start_date, registration_deadline, capacity, available_seats, ticket_price, currency, status, waitlist_enabled, deleted_at) VALUES (24, 1, 1, 1, 'Automatic Promotion', 'automatic-promotion', datetime('now', '+10 days'), datetime('now', '+9 days'), 1, 0, 0, 'BDT', 'published', 1, NULL)");
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at, waitlisted_at) VALUES
+            (80, 24, 1, 'OEMS-AUTO-OWNER', 'confirmed', 0, 'BDT', datetime('now', '-2 hours'), NULL),
+            (81, 24, 5, 'OEMS-AUTO-WAIT', 'waitlisted', 0, 'BDT', datetime('now', '-1 hour'), datetime('now', '-1 hour'))");
+        $this->connection->exec("INSERT INTO payments (registration_id, payment_method_id, transaction_reference, amount, currency, status, paid_at) VALUES (80, 1, 'FREE-AUTO-OWNER', 0, 'BDT', 'paid', CURRENT_TIMESTAMP)");
+        $this->connection->exec("INSERT INTO tickets (registration_id, ticket_number, qr_payload_hash, status, issued_at) VALUES (80, 'OEMS-AUTO-TICKET', '{$digest}', 'valid', CURRENT_TIMESTAMP)");
+
+        $result = $this->service->cancel(1, 80, 'Plans changed');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('cancelled', $this->connection->query('SELECT status FROM registrations WHERE id = 80')->fetchColumn());
+        $this->assertSame('confirmed', $this->connection->query('SELECT status FROM registrations WHERE id = 81')->fetchColumn());
+        $this->assertSame(0, $this->availableSeats(24));
+        $this->assertSame(1, (int) $this->connection->query('SELECT COUNT(*) FROM tickets WHERE registration_id = 81')->fetchColumn());
+    }
+
     public function testDispatchesRegistrationPaymentTicketAndCancellationUpdatesAfterCommit(): void
     {
         $repository = new FakeNotificationRepository();
@@ -679,6 +781,7 @@ final class RegistrationServiceTest extends TestCase
         $registrations = new RegistrationRepository($connection);
         $payments = new PaymentRepository($connection);
         $tickets = new TicketRepository($connection);
+        $waitlists = new WaitlistRepository($connection);
         $artifacts = new TicketArtifactService($this->ticketRoot, 'uploads/tickets');
         $ticketService = new TicketService($connection, $tickets, $artifacts);
         $mailer = new TransactionMailer(
@@ -699,6 +802,7 @@ final class RegistrationServiceTest extends TestCase
             new Logger($this->logPath),
             $notifications,
             $couponService,
+            $waitlists,
         );
     }
 
@@ -722,12 +826,12 @@ final class RegistrationServiceTest extends TestCase
 
     private function createSchema(): void
     {
-        $this->connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, deleted_at TEXT NULL)');
+        $this->connection->exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', email_verified_at TEXT NULL DEFAULT CURRENT_TIMESTAMP, deleted_at TEXT NULL)");
         $this->connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL)');
         $this->connection->exec('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL, is_active INTEGER NOT NULL)');
         $this->connection->exec('CREATE TABLE venues (id INTEGER PRIMARY KEY, name TEXT NOT NULL, address_line TEXT NULL, city TEXT NULL, country TEXT NULL, postal_code TEXT NULL, latitude NUMERIC NULL, longitude NUMERIC NULL, map_url TEXT NULL)');
-        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, category_id INTEGER NOT NULL, venue_id INTEGER NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, registration_deadline TEXT NOT NULL, capacity INTEGER NOT NULL, available_seats INTEGER NOT NULL, ticket_price NUMERIC NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, location_visibility TEXT NOT NULL DEFAULT "public", arrival_notes TEXT NULL, deleted_at TEXT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
-        $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, coupon_id INTEGER NULL, registration_number TEXT NOT NULL UNIQUE, status TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT NOT NULL, registered_at TEXT NOT NULL, cancelled_at TEXT NULL, cancellation_reason TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (event_id, user_id))');
+        $this->connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, category_id INTEGER NOT NULL, venue_id INTEGER NULL, title TEXT NOT NULL, slug TEXT NOT NULL, start_date TEXT NOT NULL, registration_deadline TEXT NOT NULL, capacity INTEGER NOT NULL, available_seats INTEGER NOT NULL, ticket_price NUMERIC NOT NULL, currency TEXT NOT NULL, status TEXT NOT NULL, waitlist_enabled INTEGER NOT NULL DEFAULT 1, location_visibility TEXT NOT NULL DEFAULT "public", arrival_notes TEXT NULL, deleted_at TEXT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+        $this->connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, user_id INTEGER NOT NULL, coupon_id INTEGER NULL, registration_number TEXT NOT NULL UNIQUE, status TEXT NOT NULL, amount NUMERIC NOT NULL, currency TEXT NOT NULL, registered_at TEXT NOT NULL, waitlisted_at TEXT NULL, promoted_at TEXT NULL, waitlist_claim_expires_at TEXT NULL, cancelled_at TEXT NULL, cancellation_reason TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (event_id, user_id))');
         $this->connection->exec('CREATE TABLE coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NULL, organizer_id INTEGER NOT NULL, code TEXT NOT NULL UNIQUE, discount_type TEXT NOT NULL, discount_value NUMERIC NOT NULL, usage_limit INTEGER NULL, used_count INTEGER NOT NULL DEFAULT 0, starts_at TEXT NULL, expires_at TEXT NULL, is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
         $this->connection->exec('CREATE TABLE coupon_usage (id INTEGER PRIMARY KEY AUTOINCREMENT, coupon_id INTEGER NOT NULL, user_id INTEGER NOT NULL, registration_id INTEGER NOT NULL UNIQUE, discount_amount NUMERIC NOT NULL, used_at TEXT NOT NULL, UNIQUE(coupon_id, user_id))');
         $this->connection->exec('CREATE TABLE payment_methods (id INTEGER PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, configuration TEXT NULL, is_active INTEGER NOT NULL)');

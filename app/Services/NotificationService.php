@@ -19,6 +19,9 @@ final class NotificationService
         'payment_verified',
         'payment_rejected',
         'ticket_issued',
+        'waitlist_joined',
+        'waitlist_promoted',
+        'waitlist_expired',
         'review_submitted',
         'review_published',
         'review_hidden',
@@ -88,7 +91,7 @@ final class NotificationService
             ], true);
             $validAction = $organizerType
                 ? $actionUrl === '/organizer/dashboard'
-                : preg_match('#^/participant/(?:registrations|tickets|reviews)(?:/[1-9][0-9]*)?$#', $actionUrl) === 1;
+                : preg_match('#^/participant/(?:(?:registrations|tickets|reviews)(?:/[1-9][0-9]*)?|waitlist)$#', $actionUrl) === 1;
 
             if (!$validAction) {
                 return false;

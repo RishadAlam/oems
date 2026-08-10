@@ -13,6 +13,7 @@ $eventCancelled = (string) ($registration['event_status'] ?? '') === 'cancelled'
 $statusCopy = match (true) {
     $eventCancelled => 'The event was cancelled. Your registration and ticket are no longer active.',
     $paymentStatus === 'failed' => 'The payment reference was rejected and your place was released.',
+    !empty($registration['promoted_claim_active']) => 'Waitlist seat ready. Submit payment before the claim deadline to keep your place.',
     $registrationStatus === 'confirmed' => 'Your place is confirmed.',
     $registrationStatus === 'cancelled' => 'This registration is cancelled and no longer holds a place.',
     $registrationStatus === 'refunded' => 'This registration was refunded and no longer holds a place.',
@@ -100,6 +101,44 @@ $paymentDetailLabel = $eventCancelled
         <li class="transaction-step transaction-step--<?= e($ticketStepState) ?>"<?= $ticketStepState === 'current' ? ' aria-current="step"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><strong>Ticket</strong><span><?= e($ticketStepLabel) ?></span></li>
     </ol>
 </section>
+
+<?php if (!empty($registration['promoted_claim_active'])):
+    $channelError = field_error($errors, 'channel');
+    $referenceError = field_error($errors, 'transaction_reference') ?? field_error($errors, 'payment') ?? field_error($errors, 'registration');
+?>
+    <section class="dashboard-panel mt-6" aria-labelledby="waitlist-payment-heading">
+        <p class="dashboard-kicker"><i class="ph ph-hourglass-high" aria-hidden="true"></i><span>Promoted from waitlist</span></p>
+        <h2 id="waitlist-payment-heading" class="mt-2 text-xl font-bold">Waitlist seat ready</h2>
+        <p class="mt-2 text-sm text-[var(--ink-muted)]">Submit payment by <?= e($registration['waitlist_claim_expires_display'] ?? 'the claim deadline') ?>. The seat returns to the queue if the window expires.</p>
+        <?php if (is_array($manualPayment) && $manualPayment !== []): ?>
+            <div class="callout mt-5" aria-labelledby="waitlist-payment-guidance-heading">
+                <h3 id="waitlist-payment-guidance-heading" class="font-bold"><?= e($manualPayment['name'] ?? 'Manual payment') ?></h3>
+                <?php if (!empty($manualPayment['account_title'])): ?><p class="mt-2"><strong>Account:</strong> <?= e($manualPayment['account_title']) ?></p><?php endif; ?>
+                <?php if (!empty($manualPayment['account_identifier'])): ?><p><strong>Identifier:</strong> <?= e($manualPayment['account_identifier']) ?></p><?php endif; ?>
+                <?php if (!empty($manualPayment['instructions'])): ?><p class="mt-2 text-sm"><?= e($manualPayment['instructions']) ?></p><?php endif; ?>
+            </div>
+        <?php endif; ?>
+        <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/payment" method="post" novalidate>
+            <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+            <div class="field-group">
+                <label for="channel">Payment channel</label>
+                <select id="channel" name="channel" required aria-describedby="channel-help<?= $channelError !== null ? ' channel-error' : '' ?>"<?= $channelError !== null ? ' aria-invalid="true"' : '' ?>>
+                    <option value="">Choose a channel</option>
+                    <?php foreach (['bank_transfer' => 'Bank transfer', 'mobile_banking' => 'Mobile banking', 'cash_deposit' => 'Cash deposit'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($old['channel'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
+                </select>
+                <p id="channel-help" class="field-help">Choose how you sent the payment.</p>
+                <?php if ($channelError !== null): ?><p id="channel-error" class="field-error" role="alert"><?= e($channelError) ?></p><?php endif; ?>
+            </div>
+            <div class="field-group">
+                <label for="transaction_reference">Transaction reference</label>
+                <input id="transaction_reference" name="transaction_reference" type="text" maxlength="190" required autocomplete="off" aria-describedby="transaction-reference-help<?= $referenceError !== null ? ' transaction-reference-error' : '' ?>"<?= $referenceError !== null ? ' aria-invalid="true"' : '' ?>>
+                <p id="transaction-reference-help" class="field-help">Enter the exact reference from your payment receipt. It is never repopulated after an error.</p>
+                <?php if ($referenceError !== null): ?><p id="transaction-reference-error" class="field-error" role="alert"><?= e($referenceError) ?></p><?php endif; ?>
+            </div>
+            <button class="button button--primary w-full sm:w-auto" type="submit"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Submit payment</span></button>
+        </form>
+    </section>
+<?php endif; ?>
 
 <?php if ($registration['can_cancel']): ?>
     <section class="dashboard-panel mt-6" aria-labelledby="cancel-registration-heading">

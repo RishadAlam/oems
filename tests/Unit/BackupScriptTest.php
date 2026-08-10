@@ -17,6 +17,7 @@ final class BackupScriptTest extends TestCase
             'deploy/nginx/oems.conf', 'deploy/php-fpm/oems.conf',
             'deploy/systemd/oems-mail-outbox.service', 'deploy/systemd/oems-mail-outbox.timer',
             'deploy/systemd/oems-reminders.service', 'deploy/systemd/oems-reminders.timer',
+            'deploy/systemd/oems-waitlists.service', 'deploy/systemd/oems-waitlists.timer',
             'deploy/systemd/oems-backup.service', 'deploy/systemd/oems-backup.timer',
         ];
         foreach ($paths as $path) {

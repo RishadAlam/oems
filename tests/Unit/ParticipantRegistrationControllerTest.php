@@ -24,6 +24,7 @@ use OEMS\Tests\Support\FakePaymentRepository;
 use OEMS\Tests\Support\FakeRegistrationRepository;
 use OEMS\Tests\Support\FakeTicketRepository;
 use OEMS\Tests\Support\FakeUserRepository;
+use OEMS\Tests\Support\FakeWaitlistRepository;
 use OEMS\Tests\Support\TestCase;
 use PDO;
 use ErrorException;
@@ -41,6 +42,8 @@ final class ParticipantRegistrationControllerTest extends TestCase
     private FakePaymentRepository $payments;
 
     private FakeTicketRepository $tickets;
+
+    private FakeWaitlistRepository $waitlists;
 
     private string $ticketRoot;
 
@@ -66,6 +69,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->registrations = new FakeRegistrationRepository();
         $this->payments = new FakePaymentRepository();
         $this->tickets = new FakeTicketRepository();
+        $this->waitlists = new FakeWaitlistRepository();
         $event = $this->eventFixture();
         $this->events->events[31] = $event;
         $this->registrations->eligibleEvents[31] = $event;
@@ -97,6 +101,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
                 new FakeEmailLogRepository(),
                 new Config(['name' => 'OEMS', 'url' => 'https://events.example.test']),
             ),
+            waitlists: $this->waitlists,
         );
 
         if (class_exists(ParticipantRegistrationController::class)) {
@@ -220,6 +225,40 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertSame('1250.00', $this->payments->payments[1]['amount']);
         $this->assertSame('BDT', $this->payments->payments[1]['currency']);
         $this->assertSame(['channel' => 'mobile'], $this->payments->payments[1]['gateway_response']);
+    }
+
+    public function testPromotedWaitlistClaimShowsAndAcceptsBoundedManualPayment(): void
+    {
+        $registration = array_merge($this->registrationFixture(), [
+            'id' => 55,
+            'status' => 'pending',
+            'registration_status' => 'pending',
+            'promoted_at' => '2026-08-10 10:00:00',
+            'waitlist_claim_expires_at' => '2099-08-11 10:00:00',
+        ]);
+        $this->registrations->registrations[55] = $registration;
+        $this->waitlists->entries[55] = $registration;
+
+        $body = $this->controller()->show(Request::create('GET', '/participant/registrations/55')->withRouteParameters(['id' => '55']))->body();
+        $this->assertTrue(str_contains($body, 'Waitlist seat ready'));
+        $this->assertTrue(str_contains($body, 'name="transaction_reference"'));
+        $this->assertTrue(str_contains($body, 'name="channel"'));
+        $this->assertTrue(str_contains($body, 'maxlength="190"'));
+
+        $invalid = $this->controller()->submitPromotedPayment(Request::create('POST', '/participant/registrations/55/payment', input: [
+            'channel' => 'not-allowed',
+            'transaction_reference' => '',
+        ])->withRouteParameters(['id' => '55']));
+        $this->assertSame('/participant/registrations/55', $invalid->header('Location'));
+        $this->assertSame(0, count($this->payments->payments));
+
+        $valid = $this->controller()->submitPromotedPayment(Request::create('POST', '/participant/registrations/55/payment', input: [
+            'channel' => 'bank_transfer',
+            'transaction_reference' => 'WAITLIST-CLAIM-55',
+        ])->withRouteParameters(['id' => '55']));
+        $this->assertSame('/participant/registrations/55', $valid->header('Location'));
+        $this->assertSame('1250.00', $this->payments->payments[1]['amount']);
+        $this->assertSame(null, $this->waitlists->entries[55]['waitlist_claim_expires_at'] ?? null);
     }
 
     public function testPostRetryFindsOwnedActiveRegistrationBeforeFinalSeatAndDeadlineAvailabilityChecks(): void
@@ -518,6 +557,7 @@ final class ParticipantRegistrationControllerTest extends TestCase
     {
         return [
             'event_id' => 31,
+            'user_id' => 7,
             'registration_number' => 'REG-OWNED-4',
             'status' => 'pending',
             'registration_status' => 'pending',

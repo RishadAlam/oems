@@ -351,10 +351,10 @@ final class EventRepository implements EventRepositoryInterface
             'INSERT INTO events
                 (organizer_id, category_id, venue_id, title, slug, description, banner, map_url, location_visibility, arrival_notes, speaker,
                  start_date, end_date, registration_deadline, capacity, available_seats, ticket_price, currency,
-                 tags, status, is_featured, created_at, updated_at)
+                 tags, status, is_featured, waitlist_enabled, created_at, updated_at)
              SELECT organizers.id, :category_id, :venue_id, :title, :slug, :description, :banner, :map_url, :location_visibility, :arrival_notes, :speaker,
                     :start_date, :end_date, :registration_deadline, :capacity, :available_seats, :ticket_price, :currency,
-                    :tags, \'draft\', :is_featured, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    :tags, \'draft\', :is_featured, :waitlist_enabled, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
              FROM organizers
              WHERE organizers.user_id = :user_id
                AND EXISTS (SELECT 1 FROM categories WHERE categories.id = :category_id_guard)
@@ -405,6 +405,7 @@ final class EventRepository implements EventRepositoryInterface
                  currency = :currency,
                  tags = :tags,
                  is_featured = :is_featured,
+                 waitlist_enabled = :waitlist_enabled,
                  rejection_reason = CASE WHEN status = \'rejected\' THEN NULL ELSE rejection_reason END,
                  status = CASE WHEN status = \'rejected\' THEN \'draft\' ELSE status END,
                  updated_at = CURRENT_TIMESTAMP
@@ -953,6 +954,7 @@ final class EventRepository implements EventRepositoryInterface
             'currency' => $attributes['currency'] ?? 'BDT',
             'tags' => $tags,
             'is_featured' => !empty($attributes['is_featured']) ? 1 : 0,
+            'waitlist_enabled' => !empty($attributes['waitlist_enabled']) ? 1 : 0,
         ];
     }
 

@@ -15,6 +15,11 @@ $eventValue = static function (string $key, string $default = '') use ($old, $ev
     return e(is_scalar($value) ? $value : '');
 };
 $selected = static fn (string $key): string => (string) ($old[$key] ?? $event[$key] ?? '');
+$waitlistValue = array_key_exists('waitlist_enabled', $old)
+    ? $old['waitlist_enabled']
+    : ($event['waitlist_enabled'] ?? 1);
+$waitlistChecked = is_scalar($waitlistValue)
+    && in_array(strtolower((string) $waitlistValue), ['1', 'true', 'on'], true);
 $invalid = static fn (string $key): string => field_error($errors, $key) === null ? '' : ' aria-invalid="true" aria-describedby="' . str_replace('_', '-', $key) . '-error"';
 $described = static function (string $key) use ($errors): string {
     $id = str_replace('_', '-', $key);
@@ -84,6 +89,10 @@ $described = static function (string $key) use ($errors): string {
             <div class="field-group"><label for="registration_deadline">Response deadline</label><input id="registration_deadline" name="registration_deadline" type="datetime-local" value="<?= $eventValue('registration_deadline') ?>" required<?= $invalid('registration_deadline') ?>><?php if ($error = field_error($errors, 'registration_deadline')): ?><p id="registration-deadline-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
             <div class="field-group"><label for="capacity">Capacity</label><input id="capacity" name="capacity" type="number" min="1" max="100000" step="1" value="<?= $eventValue('capacity') ?>" required<?= $invalid('capacity') ?>><?php if ($error = field_error($errors, 'capacity')): ?><p id="capacity-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
             <div class="field-group"><label for="ticket_price">Ticket price</label><input id="ticket_price" name="ticket_price" type="number" min="0" max="9999999.99" step="0.01" value="<?= $eventValue('ticket_price', '0') ?>" required<?= $invalid('ticket_price') ?>><?php if ($error = field_error($errors, 'ticket_price')): ?><p id="ticket-price-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
+            <div class="field-group sm:col-span-2 xl:col-span-1">
+                <input type="hidden" name="waitlist_enabled" value="0">
+                <label class="flex min-h-11 items-start gap-3" for="waitlist_enabled"><input id="waitlist_enabled" name="waitlist_enabled" type="checkbox" value="1"<?= $waitlistChecked ? ' checked' : '' ?>><span><strong>Enable a waitlist when seats sell out</strong><small class="mt-1 block text-[var(--ink-muted)]">Participants join without payment and are promoted oldest-first when a seat opens.</small></span></label>
+            </div>
             <div class="field-group"><label for="map_url">Map URL <span class="field-label-note">Optional</span></label><input id="map_url" name="map_url" type="url" maxlength="500" placeholder="https://www.google.com/maps/..." value="<?= $eventValue('map_url') ?>"<?= $invalid('map_url') ?>><p class="field-help">Use an HTTPS link from an approved map provider.</p><?php if ($error = field_error($errors, 'map_url')): ?><p id="map-url-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
         </div>
     </section>

@@ -116,6 +116,7 @@ OEMS is designed as a production-ready single-node PHP/MySQL deployment. Copy th
 - `/admin/operations` gives super administrators a readiness summary and a confirmation-bound maintenance control. Maintenance returns `503` with `Retry-After` for public and non-admin application routes while keeping health probes, login, static assets, and signed-in super administrators available.
 - `php scripts/process-mail-outbox.php --limit=50` delivers durable queued mail.
 - `php scripts/queue-event-reminders.php --limit=100` queues due event reminders idempotently.
+- `php scripts/process-waitlists.php --limit=100` releases expired unpaid claims and promotes the oldest eligible entries into newly available seats. Run it every minute with the supplied timer.
 - `php scripts/backup-database.php` creates a portable gzip-compressed SQL archive only beneath `storage/backups`, excludes server-specific GTID state, passes the database password through `MYSQL_PWD`, enforces private permissions, verifies non-empty output, and retains 1–30 archives according to the private `backup_retention` setting.
 
 Recommended release sequence:
@@ -124,7 +125,7 @@ Recommended release sequence:
 2. Deploy dependencies with `composer install --no-dev --classmap-authoritative` and `npm ci`; build assets with `npm run build:css` and `npm run build:assets` in the release artifact.
 3. Run the required forward migrations in the documented order and run `php scripts/migrate-ticket-artifacts.php` for pre-private-storage installations.
 4. Make only `storage/cache`, `storage/logs`, `storage/tickets`, `storage/backups`, and the documented public upload directories writable by the application user. Keep source, configuration, and vendor files read-only.
-5. Enable the PHP-FPM pool, Nginx site, and the three systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
+5. Enable the PHP-FPM pool, Nginx site, and the four systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
 6. Probe `/health/live` and `/health/ready`, run the role/CSRF/download acceptance journey, then disable maintenance and restore traffic.
 
 Restore is deliberately operator-only; there is no HTTP restore route. Restore into a new database first, run `gzip -cd storage/backups/<archive>.sql.gz | mysql ...`, verify table counts and integrity, point a maintenance deployment at the restored database, run readiness and acceptance checks, and only then switch traffic. Never restore over a live writable database.
@@ -279,6 +280,7 @@ Use an isolated local database with both seeds imported.
 - Role guards, CSRF protection, escaped views, prepared queries, lifecycle validation, and automated regression coverage
 
 - Participant registration, manual payment review, seat reconciliation, QR and PDF ticket issuance, attendance, favorites, notifications, and reviews
+- FIFO event waitlists with participant-owned queue controls, automatic seat promotion, bounded payment claims, expiry reconciliation, and native MySQL concurrency verification
 - Owner-scoped organizer participant operations, CSV export, camera-enhanced check-in, revenue metrics, and review replies
 - Administrator payment, event, category, and participant-review moderation queues
 - Responsive transaction tables that become explicitly labeled mobile cards, accessible forms, and light and dark token themes

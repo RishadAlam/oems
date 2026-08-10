@@ -75,6 +75,15 @@ final class EventServiceTest extends TestCase
         $this->assertSame('2030-01-10 10:00:00', $created['start_date']);
         $this->assertSame(80, $created['available_seats']);
         $this->assertSame('BDT', $created['currency']);
+        $this->assertTrue($created['waitlist_enabled']);
+    }
+
+    public function testOrganizerCanExplicitlyDisableWaitlistingBeforePublication(): void
+    {
+        $result = $this->service->createDraft(10, $this->validInput(['waitlist_enabled' => '0']), null, []);
+
+        $this->assertTrue($result['success']);
+        $this->assertFalse($this->events->events[(int) $result['event_id']]['waitlist_enabled']);
     }
 
     public function testCreateDraftAllowsTheLocationSlugUsedByPublishedEvents(): void

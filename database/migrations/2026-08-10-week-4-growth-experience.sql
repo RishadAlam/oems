@@ -29,9 +29,28 @@ SET @statement = (
 );
 PREPARE oems_statement FROM @statement; EXECUTE oems_statement; DEALLOCATE PREPARE oems_statement;
 
+SET @statement = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE registrations ADD COLUMN waitlist_claim_expires_at DATETIME NULL AFTER promoted_at',
+        'SELECT 1')
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'registrations' AND column_name = 'waitlist_claim_expires_at'
+);
+PREPARE oems_statement FROM @statement; EXECUTE oems_statement; DEALLOCATE PREPARE oems_statement;
+
 UPDATE registrations
 SET waitlisted_at = COALESCE(waitlisted_at, registered_at)
 WHERE status = 'waitlisted' AND waitlisted_at IS NULL;
+
+SET @statement = (
+    SELECT IF(COUNT(*) = 0,
+        'ALTER TABLE registrations ADD CONSTRAINT chk_registrations_waitlist_state CHECK ((status <> ''waitlisted'' OR (waitlisted_at IS NOT NULL AND promoted_at IS NULL AND waitlist_claim_expires_at IS NULL)) AND (waitlist_claim_expires_at IS NULL OR (status = ''pending'' AND promoted_at IS NOT NULL)))',
+        'SELECT 1')
+    FROM information_schema.table_constraints
+    WHERE constraint_schema = DATABASE() AND table_name = 'registrations'
+      AND constraint_name = 'chk_registrations_waitlist_state' AND constraint_type = 'CHECK'
+);
+PREPARE oems_statement FROM @statement; EXECUTE oems_statement; DEALLOCATE PREPARE oems_statement;
 
 SET @statement = (
     SELECT IF(COUNT(*) = 0,

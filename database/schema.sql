@@ -285,6 +285,7 @@ CREATE TABLE registrations (
     registered_at DATETIME NOT NULL,
     waitlisted_at DATETIME NULL,
     promoted_at DATETIME NULL,
+    waitlist_claim_expires_at DATETIME NULL,
     cancelled_at DATETIME NULL,
     cancellation_reason VARCHAR(500) NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -295,7 +296,11 @@ CREATE TABLE registrations (
     INDEX idx_registrations_user_status (user_id, status),
     CONSTRAINT fk_registrations_event FOREIGN KEY (event_id) REFERENCES events (id),
     CONSTRAINT fk_registrations_user FOREIGN KEY (user_id) REFERENCES users (id),
-    CONSTRAINT fk_registrations_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL
+    CONSTRAINT fk_registrations_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id) ON DELETE SET NULL,
+    CONSTRAINT chk_registrations_waitlist_state CHECK (
+        (status <> 'waitlisted' OR (waitlisted_at IS NOT NULL AND promoted_at IS NULL AND waitlist_claim_expires_at IS NULL))
+        AND (waitlist_claim_expires_at IS NULL OR (status = 'pending' AND promoted_at IS NOT NULL))
+    )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE payments (

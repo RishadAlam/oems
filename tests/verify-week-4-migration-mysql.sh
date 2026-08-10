@@ -70,8 +70,9 @@ mysql_run "$database" < database/migrations/2026-08-10-week-4-growth-experience.
 mysql_run "$database" < database/migrations/2026-08-10-week-4-growth-experience.sql >/dev/null
 
 expect "$(scalar "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = 'events' AND COLUMN_NAME = 'waitlist_enabled'")" '1' 'event waitlist toggle'
-expect "$(scalar "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = 'registrations' AND COLUMN_NAME IN ('waitlisted_at', 'promoted_at')")" '2' 'registration waitlist timestamps'
+expect "$(scalar "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = 'registrations' AND COLUMN_NAME IN ('waitlisted_at', 'promoted_at', 'waitlist_claim_expires_at')")" '3' 'registration waitlist timestamps'
 expect "$(scalar "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME = 'registrations' AND INDEX_NAME = 'idx_registrations_event_waitlist'")" '4' 'four-column waitlist queue index'
+expect "$(scalar "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = '$database' AND TABLE_NAME = 'registrations' AND CONSTRAINT_NAME = 'chk_registrations_waitlist_state' AND CONSTRAINT_TYPE = 'CHECK'")" '1' 'waitlist state check'
 expect "$(scalar "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '$database' AND TABLE_NAME IN ('event_certificates', 'blog_posts')")" '2' 'Week 4 tables'
 expect "$(scalar "SELECT waitlisted_at = registered_at FROM registrations WHERE registration_number = 'OEMS-WEEK4-MIGRATION-WAIT'")" '1' 'legacy waitlist queue timestamp reconciliation'
 expect "$(scalar 'SELECT COUNT(*) FROM events')" "$events_before" 'preserved event count'
@@ -79,6 +80,11 @@ expect "$(scalar 'SELECT COUNT(*) FROM users')" "$users_before" 'preserved user 
 expect "$(scalar 'SELECT COUNT(*) FROM registrations')" "$registrations_before" 'preserved registration count'
 expect "$(scalar 'SELECT COUNT(*) FROM payments')" "$payments_before" 'preserved payment count'
 expect "$(scalar 'SELECT COUNT(*) FROM tickets')" "$tickets_before" 'preserved ticket count'
+
+OEMS_WAITLIST_TEST_DSN="mysql:host=$mysql_host;port=$mysql_port;dbname=$database;charset=utf8mb4" \
+OEMS_WAITLIST_TEST_USER="$mysql_user" \
+OEMS_WAITLIST_TEST_PASSWORD="$mysql_password" \
+php tests/verify-waitlist-mysql.php
 
 registration_id="$(scalar 'SELECT id FROM registrations ORDER BY id LIMIT 1')"
 participant_id="$(scalar "SELECT user_id FROM registrations WHERE id = $registration_id")"

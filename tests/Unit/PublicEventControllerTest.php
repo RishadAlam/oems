@@ -539,6 +539,37 @@ final class PublicEventControllerTest extends TestCase
         $this->assertFalse(str_contains($existingBody, 'href="/participant/events/future-craft/register"'));
     }
 
+    public function testSoldOutEnabledEventOffersOwnedWaitlistActionAndTruthfulExistingState(): void
+    {
+        $event = array_merge($this->eventFixture(), ['available_seats' => 0, 'waitlist_enabled' => 1]);
+        $this->events->events[$event['slug']] = $event;
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $users->users[7] = ['id' => 7, 'role_id' => 3, 'name' => 'Participant', 'email' => 'participant@example.test', 'password' => 'hash', 'status' => 'active', 'email_verified_at' => '2026-08-01 09:00:00'];
+        $this->authenticateSession($session, $users, 7);
+        $controller = new PublicEventController(
+            new View(base_path('app/Views')),
+            $session,
+            new Security($session),
+            new Auth($session, $users),
+            new Config(['name' => 'OEMS', 'url' => 'https://events.example.test', 'timezone' => 'Asia/Dhaka']),
+            $this->events,
+            $this->categories,
+            $this->registrations,
+        );
+
+        $body = $controller->show(Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']))->body();
+        $this->assertTrue(str_contains($body, 'Join waitlist'));
+        $this->assertTrue(str_contains($body, 'action="/participant/events/501/waitlist"'));
+        $this->assertTrue(str_contains($body, 'name="_token"'));
+
+        $this->registrations->registrations[23] = ['id' => 23, 'event_id' => 501, 'user_id' => 7, 'status' => 'waitlisted', 'registration_status' => 'waitlisted'];
+        $existing = $controller->show(Request::create('GET', '/events/future-craft')->withRouteParameters(['slug' => 'future-craft']))->body();
+        $this->assertTrue(str_contains($existing, 'On waitlist'));
+        $this->assertTrue(str_contains($existing, 'href="/participant/waitlist"'));
+        $this->assertFalse(str_contains($existing, 'action="/participant/events/501/waitlist"'));
+    }
+
     public function testShowRendersCanonicalOpenGraphAndHexEscapedJsonLd(): void
     {
         $event = array_merge($this->eventFixture(), [

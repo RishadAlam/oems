@@ -16,6 +16,7 @@ final class QueuedMailTemplateService
         'payment_rejected' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'registration_cancelled' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'ticket_issued' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'waitlist_promoted' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'event_reminder' => ['user_id', 'event_id', 'registration_id', 'event_title', 'starts_at', 'calendar_url'],
         'event_announcement' => ['event_id', 'recipient_name', 'event_title', 'subject', 'message', 'action_url'],
         'contact_reply' => ['contact_id', 'name', 'reply'],
@@ -55,6 +56,9 @@ final class QueuedMailTemplateService
                 break;
             case 'ticket_issued':
                 [$subject, $copy, $action] = ['Your event ticket is ready', "Your secure ticket for {$event} is ready.", $payload['action_url']];
+                break;
+            case 'waitlist_promoted':
+                [$subject, $copy, $action] = ['A waitlist seat is ready', "A seat for {$event} is available. Submit payment within 24 hours to keep it.", $payload['action_url']];
                 break;
             case 'event_reminder':
                 $startsAt = $this->plain($payload['starts_at'], 64);

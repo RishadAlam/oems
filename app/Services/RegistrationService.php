@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
+use OEMS\App\Contracts\WaitlistRepositoryInterface;
 use OEMS\App\Support\Money;
 use OEMS\Core\Logger;
 use PDO;
@@ -34,6 +35,7 @@ final class RegistrationService
         private readonly ?Logger $logger = null,
         private readonly ?NotificationService $notifications = null,
         private readonly ?CouponService $coupons = null,
+        private readonly ?WaitlistRepositoryInterface $waitlists = null,
     ) {
     }
 
@@ -251,6 +253,207 @@ final class RegistrationService
             'registration' => $registration,
             'payment' => $payment,
             'ticket' => $issuance['ticket'] ?? null,
+            'delivery_status' => $deliveryStatus,
+        ]);
+    }
+
+    public function promoteWaitlist(int $eventId, ?DateTimeImmutable $now = null): array
+    {
+        if ($this->waitlists === null) {
+            return $this->failure(['waitlist' => ['Waitlist promotion is unavailable.']]);
+        }
+
+        $now ??= new DateTimeImmutable();
+        $issuance = null;
+        $payment = null;
+
+        try {
+            $this->connection->beginTransaction();
+            $registration = $this->waitlists->claimOldest($eventId, $now, $now->modify('+24 hours'));
+
+            if ($registration === null) {
+                $this->connection->commit();
+
+                return ['success' => true, 'promoted' => false, 'registration' => null, 'payment' => null, 'ticket' => null, 'errors' => []];
+            }
+
+            $participant = $this->authorizedUser((int) $registration['user_id'], 'participant');
+            if ($participant === null) {
+                throw new \RuntimeException('The waitlisted participant is no longer eligible.');
+            }
+
+            $amount = Money::normalize((string) ($registration['amount'] ?? ''));
+            if ($amount === null) {
+                throw new \RuntimeException('The waitlisted registration amount is invalid.');
+            }
+            $isFree = Money::isFree($amount);
+            $method = $this->payments->findActiveMethodBySlug($isFree ? 'free' : 'manual');
+            if ($method === null) {
+                throw new \RuntimeException('The required waitlist payment method is unavailable.');
+            }
+
+            if ($isFree) {
+                $paymentId = $this->payments->createForRegistration((int) $registration['id'], [
+                    'payment_method_id' => (int) $method['id'],
+                    'transaction_reference' => 'FREE-' . strtoupper(bin2hex(random_bytes(16))),
+                    'amount' => $amount,
+                    'currency' => (string) $registration['currency'],
+                    'status' => 'paid',
+                    'gateway_response' => null,
+                    'paid_at' => $now->format('Y-m-d H:i:s'),
+                ]);
+                if ($paymentId <= 0 || !$this->registrations->confirm((int) $registration['id'])) {
+                    throw new \RuntimeException('The free waitlist promotion could not be settled.');
+                }
+                if (!$this->waitlists->completeClaim((int) $registration['id'])) {
+                    throw new \RuntimeException('The free waitlist claim could not be completed.');
+                }
+                $registration['status'] = 'confirmed';
+                $registration['registration_status'] = 'confirmed';
+                $registration['waitlist_claim_expires_at'] = null;
+                $issuance = $this->tickets->issue($registration, $participant, $registration);
+                $payment = $this->payments->findForRegistration((int) $registration['id']);
+                if ($payment === null) {
+                    throw new \RuntimeException('The free waitlist payment could not be read.');
+                }
+            }
+
+            $this->connection->commit();
+        } catch (Throwable $exception) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            if (is_array($issuance)) {
+                $this->tickets->cleanupCreated($issuance);
+            }
+            $this->logFailure('waitlist_promotion', 0, $eventId, null, $exception);
+
+            return $this->failure(['waitlist' => ['The next waitlist entry could not be promoted.']]);
+        }
+
+        if (is_array($issuance)) {
+            $this->tickets->cleanupReplaced($issuance);
+            $this->notifyParticipant(
+                (int) $registration['user_id'],
+                'registration_confirmed',
+                'Waitlist seat confirmed',
+                'A seat opened and your registration is now confirmed.',
+                '/participant/registrations/' . (int) $registration['id'],
+                ['registration_id' => (int) $registration['id'], 'event_id' => $eventId],
+            );
+            $this->notifyTicketIssued((int) $registration['user_id'], $issuance['ticket']);
+            $deliveryStatus = $this->deliveryStatus([
+                $this->mailer->sendConfirmation($participant, $registration),
+                $this->mailer->sendTicket($participant, $registration, $issuance['ticket']),
+            ]);
+        } else {
+            $this->notifyParticipant(
+                (int) $registration['user_id'],
+                'waitlist_promoted',
+                'A waitlist seat is ready',
+                'Submit your payment details within 24 hours to keep this seat.',
+                '/participant/registrations/' . (int) $registration['id'],
+                ['registration_id' => (int) $registration['id'], 'event_id' => $eventId],
+            );
+            $deliveryStatus = $this->deliveryStatus([
+                $this->mailer->sendWaitlistPromotion($participant, $registration),
+            ]);
+        }
+
+        return [
+            'success' => true,
+            'promoted' => true,
+            'registration' => $registration,
+            'payment' => $payment,
+            'ticket' => $issuance['ticket'] ?? null,
+            'delivery_status' => $deliveryStatus,
+            'errors' => [],
+        ];
+    }
+
+    public function submitPromotedPayment(int $actorId, int $registrationId, array $paymentDetails): array
+    {
+        $participant = $this->authorizedUser($actorId, 'participant');
+        if ($participant === null || $this->waitlists === null) {
+            return $this->failure(['account' => ['An active, verified participant account is required.']]);
+        }
+
+        try {
+            $this->connection->beginTransaction();
+            $identity = $this->registrations->findForParticipant($actorId, $registrationId);
+            if ($identity === null || !$this->registrations->lockEventCurrent((int) $identity['event_id'])) {
+                return $this->rollbackFailure(['registration' => ['Registration not found.']]);
+            }
+            $registration = $this->registrations->findForParticipantCurrent($actorId, $registrationId);
+            if ($registration === null) {
+                return $this->rollbackFailure(['registration' => ['Registration not found.']]);
+            }
+            $existing = $this->payments->findForRegistrationCurrent($registrationId);
+            if ($existing !== null) {
+                $this->connection->commit();
+                return $this->success([
+                    'registration' => $registration,
+                    'payment' => $existing,
+                    'ticket' => $this->tickets->forRegistrationCurrent($registrationId),
+                    'delivery_status' => 'not_attempted',
+                ]);
+            }
+
+            $expires = trim((string) ($registration['waitlist_claim_expires_at'] ?? ''));
+            if (($registration['registration_status'] ?? null) !== 'pending'
+                || empty($registration['promoted_at'])
+                || $expires === ''
+                || new DateTimeImmutable($expires) <= new DateTimeImmutable()) {
+                return $this->rollbackFailure(['registration' => ['This promoted waitlist claim is no longer available.']]);
+            }
+            $errors = $this->paymentDetailsErrors($paymentDetails);
+            if ($errors !== []) {
+                return $this->rollbackFailure($errors);
+            }
+            $method = $this->payments->findActiveMethodBySlug('manual');
+            if ($method === null) {
+                return $this->rollbackFailure(['payment_method' => ['Manual payment is unavailable.']]);
+            }
+            $paymentId = $this->payments->createForRegistration($registrationId, [
+                'payment_method_id' => (int) $method['id'],
+                'transaction_reference' => trim((string) $paymentDetails['transaction_reference']),
+                'amount' => (string) $registration['amount'],
+                'currency' => (string) $registration['currency'],
+                'status' => 'pending',
+                'gateway_response' => ['channel' => strtolower(trim((string) $paymentDetails['channel']))],
+                'paid_at' => null,
+            ]);
+            if ($paymentId <= 0 || !$this->waitlists->completeClaim($registrationId)) {
+                throw new \RuntimeException('The promoted waitlist payment could not be stored.');
+            }
+            $payment = $this->payments->findForRegistrationCurrent($registrationId);
+            if ($payment === null) {
+                throw new \RuntimeException('The promoted waitlist payment could not be read.');
+            }
+            $registration['waitlist_claim_expires_at'] = null;
+            $this->connection->commit();
+        } catch (Throwable $exception) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            $this->logFailure('waitlist_payment', $actorId, null, null, $exception);
+            return $this->failure(['payment' => ['The payment details could not be submitted.']]);
+        }
+
+        $this->notifyParticipant(
+            $actorId,
+            'payment_pending',
+            'Payment received',
+            'Your promoted waitlist payment is awaiting review.',
+            '/participant/registrations/' . $registrationId,
+            ['registration_id' => $registrationId, 'payment_id' => (int) $payment['id']],
+        );
+        $deliveryStatus = $this->deliveryStatus([$this->mailer->sendPending($participant, $registration)]);
+
+        return $this->success([
+            'registration' => $registration,
+            'payment' => $payment,
+            'ticket' => null,
             'delivery_status' => $deliveryStatus,
         ]);
     }
@@ -528,6 +731,10 @@ final class RegistrationService
             ['registration_id' => (int) $registration['id'], 'payment_id' => (int) $payment['id']],
         );
 
+        if ($this->waitlists !== null) {
+            $this->promoteWaitlist((int) ($registration['event_id'] ?? 0));
+        }
+
         return $this->success([
             'registration' => $registration,
             'payment' => $payment,
@@ -659,13 +866,18 @@ final class RegistrationService
             ['registration_id' => (int) $registration['id']],
         );
 
+        $deliveryStatus = $this->deliveryStatus([
+            $this->mailer->sendCancelled($participant, $registration),
+        ]);
+        if ($this->waitlists !== null) {
+            $this->promoteWaitlist((int) ($registration['event_id'] ?? 0));
+        }
+
         return $this->success([
             'registration' => $registration,
             'payment' => $payment,
             'ticket' => $ticket,
-            'delivery_status' => $this->deliveryStatus([
-                $this->mailer->sendCancelled($participant, $registration),
-            ]),
+            'delivery_status' => $deliveryStatus,
         ]);
     }
 

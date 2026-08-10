@@ -17,6 +17,7 @@ final class MailOutboxService
         'payment_rejected' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'registration_cancelled' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'ticket_issued' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'waitlist_promoted' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'event_reminder' => ['user_id', 'event_id', 'registration_id', 'event_title', 'starts_at', 'calendar_url'],
         'event_announcement' => ['event_id', 'recipient_name', 'event_title', 'subject', 'message', 'action_url'],
         'contact_reply' => ['contact_id', 'name', 'reply'],
@@ -93,7 +94,7 @@ final class MailOutboxService
 
         return match ($template) {
             'registration_confirmation', 'payment_pending', 'payment_paid', 'payment_rejected',
-            'registration_cancelled', 'ticket_issued' => $this->positiveIds($payload, ['user_id', 'registration_id'])
+            'registration_cancelled', 'ticket_issued', 'waitlist_promoted' => $this->positiveIds($payload, ['user_id', 'registration_id'])
                 && $this->bounded($payload['participant_name'], 160)
                 && $this->bounded($payload['event_title'], 180)
                 && $this->relativeUrl($payload['action_url']),

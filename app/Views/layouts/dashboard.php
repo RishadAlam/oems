@@ -32,6 +32,7 @@
         || (str_starts_with($currentPath, '/participant/events/') && !$participantReviewFormActive);
     $participantTicketsActive = str_starts_with($currentPath, '/participant/tickets');
     $participantFavoritesActive = str_starts_with($currentPath, '/participant/favorites');
+    $participantWaitlistActive = str_starts_with($currentPath, '/participant/waitlist');
     $participantNotificationsActive = str_starts_with($currentPath, '/participant/notifications');
     $participantReviewsActive = str_starts_with($currentPath, '/participant/reviews') || $participantReviewFormActive;
     $adminEventsActive = str_starts_with($currentPath, '/admin/events');
@@ -70,6 +71,7 @@
                         <a class="dashboard-nav-link<?= $participantRegistrationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/registrations"<?= $participantRegistrationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
                         <a class="dashboard-nav-link<?= $participantTicketsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/tickets"<?= $participantTicketsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Tickets</span></a>
                         <a class="dashboard-nav-link<?= $participantFavoritesActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/favorites"<?= $participantFavoritesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Favorites</span></a>
+                        <a class="dashboard-nav-link<?= $participantWaitlistActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/waitlist"<?= $participantWaitlistActive ? ' aria-current="page"' : '' ?>><i class="ph ph-hourglass-medium" aria-hidden="true"></i><span>Waitlist</span></a>
                         <a class="dashboard-nav-link<?= $participantNotificationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/notifications"<?= $participantNotificationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bell" aria-hidden="true"></i><span>Notifications</span><?php if ((int) ($unreadNotifications ?? 0) > 0): ?><span class="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-xs font-bold text-white" aria-label="<?= e((int) $unreadNotifications) ?> unread notifications"><?= e((int) $unreadNotifications) ?></span><?php endif; ?></a>
                         <a class="dashboard-nav-link<?= $participantReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/reviews"<?= $participantReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-star" aria-hidden="true"></i><span>Reviews</span></a>
                     <?php endif; ?>

@@ -731,6 +731,7 @@ final class EventRepositoryTest extends TestCase
                 approved_at TEXT NULL,
                 published_at TEXT NULL,
                 is_featured INTEGER NOT NULL DEFAULT 0,
+                waitlist_enabled INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 deleted_at TEXT NULL

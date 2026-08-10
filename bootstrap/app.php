@@ -26,6 +26,7 @@ use OEMS\App\Contracts\ReviewRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
+use OEMS\App\Contracts\WaitlistRepositoryInterface;
 use OEMS\App\Contracts\PlatformSettingsRepositoryInterface;
 use OEMS\App\Contracts\CmsRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
@@ -55,6 +56,7 @@ use OEMS\App\Repositories\TicketRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
+use OEMS\App\Repositories\WaitlistRepository;
 use OEMS\App\Repositories\PlatformSettingsRepository;
 use OEMS\App\Repositories\CmsRepository;
 use OEMS\App\Mail\PhpMailerTransport;
@@ -86,6 +88,7 @@ use OEMS\App\Services\TicketService;
 use OEMS\App\Services\TransactionMailer;
 use OEMS\App\Services\VenueService;
 use OEMS\App\Services\VenueGeocodingService;
+use OEMS\App\Services\WaitlistService;
 use OEMS\App\Services\PlatformSettingsService;
 use OEMS\App\Services\CmsService;
 use OEMS\App\Services\PublicSiteContentProvider;
@@ -425,6 +428,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    WaitlistRepositoryInterface::class,
+    static fn (Container $container): WaitlistRepository => new WaitlistRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     PaymentRepositoryInterface::class,
     static fn (Container $container): PaymentRepository => new PaymentRepository(
         $container->get(Database::class)->connection(),
@@ -558,6 +567,16 @@ $container->singleton(
         $container->get(Logger::class),
         $container->get(NotificationService::class),
         $container->get(CouponService::class),
+        $container->get(WaitlistRepositoryInterface::class),
+    ),
+);
+$container->singleton(
+    WaitlistService::class,
+    static fn (Container $container): WaitlistService => new WaitlistService(
+        $container->get(UserRepositoryInterface::class),
+        $container->get(WaitlistRepositoryInterface::class),
+        $container->get(Logger::class),
+        $container->get(NotificationService::class),
     ),
 );
 $container->singleton(

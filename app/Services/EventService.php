@@ -309,6 +309,7 @@ final class EventService
             'ticket_price' => $this->stringValue($data['ticket_price'] ?? null),
             'location_visibility' => $this->stringValue($data['location_visibility'] ?? 'public'),
             'arrival_notes' => $this->stringValue($data['arrival_notes'] ?? null),
+            'waitlist_enabled' => $this->stringValue($data['waitlist_enabled'] ?? '1'),
         ];
         $errors = Validator::validate($normalized, [
             'category_id' => 'required|integer|min_value:1',
@@ -324,6 +325,7 @@ final class EventService
             'ticket_price' => 'required|numeric|min_value:0|max_value:9999999.99',
             'location_visibility' => 'required|string|in:public,registered',
             'arrival_notes' => 'nullable|string|max:500',
+            'waitlist_enabled' => 'required|string|in:0,1',
         ]);
         $normalizedTicketPrice = Money::normalize($normalized['ticket_price']);
 
@@ -424,6 +426,7 @@ final class EventService
             'is_featured' => (bool) ($existing['is_featured'] ?? false),
             'location_visibility' => $normalized['location_visibility'],
             'arrival_notes' => $normalized['arrival_notes'] === '' ? null : $normalized['arrival_notes'],
+            'waitlist_enabled' => $normalized['waitlist_enabled'] === '1',
         ], []];
     }
 

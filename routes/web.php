@@ -29,6 +29,7 @@ use OEMS\App\Controllers\OrganizerVenueController;
 use OEMS\App\Controllers\OrganizerReviewController;
 use OEMS\App\Controllers\ParticipantRegistrationController;
 use OEMS\App\Controllers\ParticipantFavoriteController;
+use OEMS\App\Controllers\ParticipantWaitlistController;
 use OEMS\App\Controllers\ParticipantNotificationController;
 use OEMS\App\Controllers\ParticipantTicketController;
 use OEMS\App\Controllers\ParticipantReviewController;
@@ -79,6 +80,9 @@ return static function (Router $router): void {
     $router->get('/participant/favorites', [ParticipantFavoriteController::class, 'index'], ['role:participant'], 'participant.favorites.index');
     $router->post('/participant/favorites/{id}', [ParticipantFavoriteController::class, 'store'], ['role:participant', 'csrf'], 'participant.favorites.store');
     $router->post('/participant/favorites/{id}/remove', [ParticipantFavoriteController::class, 'destroy'], ['role:participant', 'csrf'], 'participant.favorites.destroy');
+    $router->get('/participant/waitlist', [ParticipantWaitlistController::class, 'index'], ['role:participant'], 'participant.waitlist.index');
+    $router->post('/participant/events/{id}/waitlist', [ParticipantWaitlistController::class, 'store'], ['role:participant', 'csrf'], 'participant.waitlist.store');
+    $router->post('/participant/waitlist/{id}/leave', [ParticipantWaitlistController::class, 'destroy'], ['role:participant', 'csrf'], 'participant.waitlist.destroy');
     $router->get('/participant/notifications', [ParticipantNotificationController::class, 'index'], ['role:participant'], 'participant.notifications.index');
     $router->post('/participant/notifications/read-all', [ParticipantNotificationController::class, 'markAllRead'], ['role:participant', 'csrf'], 'participant.notifications.read-all');
     $router->post('/participant/notifications/{id}/read', [ParticipantNotificationController::class, 'markRead'], ['role:participant', 'csrf'], 'participant.notifications.read');
@@ -89,6 +93,7 @@ return static function (Router $router): void {
     $router->get('/participant/registrations/{id}/calendar.ics', [EventCalendarController::class, 'registrationIcs'], ['role:participant'], 'participant.registrations.calendar');
     $router->get('/participant/registrations/{id}/google-calendar', [EventCalendarController::class, 'registrationGoogle'], ['role:participant'], 'participant.registrations.google-calendar');
     $router->post('/participant/registrations/{id}/cancel', [ParticipantRegistrationController::class, 'cancel'], ['role:participant', 'csrf'], 'participant.registrations.cancel');
+    $router->post('/participant/registrations/{id}/payment', [ParticipantRegistrationController::class, 'submitPromotedPayment'], ['role:participant', 'csrf'], 'participant.registrations.payment');
     $router->get('/participant/tickets', [ParticipantTicketController::class, 'index'], ['role:participant'], 'participant.tickets.index');
     $router->get('/participant/tickets/{id}', [ParticipantTicketController::class, 'show'], ['role:participant'], 'participant.tickets.show');
     $router->get('/participant/tickets/{id}/qr', [ParticipantTicketController::class, 'qr'], ['role:participant'], 'participant.tickets.qr');

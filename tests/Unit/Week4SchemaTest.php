@@ -20,10 +20,12 @@ final class Week4SchemaTest extends TestCase
         $this->assertTrue(str_contains($events, 'waitlist_enabled BOOLEAN NOT NULL DEFAULT TRUE'));
         $this->assertTrue(str_contains($registrations, 'waitlisted_at DATETIME NULL'));
         $this->assertTrue(str_contains($registrations, 'promoted_at DATETIME NULL'));
+        $this->assertTrue(str_contains($registrations, 'waitlist_claim_expires_at DATETIME NULL'));
         $this->assertTrue(str_contains(
             $registrations,
             'INDEX idx_registrations_event_waitlist (event_id, status, waitlisted_at, id)',
         ));
+        $this->assertTrue(str_contains($registrations, 'CONSTRAINT chk_registrations_waitlist_state CHECK'));
     }
 
     public function testFreshSchemaEnforcesCertificateIdentityAndPrivateArtifactState(): void
@@ -117,6 +119,7 @@ final class Week4SchemaTest extends TestCase
             "column_name = 'waitlist_enabled'",
             "column_name = 'waitlisted_at'",
             "column_name = 'promoted_at'",
+            "column_name = 'waitlist_claim_expires_at'",
             "index_name = 'idx_registrations_event_waitlist'",
             'CREATE TABLE IF NOT EXISTS event_certificates',
             'CREATE TABLE IF NOT EXISTS blog_posts',

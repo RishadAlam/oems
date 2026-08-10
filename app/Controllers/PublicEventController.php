@@ -193,6 +193,14 @@ final class PublicEventController extends Controller
                     'href' => '/participant/registrations/' . (int) $registration['id'],
                 ];
             }
+            if ($registration !== null && $status === 'waitlisted') {
+                return [
+                    'label' => 'On waitlist',
+                    'description' => 'You are in the seat queue. Track your current position in your workspace.',
+                    'href' => '/participant/waitlist',
+                    'post_url' => null,
+                ];
+            }
         }
 
         if (($event['status'] ?? null) === 'completed') {
@@ -212,6 +220,25 @@ final class PublicEventController extends Controller
         }
 
         if ((int) ($event['available_seats'] ?? 0) <= 0) {
+            if ((int) ($event['waitlist_enabled'] ?? 0) === 1) {
+                if ($userId !== null && !$this->auth->hasRole('participant')) {
+                    return ['label' => 'Participant account required', 'description' => 'Waitlisting is available to participant accounts.', 'href' => null, 'post_url' => null];
+                }
+                if ($this->auth->guest()) {
+                    return [
+                        'label' => 'Join waitlist',
+                        'description' => 'Sign in with a participant account to join the seat queue.',
+                        'href' => '/login?return_to=' . rawurlencode('/events/' . (string) $event['slug']),
+                        'post_url' => null,
+                    ];
+                }
+                return [
+                    'label' => 'Join waitlist',
+                    'description' => 'Join the queue without payment. The oldest eligible entry is promoted when a seat opens.',
+                    'href' => null,
+                    'post_url' => '/participant/events/' . (int) $event['id'] . '/waitlist',
+                ];
+            }
             return ['label' => 'Sold out', 'description' => 'No places are currently available.', 'href' => null];
         }
 

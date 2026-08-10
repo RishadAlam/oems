@@ -130,6 +130,7 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($create->body(), 'accept="image/jpeg,image/png,image/webp"'));
         $this->assertSame(200, $edit->status());
         $this->assertTrue(str_contains($edit->body(), 'Edit event'));
+        $this->assertSame(0, preg_match('/id="waitlist_enabled"[^>]*\schecked(?:\s|>)/', $edit->body()));
         $this->assertSame(200, $show->status());
         $this->assertTrue(str_contains($show->body(), 'Draft'));
         $this->assertFalse(str_contains($show->body(), 'Register now'));
@@ -477,6 +478,7 @@ final class OrganizerEventControllerTest extends TestCase
             'deleted_at' => null,
             'location_visibility' => 'registered',
             'arrival_notes' => 'Use the north entrance.',
+            'waitlist_enabled' => 0,
         ];
     }
 }

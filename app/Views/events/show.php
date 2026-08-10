@@ -129,6 +129,11 @@
                     <p><?= e($registrationAction['description']) ?></p>
                     <?php if (is_string($registrationAction['href'])): ?>
                         <a class="button button--primary mt-4 w-full" href="<?= e($registrationAction['href']) ?>"><?= e($registrationAction['label']) ?></a>
+                    <?php elseif (is_string($registrationAction['post_url'] ?? null)): ?>
+                        <form class="mt-4" action="<?= e($registrationAction['post_url']) ?>" method="post">
+                            <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                            <button class="button button--primary w-full" type="submit"><i class="ph ph-hourglass-medium" aria-hidden="true"></i><span><?= e($registrationAction['label']) ?></span></button>
+                        </form>
                     <?php endif; ?>
                 </div>
             </section>

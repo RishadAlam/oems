@@ -95,6 +95,17 @@ final class TransactionMailer
         );
     }
 
+    public function sendWaitlistPromotion(array $participant, array $registration): bool
+    {
+        return $this->send(
+            'waitlist_promoted',
+            'A waitlist seat is ready',
+            'A seat is available. Submit your payment details within 24 hours to keep it.',
+            $participant,
+            $registration,
+        );
+    }
+
     private function send(
         string $template,
         string $subject,

@@ -34,6 +34,7 @@ final class OrganizerEventController extends Controller
         'tags',
         'location_visibility',
         'arrival_notes',
+        'waitlist_enabled',
     ];
 
     private const STATUSES = [
