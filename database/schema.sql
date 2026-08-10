@@ -2,6 +2,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS email_logs;
+DROP TABLE IF EXISTS mail_outbox;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS password_resets;
 DROP TABLE IF EXISTS banners;
@@ -9,6 +10,7 @@ DROP TABLE IF EXISTS faqs;
 DROP TABLE IF EXISTS pages;
 DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS newsletter_campaigns;
 DROP TABLE IF EXISTS newsletter;
 DROP TABLE IF EXISTS contact_messages;
 DROP TABLE IF EXISTS favorites;
@@ -258,9 +260,16 @@ CREATE TABLE coupons (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_coupons_organizer_event_active (organizer_id, event_id, is_active),
+    INDEX idx_coupons_active_window (is_active, starts_at, expires_at),
     CONSTRAINT fk_coupons_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
     CONSTRAINT fk_coupons_organizer FOREIGN KEY (organizer_id) REFERENCES organizers (id) ON DELETE CASCADE,
-    CONSTRAINT chk_coupons_value CHECK (discount_value >= 0)
+    CONSTRAINT chk_coupons_discount CHECK (
+        (discount_type = 'percentage' AND discount_value > 0 AND discount_value <= 100)
+        OR (discount_type = 'fixed' AND discount_value > 0)
+    ),
+    CONSTRAINT chk_coupons_usage CHECK (usage_limit IS NULL OR used_count <= usage_limit),
+    CONSTRAINT chk_coupons_dates CHECK (starts_at IS NULL OR expires_at IS NULL OR expires_at >= starts_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE registrations (
@@ -342,6 +351,8 @@ CREATE TABLE coupon_usage (
     registration_id BIGINT UNSIGNED NOT NULL UNIQUE,
     discount_amount DECIMAL(12, 2) NOT NULL,
     used_at DATETIME NOT NULL,
+    UNIQUE KEY uq_coupon_usage_coupon_user (coupon_id, user_id),
+    INDEX idx_coupon_usage_user_used (user_id, used_at),
     CONSTRAINT fk_coupon_usage_coupon FOREIGN KEY (coupon_id) REFERENCES coupons (id),
     CONSTRAINT fk_coupon_usage_user FOREIGN KEY (user_id) REFERENCES users (id),
     CONSTRAINT fk_coupon_usage_registration FOREIGN KEY (registration_id) REFERENCES registrations (id)
@@ -415,17 +426,47 @@ CREATE TABLE contact_messages (
     replied_at DATETIME NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_contact_messages_status_date (status, created_at),
+    INDEX idx_contact_messages_email_date (email, created_at),
     CONSTRAINT fk_contact_messages_replied_by FOREIGN KEY (replied_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE newsletter (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(190) NOT NULL UNIQUE,
-    status ENUM('subscribed', 'unsubscribed') NOT NULL DEFAULT 'subscribed',
+    status ENUM('pending', 'subscribed', 'unsubscribed') NOT NULL DEFAULT 'pending',
+    confirmation_token_hash CHAR(64) NULL UNIQUE,
+    confirmation_expires_at DATETIME NULL,
+    confirmed_at DATETIME NULL,
+    unsubscribe_token_hash CHAR(64) NULL UNIQUE,
     subscribed_at DATETIME NOT NULL,
     unsubscribed_at DATETIME NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_newsletter_status_created (status, created_at),
+    INDEX idx_newsletter_confirmation_expiry (confirmation_token_hash, confirmation_expires_at),
+    CONSTRAINT chk_newsletter_confirmation CHECK (
+        (status = 'pending' AND confirmation_token_hash IS NOT NULL AND confirmation_expires_at IS NOT NULL)
+        OR status IN ('subscribed', 'unsubscribed')
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE newsletter_campaigns (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    subject VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('draft', 'queued', 'sent', 'failed') NOT NULL DEFAULT 'draft',
+    created_by BIGINT UNSIGNED NULL,
+    recipient_count INT UNSIGNED NOT NULL DEFAULT 0,
+    queued_count INT UNSIGNED NOT NULL DEFAULT 0,
+    request_key CHAR(64) NOT NULL UNIQUE,
+    scheduled_at DATETIME NULL,
+    queued_at DATETIME NULL,
+    sent_at DATETIME NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_newsletter_campaigns_status_schedule (status, scheduled_at, id),
+    CONSTRAINT fk_newsletter_campaigns_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+    CONSTRAINT chk_newsletter_campaign_counts CHECK (queued_count <= recipient_count)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE settings (
@@ -538,6 +579,27 @@ CREATE TABLE email_logs (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_email_logs_status_date (status, created_at),
     CONSTRAINT fk_email_logs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE mail_outbox (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    template VARCHAR(100) NOT NULL,
+    recipient_email VARCHAR(190) NOT NULL,
+    payload JSON NOT NULL,
+    idempotency_key CHAR(64) NOT NULL UNIQUE,
+    status ENUM('queued', 'processing', 'sent', 'failed') NOT NULL DEFAULT 'queued',
+    attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    available_at DATETIME NOT NULL,
+    lock_token CHAR(64) NULL,
+    locked_at DATETIME NULL,
+    sent_at DATETIME NULL,
+    provider_message_id VARCHAR(190) NULL,
+    last_error VARCHAR(500) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_mail_outbox_delivery (status, available_at, id),
+    INDEX idx_mail_outbox_lock (status, locked_at),
+    CONSTRAINT chk_mail_outbox_attempts CHECK (attempts <= 20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

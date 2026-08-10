@@ -113,6 +113,9 @@ INSERT INTO settings (`group`, `key`, `value`, value_type, is_public) VALUES
     ('general', 'maintenance_mode', 'false', 'boolean', FALSE),
     ('mail', 'mail_driver', 'smtp', 'string', FALSE),
     ('mail', 'mail_from_address', 'hello@oems.local', 'string', FALSE),
+    ('mail', 'outbox_max_attempts', '5', 'integer', FALSE),
+    ('mail', 'reminder_lead_hours', '24', 'integer', FALSE),
+    ('operations', 'backup_retention', '14', 'integer', FALSE),
     ('security', 'login_attempt_limit', '5', 'integer', FALSE),
     ('security', 'login_lockout_minutes', '15', 'integer', FALSE);
 

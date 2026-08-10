@@ -13,6 +13,7 @@ use OEMS\App\Contracts\CategoryRepositoryInterface;
 use OEMS\App\Contracts\EventRepositoryInterface;
 use OEMS\App\Contracts\HttpClientInterface;
 use OEMS\App\Contracts\MailTransportInterface;
+use OEMS\App\Contracts\MailOutboxRepositoryInterface;
 use OEMS\App\Contracts\OrganizerRepositoryInterface;
 use OEMS\App\Contracts\NotificationRepositoryInterface;
 use OEMS\App\Contracts\PaymentRepositoryInterface;
@@ -37,6 +38,7 @@ use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
 use OEMS\App\Repositories\FavoriteRepository;
 use OEMS\App\Repositories\GeocodingCacheRepository;
+use OEMS\App\Repositories\MailOutboxRepository;
 use OEMS\App\Repositories\OrganizerRepository;
 use OEMS\App\Repositories\NotificationRepository;
 use OEMS\App\Repositories\PaymentRepository;
@@ -59,6 +61,7 @@ use OEMS\App\Services\EventService;
 use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\LocationService;
+use OEMS\App\Services\MailOutboxService;
 use OEMS\App\Services\NotificationService;
 use OEMS\App\Services\NominatimGeocoder;
 use OEMS\App\Services\RegistrationService;
@@ -272,6 +275,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    MailOutboxRepositoryInterface::class,
+    static fn (Container $container): MailOutboxRepository => new MailOutboxRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     DashboardLayoutDataProvider::class,
     static fn (Container $container): DashboardLayoutDataProvider => new DashboardLayoutDataProvider(
         $container->get(NotificationRepositoryInterface::class),
@@ -305,6 +314,12 @@ $container->singleton(
     static fn (Container $container): NotificationService => new NotificationService(
         $container->get(NotificationRepositoryInterface::class),
         $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    MailOutboxService::class,
+    static fn (Container $container): MailOutboxService => new MailOutboxService(
+        $container->get(MailOutboxRepositoryInterface::class),
     ),
 );
 $container->singleton(
