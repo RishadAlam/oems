@@ -31,6 +31,7 @@
     $participantRegistrationsActive = str_starts_with($currentPath, '/participant/registrations')
         || (str_starts_with($currentPath, '/participant/events/') && !$participantReviewFormActive);
     $participantTicketsActive = str_starts_with($currentPath, '/participant/tickets');
+    $participantCertificatesActive = str_starts_with($currentPath, '/participant/certificates');
     $participantFavoritesActive = str_starts_with($currentPath, '/participant/favorites');
     $participantWaitlistActive = str_starts_with($currentPath, '/participant/waitlist');
     $participantNotificationsActive = str_starts_with($currentPath, '/participant/notifications');
@@ -70,6 +71,7 @@
                     <?php if (($currentUser['role_slug'] ?? '') === 'participant'): ?>
                         <a class="dashboard-nav-link<?= $participantRegistrationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/registrations"<?= $participantRegistrationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
                         <a class="dashboard-nav-link<?= $participantTicketsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/tickets"<?= $participantTicketsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Tickets</span></a>
+                        <a class="dashboard-nav-link<?= $participantCertificatesActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/certificates"<?= $participantCertificatesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-seal-check" aria-hidden="true"></i><span>Certificates</span></a>
                         <a class="dashboard-nav-link<?= $participantFavoritesActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/favorites"<?= $participantFavoritesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Favorites</span></a>
                         <a class="dashboard-nav-link<?= $participantWaitlistActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/waitlist"<?= $participantWaitlistActive ? ' aria-current="page"' : '' ?>><i class="ph ph-hourglass-medium" aria-hidden="true"></i><span>Waitlist</span></a>
                         <a class="dashboard-nav-link<?= $participantNotificationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/participant/notifications"<?= $participantNotificationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-bell" aria-hidden="true"></i><span>Notifications</span><?php if ((int) ($unreadNotifications ?? 0) > 0): ?><span class="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-xs font-bold text-white" aria-label="<?= e((int) $unreadNotifications) ?> unread notifications"><?= e((int) $unreadNotifications) ?></span><?php endif; ?></a>

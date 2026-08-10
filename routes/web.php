@@ -33,6 +33,7 @@ use OEMS\App\Controllers\ParticipantFavoriteController;
 use OEMS\App\Controllers\ParticipantWaitlistController;
 use OEMS\App\Controllers\ParticipantNotificationController;
 use OEMS\App\Controllers\ParticipantTicketController;
+use OEMS\App\Controllers\ParticipantCertificateController;
 use OEMS\App\Controllers\ParticipantReviewController;
 use OEMS\App\Controllers\ProfileController;
 use OEMS\App\Controllers\PublicEventController;
@@ -41,6 +42,7 @@ use OEMS\App\Controllers\PublicLocationController;
 use OEMS\App\Controllers\PublicContentController;
 use OEMS\App\Controllers\PublicContactController;
 use OEMS\App\Controllers\PublicNewsletterController;
+use OEMS\App\Controllers\PublicCertificateController;
 use OEMS\App\Controllers\HealthController;
 use OEMS\Core\Router;
 
@@ -67,6 +69,7 @@ return static function (Router $router): void {
     $router->get('/privacy', [PublicContentController::class, 'privacy'], name: 'pages.privacy');
     $router->get('/terms', [PublicContentController::class, 'terms'], name: 'pages.terms');
     $router->get('/faq', [PublicContentController::class, 'faq'], name: 'pages.faq');
+    $router->get('/certificates/verify/{token}', [PublicCertificateController::class, 'show'], name: 'certificates.verify');
 
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest'], 'login');
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf'], 'login.submit');
@@ -104,6 +107,9 @@ return static function (Router $router): void {
     $router->get('/participant/tickets/{id}', [ParticipantTicketController::class, 'show'], ['role:participant'], 'participant.tickets.show');
     $router->get('/participant/tickets/{id}/qr', [ParticipantTicketController::class, 'qr'], ['role:participant'], 'participant.tickets.qr');
     $router->get('/participant/tickets/{id}/pdf', [ParticipantTicketController::class, 'pdf'], ['role:participant'], 'participant.tickets.pdf');
+    $router->get('/participant/certificates', [ParticipantCertificateController::class, 'index'], ['role:participant'], 'participant.certificates.index');
+    $router->post('/participant/registrations/{id}/certificate', [ParticipantCertificateController::class, 'issue'], ['role:participant', 'csrf'], 'participant.certificates.issue');
+    $router->get('/participant/certificates/{id}/pdf', [ParticipantCertificateController::class, 'pdf'], ['role:participant'], 'participant.certificates.pdf');
     $router->get('/participant/reviews', [ParticipantReviewController::class, 'index'], ['role:participant'], 'participant.reviews.index');
     $router->get('/participant/events/{id}/review', [ParticipantReviewController::class, 'create'], ['role:participant'], 'participant.reviews.create');
     $router->post('/participant/events/{id}/review', [ParticipantReviewController::class, 'store'], ['role:participant', 'csrf'], 'participant.reviews.store');

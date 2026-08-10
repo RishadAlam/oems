@@ -91,6 +91,11 @@ OEMS_PUBLIC_API_TEST_USER="$mysql_user" \
 OEMS_PUBLIC_API_TEST_PASSWORD="$mysql_password" \
 php tests/verify-calendar-api-mysql.php
 
+OEMS_CERTIFICATE_TEST_DSN="mysql:host=$mysql_host;port=$mysql_port;dbname=$database;charset=utf8mb4" \
+OEMS_CERTIFICATE_TEST_USER="$mysql_user" \
+OEMS_CERTIFICATE_TEST_PASSWORD="$mysql_password" \
+php tests/verify-certificates-mysql.php
+
 registration_id="$(scalar 'SELECT id FROM registrations ORDER BY id LIMIT 1')"
 participant_id="$(scalar "SELECT user_id FROM registrations WHERE id = $registration_id")"
 mysql_run "$database" --execute="INSERT INTO event_certificates (registration_id, participant_id, certificate_number, verification_token_hash, pdf_path, status, issued_at) VALUES ($registration_id, $participant_id, 'OEMS-WEEK4-CERT-1', REPEAT('a', 64), 'certificates/week4.pdf', 'valid', NOW())"

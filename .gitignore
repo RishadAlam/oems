@@ -9,12 +9,14 @@
 /storage/logs/*.log
 /storage/cache/*
 /storage/tickets/*
+/storage/certificates/*
 /public/uploads/*
 /public/uploads/tickets/*
 /public/tickets/*
 !/storage/logs/.gitkeep
 !/storage/cache/.gitkeep
 !/storage/tickets/.gitkeep
+!/storage/certificates/.gitkeep
 !/public/uploads/.gitkeep
 !/public/uploads/tickets/
 !/public/uploads/tickets/.gitkeep

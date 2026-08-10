@@ -24,6 +24,7 @@ use OEMS\App\Contracts\ProfileRepositoryInterface;
 use OEMS\App\Contracts\RegistrationRepositoryInterface;
 use OEMS\App\Contracts\ReviewRepositoryInterface;
 use OEMS\App\Contracts\TicketRepositoryInterface;
+use OEMS\App\Contracts\CertificateRepositoryInterface;
 use OEMS\App\Contracts\UserRepositoryInterface;
 use OEMS\App\Contracts\VenueRepositoryInterface;
 use OEMS\App\Contracts\WaitlistRepositoryInterface;
@@ -53,6 +54,7 @@ use OEMS\App\Repositories\PaymentRepository;
 use OEMS\App\Repositories\RegistrationRepository;
 use OEMS\App\Repositories\ReviewRepository;
 use OEMS\App\Repositories\TicketRepository;
+use OEMS\App\Repositories\CertificateRepository;
 use OEMS\App\Repositories\UserRepository;
 use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
@@ -86,6 +88,8 @@ use OEMS\App\Services\ReportService;
 use OEMS\App\Services\ReviewService;
 use OEMS\App\Services\TicketArtifactService;
 use OEMS\App\Services\TicketService;
+use OEMS\App\Services\CertificateArtifactService;
+use OEMS\App\Services\CertificateService;
 use OEMS\App\Services\TransactionMailer;
 use OEMS\App\Services\VenueService;
 use OEMS\App\Services\VenueGeocodingService;
@@ -463,6 +467,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    CertificateRepositoryInterface::class,
+    static fn (Container $container): CertificateRepository => new CertificateRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ReviewRepositoryInterface::class,
     static fn (Container $container): ReviewRepository => new ReviewRepository(
         $container->get(Database::class)->connection(),
@@ -483,6 +493,23 @@ $container->singleton(
         'uploads/tickets',
         (string) $container->get(Config::class)->get('url', 'http://localhost:8000') . '/organizer/check-in',
         $basePath . '/public/uploads/tickets',
+    ),
+);
+$container->singleton(
+    CertificateArtifactService::class,
+    static fn (Container $container): CertificateArtifactService => new CertificateArtifactService(
+        $basePath . '/storage/certificates',
+        'certificates',
+        rtrim((string) $container->get(Config::class)->get('url', 'http://localhost:8000'), '/') . '/certificates/verify',
+    ),
+);
+$container->singleton(
+    CertificateService::class,
+    static fn (Container $container): CertificateService => new CertificateService(
+        $container->get(Database::class)->connection(),
+        $container->get(CertificateRepositoryInterface::class),
+        $container->get(CertificateArtifactService::class),
+        $container->get(Logger::class),
     ),
 );
 $container->singleton(

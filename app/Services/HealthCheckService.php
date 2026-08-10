@@ -10,7 +10,7 @@ use Throwable;
 
 final class HealthCheckService
 {
-    private const REQUIRED_STORAGE = ['storage/cache', 'storage/logs', 'storage/tickets', 'storage/backups'];
+    private const REQUIRED_STORAGE = ['storage/cache', 'storage/logs', 'storage/tickets', 'storage/certificates', 'storage/backups'];
 
     public function __construct(private readonly PDO|Closure $connection, private readonly string $basePath)
     {

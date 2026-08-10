@@ -74,7 +74,7 @@ When TLS terminates at a reverse proxy, set `COOKIE_SECURE=true`. Configure `TRU
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
-The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), and `public/uploads/events` (public event images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
+The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), `storage/certificates` (private attendance-certificate PDFs), and `public/uploads/events` (public event images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
 
 ## Database upgrades
 
@@ -124,7 +124,7 @@ Recommended release sequence:
 1. Drain writes or enable maintenance, then run and verify a database backup.
 2. Deploy dependencies with `composer install --no-dev --classmap-authoritative` and `npm ci`; build assets with `npm run build:css` and `npm run build:assets` in the release artifact.
 3. Run the required forward migrations in the documented order and run `php scripts/migrate-ticket-artifacts.php` for pre-private-storage installations.
-4. Make only `storage/cache`, `storage/logs`, `storage/tickets`, `storage/backups`, and the documented public upload directories writable by the application user. Keep source, configuration, and vendor files read-only.
+4. Make only `storage/cache`, `storage/logs`, `storage/tickets`, `storage/certificates`, `storage/backups`, and the documented public upload directories writable by the application user. Keep source, configuration, and vendor files read-only.
 5. Enable the PHP-FPM pool, Nginx site, and the four systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
 6. Probe `/health/live` and `/health/ready`, run the role/CSRF/download acceptance journey, then disable maintenance and restore traffic.
 
@@ -251,6 +251,14 @@ Only non-deleted `published` events appear in public discovery.
 - Files are validated from their actual bytes and dimensions, renamed randomly, and stored under `public/uploads/events`.
 - The repeatable demo seed references the committed `/assets/images/hero-events.webp`, `/assets/images/event-creative.webp`, and `/assets/images/event-community.webp` files; it does not depend on untracked local uploads.
 
+### Attendance certificates
+
+- A confirmed participant may request a certificate only when the event is completed, the ticket was used, and one `present` attendance record exists.
+- `/participant/certificates` lists only the signed-in participant's records. Certificate PDFs are generated under private `storage/certificates` and streamed through an ownership-scoped, no-store download route.
+- Each certificate contains a random public number and a 256-bit verification token. Only the SHA-256 token digest is stored in MySQL.
+- `/certificates/verify/{token}` exposes only validity, participant name, event title, completion date, and issue date. Malformed, unknown, revoked, or deleted-user records return the same generic unavailable result.
+- PDF contents intentionally exclude email, phone, payment details, ticket/check-in secrets, internal identifiers, and restricted exact location.
+
 ### Ticket storage
 
 - Issued QR images and PDF tickets are stored outside the document root under `storage/tickets` with random filenames.
@@ -283,6 +291,7 @@ Use an isolated local database with both seeds imported.
 - Administrator category management and event approve, reject, publish, complete, and cancel workflows
 - Secure banner/gallery validation and storage with bounded uploads and safe cleanup
 - Database-backed home, event search, event details, canonical metadata, Open Graph data, and JSON-LD
+- Waitlist promotion, calendar/API discovery, and private verifiable attendance certificates
 - Repository-backed organizer and administrator dashboards with enabled workflow actions
 - Role guards, CSRF protection, escaped views, prepared queries, lifecycle validation, and automated regression coverage
 

@@ -81,6 +81,12 @@ $paymentDetailLabel = $eventCancelled
                 <a class="button button--quiet" href="/participant/registrations/<?= e($registration['id']) ?>/google-calendar" target="_blank" rel="noopener noreferrer"><i class="ph ph-arrow-square-out" aria-hidden="true"></i><span>Google Calendar</span></a>
             </div>
         <?php endif; ?>
+        <?php if ($registrationStatus === 'confirmed' && (string) ($registration['event_status'] ?? '') === 'completed' && (string) ($registration['ticket']['ticket_status'] ?? '') === 'used'): ?>
+            <form class="mt-4" action="/participant/registrations/<?= e($registration['id']) ?>/certificate" method="post">
+                <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                <button class="button button--primary" type="submit"><i class="ph ph-seal-check" aria-hidden="true"></i><span>Get attendance certificate</span></button>
+            </form>
+        <?php endif; ?>
     </section>
     <section class="money-summary dashboard-panel" aria-labelledby="payment-status-heading">
         <h2 id="payment-status-heading" class="text-xl font-bold">Payment and ticket</h2>

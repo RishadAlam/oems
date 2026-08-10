@@ -24,7 +24,7 @@ final class HealthCheckServiceTest extends TestCase
     public function testLivenessIsProcessOnlyAndReadinessIsSanitized(): void
     {
         $root = sys_get_temp_dir() . '/oems-health-' . bin2hex(random_bytes(5));
-        foreach (['storage/cache', 'storage/logs', 'storage/tickets', 'storage/backups'] as $path) {
+        foreach (['storage/cache', 'storage/logs', 'storage/tickets', 'storage/certificates', 'storage/backups'] as $path) {
             mkdir($root . '/' . $path, 0775, true);
         }
         $pdo = new PDO('sqlite::memory:');
@@ -45,6 +45,11 @@ final class HealthCheckServiceTest extends TestCase
         $this->assertSame('ok', $ready['status']);
         $this->assertSame(['database' => true, 'schema' => true, 'storage' => true], $ready['checks']);
         $this->assertFalse(str_contains(json_encode($ready, JSON_THROW_ON_ERROR), $root));
+
+        rmdir($root . '/storage/certificates');
+        $missingCertificateStorage = $service->ready();
+        $this->assertSame('unavailable', $missingCertificateStorage['status']);
+        $this->assertFalse($missingCertificateStorage['checks']['storage']);
 
         $pdo->exec('DROP TABLE mail_outbox');
         $failed = $service->ready();
