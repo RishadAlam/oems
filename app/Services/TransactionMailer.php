@@ -22,6 +22,7 @@ final class TransactionMailer
         private readonly EmailLogRepositoryInterface $logs,
         private readonly Config $config,
         private readonly ?Logger $logger = null,
+        private readonly ?MailOutboxService $outbox = null,
     ) {
     }
 
@@ -108,6 +109,24 @@ final class TransactionMailer
         $event = $this->display($registration['event_title'] ?? 'your event');
         $path ??= '/participant/registrations/' . (int) ($registration['id'] ?? 0);
         $url = $this->url($path);
+
+        if ($this->outbox !== null) {
+            $queued = $this->outbox->enqueue(
+                $template,
+                $recipient,
+                [
+                    'user_id' => $userId,
+                    'participant_name' => $name,
+                    'registration_id' => (int) ($registration['id'] ?? 0),
+                    'event_title' => $event,
+                    'action_url' => $path,
+                ],
+                "transaction:{$template}:user:{$userId}:registration:" . (int) ($registration['id'] ?? 0),
+            );
+
+            return (bool) ($queued['ok'] ?? false);
+        }
+
         $safeName = $this->escape($name);
         $safeEvent = $this->escape($event);
         $safeUrl = $this->escape($url);

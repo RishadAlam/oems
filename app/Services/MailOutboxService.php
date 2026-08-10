@@ -11,10 +11,18 @@ use Throwable;
 final class MailOutboxService
 {
     private const TEMPLATES = [
+        'registration_confirmation' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'payment_pending' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'payment_paid' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'payment_rejected' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'registration_cancelled' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
+        'ticket_issued' => ['user_id', 'participant_name', 'registration_id', 'event_title', 'action_url'],
         'event_reminder' => ['user_id', 'event_id', 'registration_id', 'event_title', 'starts_at', 'calendar_url'],
+        'event_announcement' => ['event_id', 'recipient_name', 'event_title', 'subject', 'message', 'action_url'],
         'contact_reply' => ['contact_id', 'name', 'reply'],
         'newsletter_confirmation' => ['subscription_id', 'confirmation_url'],
         'newsletter_campaign' => ['campaign_id', 'subject', 'message', 'unsubscribe_url'],
+        'newsletter_unsubscribe' => ['subscription_id'],
     ];
 
     public function __construct(private readonly MailOutboxRepositoryInterface $outbox)
@@ -84,10 +92,21 @@ final class MailOutboxService
         }
 
         return match ($template) {
+            'registration_confirmation', 'payment_pending', 'payment_paid', 'payment_rejected',
+            'registration_cancelled', 'ticket_issued' => $this->positiveIds($payload, ['user_id', 'registration_id'])
+                && $this->bounded($payload['participant_name'], 160)
+                && $this->bounded($payload['event_title'], 180)
+                && $this->relativeUrl($payload['action_url']),
             'event_reminder' => $this->positiveIds($payload, ['user_id', 'event_id', 'registration_id'])
                 && $this->bounded($payload['event_title'], 180)
                 && $this->bounded($payload['starts_at'], 64)
                 && $this->relativeUrl($payload['calendar_url']),
+            'event_announcement' => $this->positiveIds($payload, ['event_id'])
+                && $this->bounded($payload['recipient_name'], 160)
+                && $this->bounded($payload['event_title'], 180)
+                && $this->bounded($payload['subject'], 180)
+                && $this->bounded($payload['message'], 1000)
+                && $this->relativeUrl($payload['action_url']),
             'contact_reply' => $this->positiveIds($payload, ['contact_id'])
                 && $this->bounded($payload['name'], 100)
                 && $this->bounded($payload['reply'], 4000),
@@ -97,6 +116,7 @@ final class MailOutboxService
                 && $this->bounded($payload['subject'], 180)
                 && $this->bounded($payload['message'], 4000)
                 && $this->relativeUrl($payload['unsubscribe_url']),
+            'newsletter_unsubscribe' => $this->positiveIds($payload, ['subscription_id']),
             default => false,
         };
     }

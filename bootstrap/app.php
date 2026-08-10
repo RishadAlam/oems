@@ -62,7 +62,9 @@ use OEMS\App\Services\FavoriteService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\LocationService;
 use OEMS\App\Services\MailOutboxService;
+use OEMS\App\Services\MailOutboxWorker;
 use OEMS\App\Services\NotificationService;
+use OEMS\App\Services\QueuedMailTemplateService;
 use OEMS\App\Services\NominatimGeocoder;
 use OEMS\App\Services\RegistrationService;
 use OEMS\App\Services\ReportService;
@@ -323,6 +325,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    QueuedMailTemplateService::class,
+    static fn (Container $container): QueuedMailTemplateService => new QueuedMailTemplateService(
+        $container->get(Config::class),
+    ),
+);
+$container->singleton(
     AdminPeopleService::class,
     static fn (Container $container): AdminPeopleService => new AdminPeopleService(
         $container->get(AdminPeopleRepositoryInterface::class),
@@ -430,6 +438,16 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    MailOutboxWorker::class,
+    static fn (Container $container): MailOutboxWorker => new MailOutboxWorker(
+        $container->get(MailOutboxRepositoryInterface::class),
+        $container->get(QueuedMailTemplateService::class),
+        $container->get(MailTransportInterface::class),
+        $container->get(EmailLogRepositoryInterface::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
     AccountMailer::class,
     static fn (Container $container): AccountMailer => new AccountMailer(
         $container->get(MailTransportInterface::class),
@@ -445,6 +463,7 @@ $container->singleton(
         $container->get(EmailLogRepositoryInterface::class),
         $container->get(Config::class),
         $container->get(Logger::class),
+        $container->get(MailOutboxService::class),
     ),
 );
 $container->singleton(

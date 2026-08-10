@@ -42,11 +42,34 @@ final class FakeMailOutboxRepository implements MailOutboxRepositoryInterface
 
     public function claimBatch(int $limit, string $lockToken, DateTimeImmutable $now): array
     {
-        return [];
+        $limit = min(100, max(1, $limit));
+        $claimed = [];
+        foreach ($this->jobs as &$job) {
+            if (count($claimed) >= $limit) break;
+            if (($job['status'] ?? null) !== 'queued' || (string) $job['available_at'] > $now->format('Y-m-d H:i:s')) continue;
+            $job['status'] = 'processing';
+            $job['lock_token'] = $lockToken;
+            $job['locked_at'] = $now->format('Y-m-d H:i:s');
+            $claimed[] = $job;
+        }
+        unset($job);
+
+        return $claimed;
     }
 
     public function markSent(int $id, string $lockToken, ?string $providerId, DateTimeImmutable $sentAt): bool
     {
+        foreach ($this->jobs as &$job) {
+            if ($job['id'] !== $id || $job['status'] !== 'processing' || $job['lock_token'] !== $lockToken) continue;
+            $job['status'] = 'sent';
+            $job['sent_at'] = $sentAt->format('Y-m-d H:i:s');
+            $job['provider_message_id'] = $providerId;
+            $job['lock_token'] = null;
+            $job['locked_at'] = null;
+            unset($job);
+            return true;
+        }
+        unset($job);
         return false;
     }
 
@@ -58,6 +81,18 @@ final class FakeMailOutboxRepository implements MailOutboxRepositoryInterface
         string $error,
         bool $terminal,
     ): bool {
+        foreach ($this->jobs as &$job) {
+            if ($job['id'] !== $id || $job['status'] !== 'processing' || $job['lock_token'] !== $lockToken) continue;
+            $job['status'] = $terminal ? 'failed' : 'queued';
+            $job['attempts'] = $attempts;
+            $job['available_at'] = $availableAt->format('Y-m-d H:i:s');
+            $job['last_error'] = $error;
+            $job['lock_token'] = null;
+            $job['locked_at'] = null;
+            unset($job);
+            return true;
+        }
+        unset($job);
         return false;
     }
 }

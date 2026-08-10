@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace OEMS\Tests\Unit;
 
 use OEMS\App\Services\TransactionMailer;
+use OEMS\App\Services\MailOutboxService;
 use OEMS\Core\Config;
 use OEMS\Core\Logger;
 use OEMS\Tests\Support\FakeEmailLogRepository;
 use OEMS\Tests\Support\FakeMailTransport;
+use OEMS\Tests\Support\FakeMailOutboxRepository;
 use OEMS\Tests\Support\TestCase;
 use RuntimeException;
 
@@ -88,6 +90,32 @@ final class TransactionMailerTest extends TestCase
             $this->assertFalse(str_contains($contents, 'MANUAL-SECRET'));
             unlink($path);
         }
+    }
+
+    public function testConfiguredOutboxQueuesLifecycleMessagesIdempotentlyWithoutSynchronousSmtp(): void
+    {
+        $transport = new FakeMailTransport('<must-not-send>');
+        $logs = new FakeEmailLogRepository();
+        $outbox = new FakeMailOutboxRepository();
+        $mailer = new TransactionMailer(
+            $transport,
+            $logs,
+            new Config(['url' => 'https://events.example.test']),
+            null,
+            new MailOutboxService($outbox),
+        );
+        $participant = ['id' => 7, 'name' => 'Amina', 'email' => 'amina@example.test'];
+        $registration = ['id' => 41, 'event_title' => 'Dhaka Product Night'];
+
+        $this->assertTrue($mailer->sendPending($participant, $registration));
+        $this->assertTrue($mailer->sendPending($participant, $registration));
+        $this->assertTrue($mailer->sendTicket($participant, $registration, ['id' => 91]));
+
+        $this->assertSame([], $transport->messages);
+        $this->assertSame([], $logs->records);
+        $this->assertSame(2, count($outbox->jobs));
+        $this->assertSame(['payment_pending', 'ticket_issued'], array_column($outbox->jobs, 'template'));
+        $this->assertSame('/participant/tickets/91', $outbox->jobs[1]['payload']['action_url']);
     }
 
     private function mailer(
