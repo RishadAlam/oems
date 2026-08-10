@@ -15,6 +15,8 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public array $cancellationParticipantIds = [];
 
+    public array $registrationCounts = [];
+
     public bool $failCreate = false;
 
     public bool $failUpdate = false;
@@ -205,7 +207,25 @@ final class FakeEventRepository implements EventRepositoryInterface
     {
         $event = $this->findOwned($userId, $eventId);
 
-        if ($event === null || !in_array($event['status'], ['draft', 'rejected', 'cancelled'], true)) {
+        if ($event === null
+            || !in_array($event['status'], ['draft', 'rejected', 'cancelled'], true)
+            || (int) ($this->registrationCounts[$eventId] ?? 0) > 0) {
+            return false;
+        }
+
+        $this->events[$eventId]['deleted_at'] = 'now';
+
+        return true;
+    }
+
+    public function softDeleteAdmin(int $userId, int $eventId, array $context): bool
+    {
+        $event = $this->events[$eventId] ?? null;
+
+        if ($event === null
+            || !empty($event['deleted_at'])
+            || !in_array($event['status'], ['draft', 'rejected', 'cancelled'], true)
+            || (int) ($this->registrationCounts[$eventId] ?? 0) > 0) {
             return false;
         }
 

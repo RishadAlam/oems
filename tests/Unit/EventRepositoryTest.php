@@ -376,7 +376,7 @@ final class EventRepositoryTest extends TestCase
         $this->connection->exec("UPDATE events SET status = 'cancelled' WHERE id = " . (int) $id);
         $this->assertTrue($this->repository->softDeleteOwned(10, $id, $this->auditContext()));
         $this->assertNull($this->repository->findOwned(10, $id));
-        $this->assertSame(1, $this->activityCountFor($id));
+        $this->assertSame(2, $this->activityCountFor($id));
     }
 
     public function testSoftDeleteUsesEligibleStatusAsAnAtomicGuard(): void
@@ -388,8 +388,13 @@ final class EventRepositoryTest extends TestCase
 
         $this->connection->exec("UPDATE events SET status = 'rejected' WHERE id = 502");
 
+        $this->connection->exec("INSERT INTO registrations (id, event_id, user_id, registration_number, status, amount, currency, registered_at) VALUES (99, 502, 77, 'REG-GUARD', 'cancelled', 0, 'BDT', CURRENT_TIMESTAMP)");
+        $this->assertFalse($this->repository->softDeleteOwned(10, 502, $this->auditContext()));
+        $this->assertNull($this->eventValue(502, 'deleted_at'));
+        $this->connection->exec('DELETE FROM registrations WHERE id = 99');
         $this->assertTrue($this->repository->softDeleteOwned(10, 502, $this->auditContext()));
         $this->assertNotNull($this->eventValue(502, 'deleted_at'));
+        $this->assertSame('event.deleted', $this->connection->query('SELECT action FROM activity_logs WHERE subject_id = 502 ORDER BY id DESC LIMIT 1')->fetchColumn());
     }
 
     public function testRejectedEventMustBeSavedAsDraftBeforeResubmission(): void

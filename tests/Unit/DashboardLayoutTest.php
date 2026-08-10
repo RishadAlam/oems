@@ -371,6 +371,19 @@ final class DashboardLayoutTest extends TestCase
         $this->assertFalse(str_contains($organizer, 'href="/admin/payments"'));
     }
 
+    public function testPeopleAdministrationNavigationIsVisibleOnlyToSuperAdministrators(): void
+    {
+        $admin = $this->renderAdminDashboard();
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant');
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', ['summary' => [], 'events' => []]);
+
+        foreach (['/admin/users', '/admin/organizers'] as $path) {
+            $this->assertTrue(str_contains($admin, 'href="' . $path . '"'));
+            $this->assertFalse(str_contains($participant, 'href="' . $path . '"'));
+            $this->assertFalse(str_contains($organizer, 'href="' . $path . '"'));
+        }
+    }
+
     public function testOrganizerControllerLoadsAuthenticatedRepositorySummaryAndRecentEvents(): void
     {
         [$controller, $events] = $this->dashboardController('organizer', 10);

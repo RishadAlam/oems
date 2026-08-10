@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Contracts\EmailLogRepositoryInterface;
+use OEMS\App\Contracts\AdminPeopleRepositoryInterface;
 use OEMS\App\Contracts\FavoriteRepositoryInterface;
 use OEMS\App\Contracts\GeocoderInterface;
 use OEMS\App\Contracts\GeocodingCacheRepositoryInterface;
@@ -24,6 +25,7 @@ use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
+use OEMS\App\Repositories\AdminPeopleRepository;
 use OEMS\App\Repositories\CategoryRepository;
 use OEMS\App\Repositories\EmailLogRepository;
 use OEMS\App\Repositories\EventRepository;
@@ -40,6 +42,7 @@ use OEMS\App\Repositories\ProfileRepository;
 use OEMS\App\Repositories\VenueRepository;
 use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Services\AccountMailer;
+use OEMS\App\Services\AdminPeopleService;
 use OEMS\App\Services\AuthService;
 use OEMS\App\Services\CategoryService;
 use OEMS\App\Services\DashboardLayoutDataProvider;
@@ -160,6 +163,12 @@ $container->singleton(
     static fn (Container $container): UserRepository => new UserRepository($container->get(Database::class)),
 );
 $container->singleton(
+    AdminPeopleRepositoryInterface::class,
+    static fn (Container $container): AdminPeopleRepository => new AdminPeopleRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ProfileRepositoryInterface::class,
     static fn (Container $container): ProfileRepository => new ProfileRepository(
         $container->get(Database::class)->connection(),
@@ -225,6 +234,14 @@ $container->singleton(
     NotificationService::class,
     static fn (Container $container): NotificationService => new NotificationService(
         $container->get(NotificationRepositoryInterface::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    AdminPeopleService::class,
+    static fn (Container $container): AdminPeopleService => new AdminPeopleService(
+        $container->get(AdminPeopleRepositoryInterface::class),
+        $container->get(NotificationService::class),
         $container->get(Logger::class),
     ),
 );

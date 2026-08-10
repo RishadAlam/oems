@@ -35,11 +35,13 @@ final class NotificationServiceTest extends TestCase
     {
         $created = $this->service->notify(7, 'ticket_issued', 'Ticket ready', 'Your ticket is available.', '/participant/tickets/44', ['ticket_id' => 44]);
         $unsafe = $this->service->notify(7, 'ticket_issued', 'Ticket ready', 'Your ticket is available.', 'https://attacker.example.test', []);
+        $crossRole = $this->service->notify(7, 'ticket_issued', 'Ticket ready', 'Your ticket is available.', '/organizer/dashboard', []);
         $unknown = $this->service->notify(7, 'arbitrary_type', 'Title', 'Message', '/participant/tickets/44', []);
         $oversized = $this->service->notify(7, 'ticket_issued', str_repeat('T', 181), 'Message', '/participant/tickets/44', []);
 
         $this->assertTrue($created);
         $this->assertFalse($unsafe);
+        $this->assertFalse($crossRole);
         $this->assertFalse($unknown);
         $this->assertFalse($oversized);
         $this->assertSame(1, count($this->repository->notifications));

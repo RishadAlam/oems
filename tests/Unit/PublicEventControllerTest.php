@@ -69,6 +69,7 @@ final class PublicEventRepositorySpy implements EventRepositoryInterface
     public function updateOwned(int $userId, int $eventId, array $attributes): bool { return false; }
     public function updateWithGalleryOwned(int $userId, int $eventId, array $attributes, ?array $images): ?array { return null; }
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool { return false; }
+    public function softDeleteAdmin(int $userId, int $eventId, array $context): bool { return false; }
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool { return false; }
     public function participantIdsForEventCancellation(int $eventId): array { return []; }
     public function publishOwned(int $userId, int $eventId, array $context): bool { return false; }

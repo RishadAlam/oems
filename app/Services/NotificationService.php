@@ -24,6 +24,8 @@ final class NotificationService
         'review_hidden',
         'review_reply',
         'event_cancelled',
+        'organizer_application_approved',
+        'organizer_application_rejected',
     ];
 
     public function __construct(
@@ -78,8 +80,18 @@ final class NotificationService
             return false;
         }
 
-        if ($actionUrl !== null && preg_match('#^/participant/(?:registrations|tickets|reviews)(?:/[1-9][0-9]*)?$#', $actionUrl) !== 1) {
-            return false;
+        if ($actionUrl !== null) {
+            $organizerType = in_array($type, [
+                'organizer_application_approved',
+                'organizer_application_rejected',
+            ], true);
+            $validAction = $organizerType
+                ? $actionUrl === '/organizer/dashboard'
+                : preg_match('#^/participant/(?:registrations|tickets|reviews)(?:/[1-9][0-9]*)?$#', $actionUrl) === 1;
+
+            if (!$validAction) {
+                return false;
+            }
         }
 
         try {

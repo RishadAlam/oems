@@ -193,6 +193,26 @@ final class AdminEventControllerTest extends TestCase
         $this->assertSame(0, $this->activityCount());
     }
 
+    public function testAdministratorDeletesOnlySafeUnregisteredEventsAndWritesAudit(): void
+    {
+        $eligible = $this->controller->show($this->routed('GET', '/admin/events/16', '16'));
+        $blocked = $this->controller->show($this->routed('GET', '/admin/events/17', '17'));
+
+        $this->assertTrue(str_contains($eligible->body(), '/admin/events/16/delete'));
+        $this->assertTrue(str_contains($eligible->body(), 'no participant registration history'));
+        $this->assertTrue(str_contains($blocked->body(), '/admin/events/17/delete'));
+
+        $deleted = $this->controller->delete($this->routed('POST', '/admin/events/16/delete', '16'));
+        $notDeleted = $this->controller->delete($this->routed('POST', '/admin/events/17/delete', '17'));
+
+        $this->assertSame('/admin/events', $deleted->header('Location'));
+        $this->assertNotNull($this->eventValue(16, 'deleted_at'));
+        $this->assertSame('event.deleted', $this->activityActions()[0] ?? null);
+        $this->assertSame('/admin/events/17', $notDeleted->header('Location'));
+        $this->assertNull($this->eventValue(17, 'deleted_at'));
+        $this->assertTrue(str_contains((string) $this->session->get('_flash.error'), 'registrations'));
+    }
+
     public function testEveryEventModerationRouteRequiresSuperAdministratorRoleAndPostsRequireCsrf(): void
     {
         foreach (['/admin/events', '/admin/events/11'] as $uri) {
@@ -200,7 +220,7 @@ final class AdminEventControllerTest extends TestCase
             $this->assertSame(403, $router['router']->dispatch(Request::create('GET', $uri))->status());
         }
 
-        foreach (['approve', 'reject', 'publish', 'complete', 'cancel'] as $action) {
+        foreach (['approve', 'reject', 'publish', 'complete', 'cancel', 'delete'] as $action) {
             $uri = '/admin/events/11/' . $action;
             $organizer = $this->routerForRole('organizer');
             $blockedRole = $organizer['router']->dispatch(Request::create('POST', $uri, input: [
@@ -319,6 +339,8 @@ final class AdminEventControllerTest extends TestCase
             13 => ['Approved Product Summit', 'approved-product-summit', 'approved'],
             14 => ['Published Design Conference', 'published-design-conference', 'published'],
             15 => ['Approved Civic Workshop', 'approved-civic-workshop', 'approved'],
+            16 => ['Draft Internal Rehearsal', 'draft-internal-rehearsal', 'draft'],
+            17 => ['Rejected Registered Workshop', 'rejected-registered-workshop', 'rejected'],
         ];
 
         foreach ($fixtures as $id => [$title, $slug, $status]) {
@@ -346,6 +368,7 @@ final class AdminEventControllerTest extends TestCase
             "INSERT INTO event_gallery (event_id, image_path, alt_text, sort_order, created_at)
              VALUES (11, '/uploads/events/pending-gallery.jpg', 'Pending gallery evidence', 1, CURRENT_TIMESTAMP)",
         );
+        $this->connection->exec("INSERT INTO registrations (event_id, user_id, status, updated_at) VALUES (17, 42, 'cancelled', CURRENT_TIMESTAMP)");
     }
 
     private function eventStatus(int $eventId): string

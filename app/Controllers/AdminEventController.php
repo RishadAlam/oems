@@ -90,6 +90,34 @@ final class AdminEventController extends Controller
         return $this->moderate($request, 'cancelled');
     }
 
+    public function delete(Request $request): Response
+    {
+        $eventId = $this->routeId($request);
+        $userId = $this->auth->id();
+
+        if ($eventId === null || $userId === null || $this->events->findForAdmin($eventId) === null) {
+            return $this->notFound();
+        }
+
+        $agent = $request->header('User-Agent');
+        $result = $this->eventService->deleteAsAdmin($userId, $eventId, [
+            'ip_address' => $request->ip(),
+            'user_agent' => is_string($agent) ? mb_substr($agent, 0, 500) : null,
+        ]);
+
+        if (!$result['success']) {
+            return $this->redirectWith(
+                '/admin/events/' . $eventId,
+                'error',
+                $this->firstError($result['errors']),
+            );
+        }
+
+        $this->session->flash('success', 'Event deleted. Its audit history remains available.');
+
+        return Response::redirect('/admin/events');
+    }
+
     private function moderate(Request $request, string $status): Response
     {
         $eventId = $this->routeId($request);

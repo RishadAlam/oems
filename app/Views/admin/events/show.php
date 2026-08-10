@@ -58,7 +58,10 @@ $canCancel = in_array($status, ['approved', 'published'], true);
             <?php if ($status === 'approved'): ?><form action="/admin/events/<?= e($event['id']) ?>/publish" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit"><i class="ph ph-broadcast" aria-hidden="true"></i><span>Publish event</span></button></form><?php endif; ?>
             <?php if ($status === 'published'): ?><form action="/admin/events/<?= e($event['id']) ?>/complete" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit"><i class="ph ph-flag-checkered" aria-hidden="true"></i><span>Mark complete</span></button></form><?php endif; ?>
             <?php if ($canCancel): ?><form action="/admin/events/<?= e($event['id']) ?>/cancel" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--danger w-full" type="submit"><i class="ph ph-prohibit" aria-hidden="true"></i><span>Cancel event</span></button></form><?php endif; ?>
-            <?php if (!in_array($status, ['pending', 'approved', 'published'], true)): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>No administrator action is available for this status.</span></p><?php endif; ?>
+            <?php if (in_array($status, ['draft', 'rejected', 'cancelled'], true)): ?>
+                <div class="form-alert" role="note"><i class="ph ph-warning" aria-hidden="true"></i><span>Deletion succeeds only when no participant registration history exists. The audit record is retained.</span></div>
+                <form action="/admin/events/<?= e($event['id']) ?>/delete" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--danger w-full" type="submit"><i class="ph ph-trash" aria-hidden="true"></i><span>Delete event</span></button></form>
+            <?php elseif (!in_array($status, ['pending', 'approved', 'published'], true)): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>No administrator action is available for this status.</span></p><?php endif; ?>
         </div>
     </aside>
 </div>

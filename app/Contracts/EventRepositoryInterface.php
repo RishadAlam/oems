@@ -43,6 +43,8 @@ interface EventRepositoryInterface
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool;
 
+    public function softDeleteAdmin(int $userId, int $eventId, array $context): bool;
+
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool;
 
     public function participantIdsForEventCancellation(int $eventId): array;

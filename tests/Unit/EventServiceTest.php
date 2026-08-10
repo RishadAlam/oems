@@ -547,6 +547,23 @@ final class EventServiceTest extends TestCase
         $this->assertSame('now', $this->events->events[2]['deleted_at']);
     }
 
+    public function testEventDeleteRequiresZeroRegistrationsForOrganizerAndAdministrator(): void
+    {
+        $this->events->events[1] = $this->storedEvent(1, 10, 'draft');
+        $this->events->events[2] = $this->storedEvent(2, 10, 'rejected');
+        $this->events->registrationCounts[1] = 1;
+
+        $owned = $this->service->delete(10, 1);
+        $adminBlocked = $this->service->deleteAsAdmin(99, 1, []);
+        $adminDeleted = $this->service->deleteAsAdmin(99, 2, ['ip_address' => '203.0.113.10']);
+
+        $this->assertFalse($owned['success']);
+        $this->assertFalse($adminBlocked['success']);
+        $this->assertTrue($adminDeleted['success']);
+        $this->assertNull($this->events->events[1]['deleted_at']);
+        $this->assertSame('now', $this->events->events[2]['deleted_at']);
+    }
+
     private function validInput(array $overrides = []): array
     {
         return array_merge([

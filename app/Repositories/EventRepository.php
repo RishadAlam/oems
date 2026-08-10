@@ -479,17 +479,49 @@ final class EventRepository implements EventRepositoryInterface
 
     public function softDeleteOwned(int $userId, int $eventId, array $context): bool
     {
-        $statement = $this->connection->prepare(
-            'UPDATE events
-             SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-             WHERE events.id = :event_id
-               AND events.deleted_at IS NULL
-               AND events.status IN (\'draft\', \'rejected\', \'cancelled\')
-               AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)',
-        );
-        $statement->execute(['user_id' => $userId, 'event_id' => $eventId]);
+        return $this->transactional(function () use ($userId, $eventId, $context): bool {
+            $statement = $this->connection->prepare(
+                'UPDATE events
+                 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                 WHERE events.id = :event_id
+                   AND events.deleted_at IS NULL
+                   AND events.status IN (\'draft\', \'rejected\', \'cancelled\')
+                   AND events.organizer_id IN (SELECT id FROM organizers WHERE user_id = :user_id)
+                   AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.event_id = events.id)',
+            );
+            $statement->execute(['user_id' => $userId, 'event_id' => $eventId]);
 
-        return $statement->rowCount() > 0;
+            if ($statement->rowCount() !== 1) {
+                return false;
+            }
+
+            $this->writeActivity($userId, $eventId, 'deleted', $context, null);
+
+            return true;
+        });
+    }
+
+    public function softDeleteAdmin(int $userId, int $eventId, array $context): bool
+    {
+        return $this->transactional(function () use ($userId, $eventId, $context): bool {
+            $statement = $this->connection->prepare(
+                'UPDATE events
+                 SET deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                 WHERE events.id = :event_id
+                   AND events.deleted_at IS NULL
+                   AND events.status IN (\'draft\', \'rejected\', \'cancelled\')
+                   AND NOT EXISTS (SELECT 1 FROM registrations WHERE registrations.event_id = events.id)',
+            );
+            $statement->execute(['event_id' => $eventId]);
+
+            if ($statement->rowCount() !== 1) {
+                return false;
+            }
+
+            $this->writeActivity($userId, $eventId, 'deleted', $context, null);
+
+            return true;
+        });
     }
 
     public function transitionOwned(int $userId, int $eventId, array $context, string $status): bool

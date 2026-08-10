@@ -224,6 +224,25 @@ final class EventService
         return $this->success(['event_id' => $eventId]);
     }
 
+    public function deleteAsAdmin(int $userId, int $eventId, array $context): array
+    {
+        $event = $this->events->findForAdmin($eventId);
+
+        if ($event === null) {
+            return $this->failure(['event' => ['Event not found.']]);
+        }
+
+        if (!in_array((string) ($event['status'] ?? ''), ['draft', 'rejected', 'cancelled'], true)) {
+            return $this->failure(['status' => ['Only draft, rejected, or cancelled events may be deleted.']]);
+        }
+
+        if (!$this->events->softDeleteAdmin($userId, $eventId, $context)) {
+            return $this->failure(['event' => ['The event could not be deleted because it has registrations or its state changed.']]);
+        }
+
+        return $this->success(['event_id' => $eventId]);
+    }
+
     public function moderate(int $userId, int $eventId, string $status, ?string $reason): array
     {
         $event = $this->events->findForAdmin($eventId);
