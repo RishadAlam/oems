@@ -74,6 +74,12 @@ When TLS terminates at a reverse proxy, set `COOKIE_SECURE=true`. Configure `TRU
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
+### Progressive Web App shell
+
+OEMS publishes `/manifest.webmanifest`, same-origin 192px and 512px brand icons, and a root-scoped `/service-worker.js`. The service worker is deliberately narrow: it precaches only the generic offline shell and a fixed list of versioned public CSS, JavaScript, and icon files. Navigations always go to the network first and receive only `/offline.html` when the network is unavailable. API responses, authentication and dashboard pages, health probes, redirects, ticket/certificate downloads, map tiles, query-string assets, non-GET requests, and all other dynamic responses are never stored.
+
+Serve production through HTTPS; browsers do not enable Service Workers on ordinary remote HTTP origins. Keep the service-worker filename at the public document root so its explicit `/` scope remains valid. Re-run `npm run build:assets` whenever brand assets change; the command deterministically rebuilds the install icons. Unsupported browsers continue to use the complete server-rendered application, and the install control stays hidden unless the browser supplies an install prompt.
+
 The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), `storage/certificates` (private attendance-certificate PDFs), `public/uploads/events` (public event images), and `public/uploads/blog` (public editorial cover images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
 
 ## Database upgrades

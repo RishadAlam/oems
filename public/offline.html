@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#3157d5">
+    <title>You are offline | OEMS</title>
+    <style>
+        :root { color-scheme: light dark; font-family: ui-sans-serif, system-ui, sans-serif; background: #f5f7fb; color: #172033; }
+        * { box-sizing: border-box; }
+        body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top, #e7ecff, #f5f7fb 55%); }
+        main { width: min(100%, 560px); padding: clamp(28px, 7vw, 52px); border: 1px solid #d7deee; border-radius: 24px; background: rgba(255,255,255,.92); box-shadow: 0 24px 70px rgba(31,48,86,.12); }
+        svg { width: 46px; color: #3157d5; }
+        h1 { margin: 24px 0 12px; font-size: clamp(2rem, 8vw, 3.4rem); line-height: 1; letter-spacing: -.04em; }
+        p { margin: 0; color: #526079; line-height: 1.7; }
+        a { display: inline-flex; min-height: 44px; align-items: center; margin-top: 28px; padding: 0 20px; border-radius: 12px; background: #3157d5; color: white; font-weight: 750; text-decoration: none; }
+        @media (prefers-color-scheme: dark) { :root { background: #101626; color: #eef2ff; } body { background: radial-gradient(circle at top, #202b52, #101626 55%); } main { border-color: #35405d; background: rgba(22,30,51,.94); } p { color: #b9c3da; } }
+    </style>
+</head>
+<body>
+<main>
+    <svg viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="2" width="14" height="8" rx="4" fill="currentColor"/><rect x="24" y="2" width="8" height="14" rx="4" fill="currentColor"/><rect x="18" y="24" width="14" height="8" rx="4" fill="currentColor"/><rect x="2" y="18" width="8" height="14" rx="4" fill="currentColor"/><circle cx="17" cy="17" r="3.5" fill="currentColor"/></svg>
+    <h1>You are offline</h1>
+    <p>OEMS could not reach the network. Reconnect, then try the page again.</p>
+    <a href="/">Try again</a>
+</main>
+</body>
+</html>

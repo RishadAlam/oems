@@ -25,6 +25,8 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
         <?php endif; ?>
     <?php endforeach; ?>
     <meta name="theme-color" content="#f5f7fb">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($layoutDocumentTitle) ?></title>
     <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?>
@@ -35,6 +37,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
     <script src="/assets/js/app.js" defer></script>
+    <script src="/assets/js/pwa.js" defer></script>
     <?php if (!empty($leafletEnabled)): ?>
         <script src="/assets/vendor/leaflet/leaflet.js" defer></script>
         <script src="/assets/js/location.js" defer></script>
@@ -154,6 +157,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
         <div class="page-shell flex flex-col gap-3 border-t border-[var(--line)] py-6 text-xs text-[var(--ink-muted)] sm:flex-row sm:items-center sm:justify-between">
             <p>&copy; <?= date('Y') ?> <?= e($siteSettings['site_name'] ?? 'OEMS') ?>. <?= e($siteSettings['site_tagline'] ?? 'Built for real communities.') ?></p>
             <p><?= e($siteSettings['footer_location'] ?? 'Dhaka, Bangladesh') ?></p>
+            <button class="button button--quiet button--compact" type="button" data-pwa-install hidden>Install app</button>
         </div>
     </footer>
 </body>

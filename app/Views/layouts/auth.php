@@ -4,10 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($pageTitle ?? 'Account') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js"></script>
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="/assets/js/app.js" defer></script>
+    <script src="/assets/js/pwa.js" defer></script>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">
     <a class="skip-link" href="#auth-content">Skip to form</a>
