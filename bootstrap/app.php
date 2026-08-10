@@ -30,6 +30,7 @@ use OEMS\App\Contracts\VenueRepositoryInterface;
 use OEMS\App\Contracts\WaitlistRepositoryInterface;
 use OEMS\App\Contracts\PlatformSettingsRepositoryInterface;
 use OEMS\App\Contracts\CmsRepositoryInterface;
+use OEMS\App\Contracts\BlogRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
@@ -61,6 +62,7 @@ use OEMS\App\Repositories\VenueRepository;
 use OEMS\App\Repositories\WaitlistRepository;
 use OEMS\App\Repositories\PlatformSettingsRepository;
 use OEMS\App\Repositories\CmsRepository;
+use OEMS\App\Repositories\BlogRepository;
 use OEMS\App\Mail\PhpMailerTransport;
 use OEMS\App\Controllers\ApiEventController;
 use OEMS\App\Services\AccountMailer;
@@ -96,6 +98,7 @@ use OEMS\App\Services\VenueGeocodingService;
 use OEMS\App\Services\WaitlistService;
 use OEMS\App\Services\PlatformSettingsService;
 use OEMS\App\Services\CmsService;
+use OEMS\App\Services\BlogService;
 use OEMS\App\Services\PublicSiteContentProvider;
 use OEMS\App\Services\PublicEventApiService;
 use OEMS\App\Services\HealthCheckService;
@@ -473,6 +476,12 @@ $container->singleton(
     ),
 );
 $container->singleton(
+    BlogRepositoryInterface::class,
+    static fn (Container $container): BlogRepository => new BlogRepository(
+        $container->get(Database::class)->connection(),
+    ),
+);
+$container->singleton(
     ReviewRepositoryInterface::class,
     static fn (Container $container): ReviewRepository => new ReviewRepository(
         $container->get(Database::class)->connection(),
@@ -509,6 +518,14 @@ $container->singleton(
         $container->get(Database::class)->connection(),
         $container->get(CertificateRepositoryInterface::class),
         $container->get(CertificateArtifactService::class),
+        $container->get(Logger::class),
+    ),
+);
+$container->singleton(
+    BlogService::class,
+    static fn (Container $container): BlogService => new BlogService(
+        $container->get(BlogRepositoryInterface::class),
+        new ImageUploadService($basePath . '/public/uploads/blog', '/uploads/blog'),
         $container->get(Logger::class),
     ),
 );

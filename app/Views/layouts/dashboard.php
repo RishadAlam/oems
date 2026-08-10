@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7fb">
+    <?php if (!empty($robots)): ?><meta name="robots" content="<?= e($robots) ?>"><?php endif; ?>
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
@@ -50,6 +51,7 @@
     $adminNewsletterActive = str_starts_with($currentPath, '/admin/newsletter');
     $adminCmsActive = str_starts_with($currentPath, '/admin/cms');
     $adminOperationsActive = str_starts_with($currentPath, '/admin/operations');
+    $adminBlogActive = str_starts_with($currentPath, '/admin/blog');
     $userName = (string) ($currentUser['name'] ?? 'OEMS user');
     $nameParts = preg_split('/\s+/', trim($userName)) ?: [];
     $userInitials = implode('', array_map(
@@ -97,6 +99,7 @@
                         <a class="dashboard-nav-link<?= $adminContactActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/contact"<?= $adminContactActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chats" aria-hidden="true"></i><span>Contact inbox</span></a>
                         <a class="dashboard-nav-link<?= $adminNewsletterActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/newsletter"<?= $adminNewsletterActive ? ' aria-current="page"' : '' ?>><i class="ph ph-megaphone" aria-hidden="true"></i><span>Newsletter</span></a>
                         <a class="dashboard-nav-link<?= $adminCmsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/cms"<?= $adminCmsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-browser" aria-hidden="true"></i><span>Content</span></a>
+                        <a class="dashboard-nav-link<?= $adminBlogActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/blog"<?= $adminBlogActive ? ' aria-current="page"' : '' ?>><i class="ph ph-newspaper" aria-hidden="true"></i><span>Blog</span></a>
                         <a class="dashboard-nav-link<?= $adminSettingsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/settings"<?= $adminSettingsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span>Settings</span></a>
                         <a class="dashboard-nav-link<?= $adminOperationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/admin/operations"<?= $adminOperationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-pulse" aria-hidden="true"></i><span>Operations</span></a>
                     <?php endif; ?>

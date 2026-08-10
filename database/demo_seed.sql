@@ -494,7 +494,7 @@ INSERT INTO blog_posts (
     'Start with the outcome you want from the event. Look for a clear schedule, a credible organizer, and a format that matches how you learn.\n\nCheck the venue, timing, accessibility details, and cancellation rules before you register. Save the event, add it to your calendar, and review the arrival notes after your registration is confirmed.',
     'Guides',
     'published',
-    'How to choose an event worth your time | OEMS',
+    'How to choose an event worth your time',
     'Use schedules, organizer evidence, venue details, and event formats to choose a better event.',
     '2026-08-08 09:00:00'
 )

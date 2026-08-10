@@ -1,4 +1,15 @@
-<?php $layoutOld = is_array($old ?? null) ? $old : []; $layoutErrors = is_array($errors ?? null) ? $errors : []; $layoutCsrfToken = is_scalar($csrfToken ?? null) ? (string) $csrfToken : ''; $newsletterError = array_key_exists('newsletter_email', $layoutOld) ? field_error($layoutErrors, 'email') : null; ?>
+<?php
+$layoutOld = is_array($old ?? null) ? $old : [];
+$layoutErrors = is_array($errors ?? null) ? $errors : [];
+$layoutCsrfToken = is_scalar($csrfToken ?? null) ? (string) $csrfToken : '';
+$newsletterError = array_key_exists('newsletter_email', $layoutOld) ? field_error($layoutErrors, 'email') : null;
+$layoutSiteName = (string) ($siteSettings['site_name'] ?? $app['name']);
+$layoutPageTitle = (string) ($pageTitle ?? $layoutSiteName);
+$layoutHasBrandSuffix = preg_match('/\|\s*' . preg_quote($layoutSiteName, '/') . '\s*\z/ui', $layoutPageTitle) === 1;
+$layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName)) === 0 || $layoutHasBrandSuffix
+    ? $layoutPageTitle
+    : $layoutPageTitle . ' | ' . $layoutSiteName;
+?>
 <!doctype html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -14,7 +25,7 @@
         <?php endif; ?>
     <?php endforeach; ?>
     <meta name="theme-color" content="#f5f7fb">
-    <title><?= e($pageTitle ?? $siteSettings['site_name'] ?? $app['name']) ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
+    <title><?= e($layoutDocumentTitle) ?></title>
     <script src="/assets/js/theme.js"></script>
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
@@ -39,6 +50,7 @@
             <nav class="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
                 <a class="nav-link" href="/events">Explore events</a>
                 <a class="nav-link" href="/events/calendar">Calendar</a>
+                <a class="nav-link" href="/blog">Blog</a>
                 <a class="nav-link" href="/register?role=organizer">For organizers</a>
                 <a class="nav-link" href="/#how-it-works">How it works</a>
             </nav>
@@ -71,6 +83,7 @@
             <nav class="page-shell grid gap-2 py-5" aria-label="Mobile navigation">
                 <a class="mobile-menu__link" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                 <a class="mobile-menu__link" href="/events/calendar"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Event calendar</span></a>
+                <a class="mobile-menu__link" href="/blog"><i class="ph ph-newspaper-clipping" aria-hidden="true"></i><span>Blog</span></a>
                 <a class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>
                 <a class="mobile-menu__link" href="/#how-it-works"><i class="ph ph-path" aria-hidden="true"></i><span>How it works</span></a>
                 <button class="mobile-menu__link text-left" type="button" data-theme-toggle aria-label="Switch to dark theme">
@@ -105,6 +118,7 @@
                 <div class="mt-4 grid gap-3 text-sm text-[var(--ink-muted)]">
                     <a class="hover:text-[var(--ink)]" href="/events">All events</a>
                     <a class="hover:text-[var(--ink)]" href="/events/calendar">Event calendar</a>
+                    <a class="hover:text-[var(--ink)]" href="/blog">Blog</a>
                     <a class="hover:text-[var(--ink)]" href="/events?category=technology">Technology</a>
                     <a class="hover:text-[var(--ink)]" href="/events?category=community">Community</a>
                 </div>

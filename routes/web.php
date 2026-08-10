@@ -16,6 +16,7 @@ use OEMS\App\Controllers\AdminContactController;
 use OEMS\App\Controllers\AdminNewsletterController;
 use OEMS\App\Controllers\AdminSettingsController;
 use OEMS\App\Controllers\AdminOperationsController;
+use OEMS\App\Controllers\AdminBlogController;
 use OEMS\App\Controllers\DashboardController;
 use OEMS\App\Controllers\EventCalendarController;
 use OEMS\App\Controllers\ApiEventController;
@@ -43,6 +44,7 @@ use OEMS\App\Controllers\PublicContentController;
 use OEMS\App\Controllers\PublicContactController;
 use OEMS\App\Controllers\PublicNewsletterController;
 use OEMS\App\Controllers\PublicCertificateController;
+use OEMS\App\Controllers\PublicBlogController;
 use OEMS\App\Controllers\HealthController;
 use OEMS\Core\Router;
 
@@ -70,6 +72,8 @@ return static function (Router $router): void {
     $router->get('/terms', [PublicContentController::class, 'terms'], name: 'pages.terms');
     $router->get('/faq', [PublicContentController::class, 'faq'], name: 'pages.faq');
     $router->get('/certificates/verify/{token}', [PublicCertificateController::class, 'show'], name: 'certificates.verify');
+    $router->get('/blog', [PublicBlogController::class, 'index'], name: 'blog.index');
+    $router->get('/blog/{slug}', [PublicBlogController::class, 'show'], name: 'blog.show');
 
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest'], 'login');
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf'], 'login.submit');
@@ -149,6 +153,15 @@ return static function (Router $router): void {
     $router->get('/organizer/reviews', [OrganizerReviewController::class, 'index'], ['role:organizer'], 'organizer.reviews.index');
     $router->post('/organizer/reviews/{id}/reply', [OrganizerReviewController::class, 'reply'], ['role:organizer', 'csrf'], 'organizer.reviews.reply');
     $router->get('/admin/dashboard', [DashboardController::class, 'admin'], ['role:super-admin'], 'admin.dashboard');
+    $router->get('/admin/blog', [AdminBlogController::class, 'index'], ['role:super-admin'], 'admin.blog.index');
+    $router->get('/admin/blog/create', [AdminBlogController::class, 'create'], ['role:super-admin'], 'admin.blog.create');
+    $router->post('/admin/blog', [AdminBlogController::class, 'store'], ['role:super-admin', 'csrf'], 'admin.blog.store');
+    $router->get('/admin/blog/{id}/edit', [AdminBlogController::class, 'edit'], ['role:super-admin'], 'admin.blog.edit');
+    $router->post('/admin/blog/{id}', [AdminBlogController::class, 'update'], ['role:super-admin', 'csrf'], 'admin.blog.update');
+    $router->get('/admin/blog/{id}/preview', [AdminBlogController::class, 'preview'], ['role:super-admin'], 'admin.blog.preview');
+    $router->post('/admin/blog/{id}/publish', [AdminBlogController::class, 'publish'], ['role:super-admin', 'csrf'], 'admin.blog.publish');
+    $router->post('/admin/blog/{id}/unpublish', [AdminBlogController::class, 'unpublish'], ['role:super-admin', 'csrf'], 'admin.blog.unpublish');
+    $router->post('/admin/blog/{id}/delete', [AdminBlogController::class, 'delete'], ['role:super-admin', 'csrf'], 'admin.blog.delete');
     $router->get('/admin/analytics', [AdminAnalyticsController::class, 'index'], ['role:super-admin'], 'admin.analytics.index');
     $router->get('/admin/reports', [AdminReportController::class, 'index'], ['role:super-admin'], 'admin.reports.index');
     $router->get('/admin/reports.csv', [AdminReportController::class, 'export'], ['role:super-admin'], 'admin.reports.export');

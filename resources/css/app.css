@@ -342,6 +342,14 @@
         @apply text-xs text-[var(--ink-muted)];
     }
 
+    .filter-chip {
+        @apply inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-2 text-sm font-semibold text-[var(--ink-muted)] transition hover:border-[var(--line-strong)] hover:text-[var(--ink)];
+    }
+
+    .filter-chip--active {
+        @apply border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)];
+    }
+
     .section-space {
         @apply py-20 sm:py-24 lg:py-28;
     }

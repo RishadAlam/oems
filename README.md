@@ -74,7 +74,7 @@ When TLS terminates at a reverse proxy, set `COOKIE_SECURE=true`. Configure `TRU
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
-The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), `storage/certificates` (private attendance-certificate PDFs), and `public/uploads/events` (public event images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
+The PHP process must be able to create and write `storage/cache` (rate limits and cache locks), `storage/logs` (application logs), `storage/tickets` (private QR/PDF artifacts), `storage/certificates` (private attendance-certificate PDFs), `public/uploads/events` (public event images), and `public/uploads/blog` (public editorial cover images). Keep all other application and source paths read-only in production. Do not commit generated runtime files.
 
 ## Database upgrades
 
@@ -189,6 +189,7 @@ Public discovery is available without authentication:
 - `GET /` shows repository-backed featured events.
 - `GET /events` supports text, category, city, date, price, and allow-listed sort filters.
 - `GET /events/{slug}` shows a published event with canonical, Open Graph, and JSON-LD metadata.
+- `GET /blog` provides category-filtered editorial discovery; `GET /blog/{slug}` shows only a published, non-deleted article with canonical and Open Graph metadata.
 
 An organizer uses these authenticated routes:
 
@@ -203,6 +204,7 @@ A super administrator uses these authenticated routes:
 - `/admin/dashboard` shows platform totals and the real pending-review count.
 - `/admin/events` opens the moderation queue; `/admin/events/{id}` shows the evidence and lifecycle actions.
 - `/admin/categories` creates, edits, activates, and deactivates event categories.
+- `/admin/blog` manages plain-text editorial drafts, private noindex previews, publication, unpublication, and soft deletion. Cover uploads accept the same bounded image types as other public media.
 
 Every organizer mutation is scoped to the authenticated organizer. Every organizer and administrator POST action requires a valid CSRF token.
 
