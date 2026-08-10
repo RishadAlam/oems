@@ -89,6 +89,7 @@ For an existing populated database created from baseline `5857358`, use this exa
    ```bash
    mysql -u root -p oems < database/migrations/2026-08-09-participant-transactions.sql
    mysql -u root -p oems < database/migrations/2026-08-09-live-location.sql
+   mysql -u root -p oems < database/migrations/2026-08-10-spec-completion.sql
    ```
 
 4. Deploy the new PHP code while application traffic remains stopped or drained.
@@ -100,9 +101,9 @@ For an existing populated database created from baseline `5857358`, use this exa
 
 6. Restart the application processes, then run the health and acceptance checks before restoring traffic. Import `demo_seed.sql` only for an isolated local environment; never replace or re-import `schema.sql` over a populated database.
 
-The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. Both migrations use `information_schema` guards and can be run again after a partially applied MySQL DDL deployment without replacing existing rows.
+The transaction migration adds payment-review fields and indexes. The live-location migration then adds event location visibility and arrival notes, venue coordinate integrity and indexing, and the geocoding cache. The specification-completion migration adds persisted organizer announcements. All migrations are repeatable after a partially applied MySQL DDL deployment without replacing existing rows.
 
-If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run only `database/migrations/2026-08-09-live-location.sql`. Never import `schema.sql` or either seed over a populated production database.
+If the populated database already includes the participant-transaction release represented by baseline `90cb666`, run the live-location migration followed by the specification-completion migration. If it already includes the live-location release, run only `database/migrations/2026-08-10-spec-completion.sql`. Never import `schema.sql` or either seed over a populated production database.
 
 ## Maps and nearby discovery
 

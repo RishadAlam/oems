@@ -252,13 +252,26 @@ final class TicketArtifactService
         $migrated = 0;
 
         foreach (scandir($legacyRoot) ?: [] as $filename) {
-            if (in_array($filename, ['.', '..', '.gitkeep'], true)) {
+            if (in_array($filename, ['.', '..'], true)) {
                 continue;
             }
 
             $source = $legacyRoot . DIRECTORY_SEPARATOR . $filename;
+
+            if (in_array($filename, ['.gitkeep', '.htaccess'], true)) {
+                if (is_link($source) || !is_file($source)) {
+                    throw new RuntimeException('The legacy ticket directory contains an unsafe control file.');
+                }
+
+                continue;
+            }
+
             if (basename($filename) !== $filename || is_link($source) || !is_file($source)) {
                 throw new RuntimeException('The legacy ticket directory contains an unsafe entry.');
+            }
+
+            if (!$this->isGeneratedLegacyArtifact($filename, $source)) {
+                throw new RuntimeException('The legacy ticket directory contains an unsupported file.');
             }
 
             $destination = $root . DIRECTORY_SEPARATOR . $filename;
@@ -290,6 +303,21 @@ final class TicketArtifactService
         }
 
         return $migrated;
+    }
+
+    private function isGeneratedLegacyArtifact(string $filename, string $source): bool
+    {
+        if (preg_match('/\Aqr-[a-f0-9]{32}\.png\z/', $filename) === 1) {
+            $details = @getimagesize($source);
+
+            return is_array($details) && ($details[2] ?? null) === IMAGETYPE_PNG;
+        }
+
+        if (preg_match('/\Aticket-[a-f0-9]{32}\.pdf\z/', $filename) !== 1) {
+            return false;
+        }
+
+        return file_get_contents($source, false, null, 0, 5) === '%PDF-';
     }
 
     private function resolvedUploadRoot(): string

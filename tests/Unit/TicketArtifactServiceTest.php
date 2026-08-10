@@ -116,9 +116,12 @@ final class TicketArtifactServiceTest extends TestCase
     public function testMigratesLegacyPublicArtifactsWithoutChangingStoredDatabasePaths(): void
     {
         $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
-        mkdir($legacyRoot, 0775, true);
-        file_put_contents($legacyRoot . '/legacy.pdf', '%PDF-legacy');
-        file_put_contents($legacyRoot . '/legacy.png', "\x89PNG\r\nlegacy");
+        $legacyService = new TicketArtifactService(
+            $legacyRoot,
+            'uploads/tickets',
+            'https://oems.test/organizer/check-in',
+        );
+        $generated = $legacyService->generate($this->displayData());
 
         $service = new TicketArtifactService(
             $this->uploadRoot,
@@ -127,10 +130,109 @@ final class TicketArtifactServiceTest extends TestCase
             $legacyRoot,
         );
 
-        $this->assertFalse(is_file($legacyRoot . '/legacy.pdf'));
-        $this->assertFalse(is_file($legacyRoot . '/legacy.png'));
-        $this->assertSame('%PDF-legacy', file_get_contents((string) $service->resolvePath('uploads/tickets/legacy.pdf')));
-        $this->assertSame("\x89PNG\r\nlegacy", file_get_contents((string) $service->resolvePath('uploads/tickets/legacy.png')));
+        $this->assertNull($legacyService->resolvePath($generated['pdf_path']));
+        $this->assertNull($legacyService->resolvePath($generated['qr_path']));
+        $this->assertNotNull($service->resolvePath($generated['pdf_path']));
+        $this->assertNotNull($service->resolvePath($generated['qr_path']));
+        $this->assertSame('%PDF-', file_get_contents((string) $service->resolvePath($generated['pdf_path']), false, null, 0, 5));
+        $this->assertSame("\x89PNG\r\n\x1A\n", file_get_contents((string) $service->resolvePath($generated['qr_path']), false, null, 0, 8));
+    }
+
+    public function testLegacyMigrationPreservesPublicAccessControlFiles(): void
+    {
+        $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        mkdir($legacyRoot, 0775, true);
+        file_put_contents($legacyRoot . '/.htaccess', "Options -Indexes\nRequire all denied\n");
+        file_put_contents($legacyRoot . '/.gitkeep', '');
+        $legacyService = new TicketArtifactService(
+            $legacyRoot,
+            'uploads/tickets',
+            'https://oems.test/organizer/check-in',
+        );
+        $legacyService->generate($this->displayData());
+
+        $service = new TicketArtifactService(
+            $this->uploadRoot,
+            'uploads/tickets',
+            'https://oems.test/organizer/check-in',
+        );
+
+        $this->assertSame(2, $service->migrateLegacyArtifacts($legacyRoot));
+        $this->assertTrue(is_file($legacyRoot . '/.htaccess'));
+        $this->assertTrue(is_file($legacyRoot . '/.gitkeep'));
+        $this->assertSame("Options -Indexes\nRequire all denied\n", file_get_contents($legacyRoot . '/.htaccess'));
+        $this->assertSame(0, $service->migrateLegacyArtifacts($legacyRoot));
+    }
+
+    public function testLegacyMigrationRejectsUnexpectedOrdinaryFiles(): void
+    {
+        $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        mkdir($legacyRoot, 0775, true);
+        file_put_contents($legacyRoot . '/notes.txt', 'must not be moved into private ticket storage');
+
+        $thrown = false;
+
+        try {
+            $this->service()->migrateLegacyArtifacts($legacyRoot);
+        } catch (\RuntimeException) {
+            $thrown = true;
+        }
+
+        $this->assertTrue($thrown, 'Unexpected legacy files must fail closed.');
+        $this->assertTrue(is_file($legacyRoot . '/notes.txt'));
+    }
+
+    public function testLegacyMigrationRejectsSymlinkedAccessControlFiles(): void
+    {
+        $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        mkdir($legacyRoot, 0775, true);
+        $outside = $this->temporaryDirectory . '/outside-access-control';
+        file_put_contents($outside, 'outside');
+        symlink($outside, $legacyRoot . '/.htaccess');
+
+        $thrown = false;
+
+        try {
+            $this->service()->migrateLegacyArtifacts($legacyRoot);
+        } catch (\RuntimeException) {
+            $thrown = true;
+        }
+
+        $this->assertTrue($thrown, 'Symlinked access-control files must fail closed.');
+        $this->assertTrue(is_link($legacyRoot . '/.htaccess'));
+        $this->assertSame('outside', file_get_contents($outside));
+    }
+
+    public function testLegacyMigrationRejectsMisnamedAndMalformedTicketFiles(): void
+    {
+        $legacyRoot = $this->temporaryDirectory . '/public/uploads/tickets';
+        mkdir($legacyRoot, 0775, true);
+        file_put_contents($legacyRoot . '/legacy.pdf', '%PDF-1.4');
+
+        $service = $this->service();
+        $misnamedThrown = false;
+
+        try {
+            $service->migrateLegacyArtifacts($legacyRoot);
+        } catch (\RuntimeException) {
+            $misnamedThrown = true;
+        }
+
+        $this->assertTrue($misnamedThrown, 'Only generated ticket filenames may be migrated.');
+        $this->assertTrue(is_file($legacyRoot . '/legacy.pdf'));
+        unlink($legacyRoot . '/legacy.pdf');
+        file_put_contents($legacyRoot . '/qr-' . str_repeat('a', 32) . '.png', 'not a PNG');
+
+        $malformedThrown = false;
+
+        try {
+            $service->migrateLegacyArtifacts($legacyRoot);
+        } catch (\RuntimeException) {
+            $malformedThrown = true;
+        }
+
+        $this->assertTrue($malformedThrown, 'Generated-looking ticket files must have valid artifact bytes.');
+        $this->assertTrue(is_file($legacyRoot . '/qr-' . str_repeat('a', 32) . '.png'));
     }
 
     private function service(): TicketArtifactService

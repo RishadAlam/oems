@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS newsletter;
 DROP TABLE IF EXISTS contact_messages;
 DROP TABLE IF EXISTS favorites;
 DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS event_announcements;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS coupon_usage;
 DROP TABLE IF EXISTS attendance;
@@ -358,6 +359,22 @@ CREATE TABLE notifications (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_notifications_user_read (user_id, read_at, created_at),
     CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE event_announcements (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    event_id BIGINT UNSIGNED NOT NULL,
+    sent_by BIGINT UNSIGNED NULL,
+    subject VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    audience ENUM('confirmed') NOT NULL DEFAULT 'confirmed',
+    recipient_count INT UNSIGNED NOT NULL DEFAULT 0,
+    request_key CHAR(64) NOT NULL UNIQUE,
+    sent_at DATETIME NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_event_announcements_event_sent (event_id, sent_at),
+    CONSTRAINT fk_event_announcements_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+    CONSTRAINT fk_event_announcements_sender FOREIGN KEY (sent_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE reviews (
