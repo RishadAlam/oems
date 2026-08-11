@@ -145,6 +145,15 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
                 <p class="mt-4 text-sm leading-6 text-[var(--ink-muted)]">Confirm your address before OEMS sends occasional event news.</p>
                 <form class="mt-4 grid gap-3" action="/newsletter/subscribe" method="post" data-form-kind="entry">
                     <input type="hidden" name="_token" value="<?= e($layoutCsrfToken) ?>">
+                    <?php
+                    $layoutPageErrors = $errors ?? [];
+                    $errors = $newsletterError ? ['email' => [$newsletterError]] : [];
+                    $fieldTargets = ['email' => 'newsletter-email'];
+                    $fieldLabels = ['email' => 'Email address'];
+                    $formErrorSummaryId = 'newsletter-error-summary';
+                    require base_path('app/Views/components/form-errors.php');
+                    $errors = $layoutPageErrors;
+                    ?>
                     <div class="sr-only" aria-hidden="true"><label for="newsletter-website">Website</label><input id="newsletter-website" name="website" tabindex="-1" autocomplete="off"></div>
                     <label class="sr-only" for="newsletter-email">Email address</label>
                     <input class="newsletter-input" id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" autocomplete="email" inputmode="email" required data-form-label="Email address"<?= form_control_attributes($newsletterError ? ['email' => [$newsletterError]] : [], 'email', ['newsletter-help'], 'newsletter-error') ?>>

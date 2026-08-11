@@ -283,4 +283,35 @@ final class FormSystemTest extends TestCase
             }
         }
     }
+
+    public function testEveryEntryFormCanRenderLinkedServerErrors(): void
+    {
+        $directory = base_path('app/Views');
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory));
+        $entryForms = [];
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $source = file_get_contents($file->getPathname()) ?: '';
+            preg_match_all(
+                '/<form\b(?:(?:<\?[\s\S]*?\?>)|[^>])*?data-form-kind="entry"(?:(?:<\?[\s\S]*?\?>)|[^>])*?>[\s\S]*?<\/form>/i',
+                $source,
+                $matches,
+            );
+            foreach ($matches[0] as $form) {
+                $entryForms[] = [$file->getPathname(), $form];
+            }
+        }
+
+        $this->assertSame(32, count($entryForms));
+        foreach ($entryForms as [$path, $form]) {
+            $this->assertTrue(
+                str_contains($form, 'form-errors.php'),
+                $path . ' contains an entry form without the shared linked server-error summary.',
+            );
+        }
+    }
 }

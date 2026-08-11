@@ -42,6 +42,7 @@ $canReject = $organizerIdentity && in_array($approval, ['pending', 'approved'], 
                 <form action="/admin/organizers/<?= e($organizer['id']) ?>/reject" method="post" data-form-kind="entry">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <input type="hidden" name="expected_status" value="<?= e($approval) ?>">
+                    <?php $fieldTargets = ['reason' => 'reason']; $fieldLabels = ['reason' => 'Reason for rejection']; $formErrorSummaryId = 'organizer-rejection-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
                     <div class="field-group"><label for="reason">Reason for rejection</label><textarea id="reason" name="reason" rows="5" maxlength="500" required aria-describedby="<?= field_error($errors, 'reason') === null ? 'reason-help' : 'reason-help reason-error' ?>"<?= field_error($errors, 'reason') === null ? '' : ' aria-invalid="true"' ?>><?= old_value($old, 'reason') ?></textarea><p id="reason-help" class="field-help">Explain the exact change needed. Maximum 500 characters.</p><?php if ($error = field_error($errors, 'reason')): ?><p id="reason-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
                     <button class="button button--danger w-full" type="submit" data-submit-label="Rejecting organizer…"><i class="ph ph-x-circle" aria-hidden="true"></i><span data-submit-text>Reject organizer</span></button>
                 </form>

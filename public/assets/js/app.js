@@ -399,6 +399,20 @@ const OEMSForms = (() => {
         return `${items.slice(0, -1).join(', ')}, or ${items.at(-1)}`;
     };
 
+    const fileSelectionText = (control) => {
+        const names = Array.from(control?.files ?? [])
+            .map((file) => String(file?.name ?? '').trim())
+            .filter(Boolean);
+
+        if (names.length === 0) return 'No file selected.';
+        if (names.length === 1) return `Selected: ${names[0]}`;
+
+        const shown = names.slice(0, 3);
+        const remaining = names.length - shown.length;
+        const suffix = remaining > 0 ? `, and ${remaining} more` : '';
+        return `${names.length} files selected: ${shown.join(', ')}${suffix}.`;
+    };
+
     const fileMessage = (control, label) => {
         const files = Array.from(control?.files ?? []);
         const maximumFiles = Number.parseInt(control?.dataset?.maxFiles ?? '', 10);
@@ -583,6 +597,125 @@ const OEMSForms = (() => {
         return summary;
     };
 
+    const ensureClientErrorList = (summary) => {
+        if (!summary) return null;
+        let list = summary.querySelector?.('[data-client-error-list]') ?? null;
+        if (list || typeof document.createElement !== 'function') return list;
+
+        list = document.createElement('ul');
+        list.dataset.clientErrorList = '';
+        summary.append?.(list);
+        return list;
+    };
+
+    const controlTargetId = (control) => {
+        const existing = String(control?.id ?? '').trim();
+        if (existing !== '') return existing;
+
+        const generated = String(control?.name ?? 'field')
+            .replace(/\[\]$/, '')
+            .replace(/[^a-zA-Z0-9_-]+/g, '-');
+        if (generated !== '') control?.setAttribute?.('id', generated);
+        return generated;
+    };
+
+    const updateFileSelectionStatus = (form, control) => {
+        if (control?.type !== 'file') return;
+        const target = controlTargetId(control);
+        if (target === '') return;
+
+        let status = form.querySelector?.(`[data-file-status-for="${target}"]`) ?? null;
+        const hasFiles = Array.from(control.files ?? []).length > 0;
+        if (!status && !hasFiles) return;
+
+        if (!status && typeof document.createElement === 'function') {
+            status = document.createElement('p');
+            status.id = `${target}-file-status`;
+            status.className = 'field-help field-file-status';
+            status.dataset.fileStatusFor = target;
+            status.setAttribute('aria-live', 'polite');
+            control.insertAdjacentElement?.('afterend', status);
+        }
+
+        if (!status) return;
+        status.textContent = fileSelectionText(control);
+        status.hidden = !hasFiles;
+        updateDescription(control, status.id, hasFiles);
+    };
+
+    const updateErrorSummary = (form, invalidControls, focus = false) => {
+        const summary = invalidControls.length > 0
+            ? ensureErrorSummary(form)
+            : form.querySelector?.('[data-form-error-summary]') ?? null;
+        if (!summary) return;
+
+        const list = ensureClientErrorList(summary);
+        const serverTargets = new Set(
+            Array.from(summary.querySelectorAll?.('a[href^="#"]') ?? [])
+                .filter((link) => link.dataset?.clientErrorLink === undefined)
+                .map((link) => link.getAttribute?.('href'))
+                .filter(Boolean),
+        );
+        const entries = [];
+
+        invalidControls.forEach((control) => {
+            const target = controlTargetId(control);
+            if (target === '' || serverTargets.has(`#${target}`) || typeof document.createElement !== 'function') return;
+
+            const item = document.createElement('li');
+            const link = document.createElement('a');
+            link.dataset.clientErrorLink = '';
+            link.setAttribute('href', `#${target}`);
+            link.textContent = `${fieldLabel(control)}: ${messageFor(control, form)}`;
+            item.append?.(link);
+            entries.push(item);
+        });
+
+        list?.replaceChildren?.(...entries);
+        if (list) list.hidden = entries.length === 0;
+
+        const hasErrors = invalidControls.length > 0 || serverTargets.size > 0;
+        summary.hidden = !hasErrors;
+        if (focus && hasErrors) summary.focus?.({ preventScroll: true });
+    };
+
+    const invalidControlsFromState = (form) => Array.from(
+        form.querySelectorAll?.('input, select, textarea') ?? [],
+    ).filter((control) => isValidatableControl(control) && control.getAttribute?.('aria-invalid') === 'true');
+
+    const clearServerErrorForControl = (form, control) => {
+        const target = controlTargetId(control);
+        const summary = form.querySelector?.('[data-form-error-summary]') ?? null;
+        if (summary && target !== '') {
+            Array.from(summary.querySelectorAll?.('a[href^="#"]') ?? []).forEach((link) => {
+                if (link.dataset?.clientErrorLink !== undefined || link.getAttribute?.('href') !== `#${target}`) return;
+                link.closest?.('li')?.remove?.();
+            });
+        }
+
+        String(control.getAttribute?.('aria-describedby') ?? '')
+            .split(/\s+/)
+            .filter(Boolean)
+            .forEach((id) => {
+                const described = form.querySelector?.(`#${id}`) ?? null;
+                if (!described?.classList?.contains?.('field-error') || described.dataset?.clientErrorFor !== undefined) return;
+                described.hidden = true;
+                updateDescription(control, id, false);
+            });
+    };
+
+    const validateForm = (form) => {
+        const controls = Array.from(form.querySelectorAll?.('input, select, textarea') ?? [])
+            .filter(isValidatableControl);
+        const invalidControls = [];
+
+        controls.forEach((control) => {
+            if (!validateControl(form, control)) invalidControls.push(control);
+        });
+
+        return invalidControls;
+    };
+
     const enhanceForm = (form) => {
         if (!form || form.dataset?.formEnhanced === 'true') return;
         form.dataset.formEnhanced = 'true';
@@ -593,11 +726,16 @@ const OEMSForms = (() => {
             if (!isValidatableControl(control)) return;
             touched.add(control);
             validateControl(form, control);
+            if (form.dataset?.validationAttempted === 'true') {
+                updateErrorSummary(form, invalidControlsFromState(form));
+            }
         });
 
         const revalidateEditedControl = (event) => {
             const control = event.target;
             if (!isValidatableControl(control)) return;
+            updateFileSelectionStatus(form, control);
+            clearServerErrorForControl(form, control);
             if (touched.has(control) || control.getAttribute?.('aria-invalid') === 'true') {
                 validateControl(form, control);
             }
@@ -617,6 +755,11 @@ const OEMSForms = (() => {
                     validateControl(form, dependent);
                 }
             });
+
+            if (form.dataset?.validationAttempted === 'true'
+                || form.querySelector?.('[data-form-error-summary]')) {
+                updateErrorSummary(form, invalidControlsFromState(form));
+            }
         };
 
         form.addEventListener('input', revalidateEditedControl);
@@ -627,16 +770,28 @@ const OEMSForms = (() => {
             if (!isValidatableControl(control)) return;
             event.preventDefault();
             touched.add(control);
-            validateControl(form, control);
-
-            const summary = ensureErrorSummary(form);
-            if (!summary) return;
-            summary.hidden = false;
-            summary.focus?.({ preventScroll: true });
+            form.dataset.validationAttempted = 'true';
+            const invalidControls = validateForm(form);
+            updateErrorSummary(form, invalidControls, invalidControls[0] === control);
         }, true);
 
         form.addEventListener('submit', (event) => {
-            if (String(form.method ?? 'get').toLowerCase() === 'get' || form.checkValidity?.() === false) return;
+            if (String(form.method ?? 'get').toLowerCase() === 'get') return;
+
+            if (form.dataset?.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            const invalidControls = validateForm(form);
+            if (invalidControls.length > 0 || form.checkValidity?.() === false) {
+                event.preventDefault();
+                form.dataset.validationAttempted = 'true';
+                updateErrorSummary(form, invalidControls, true);
+                return;
+            }
+
+            updateErrorSummary(form, []);
 
             const confirmation = form.dataset?.confirm;
             if (confirmation && !window.confirm(confirmation)) {
@@ -645,10 +800,13 @@ const OEMSForms = (() => {
             }
 
             const submitter = event.submitter;
+            form.dataset.submitting = 'true';
+            form.setAttribute?.('aria-busy', 'true');
+
             if (!submitter || submitter.disabled) return;
 
-            form.setAttribute?.('aria-busy', 'true');
             submitter.setAttribute?.('aria-busy', 'true');
+            submitter.dataset.submitLocked = 'true';
             submitter.disabled = true;
 
             const progress = submitter.dataset?.submitLabel;
@@ -660,8 +818,22 @@ const OEMSForms = (() => {
         });
     };
 
-    return { enhanceForm, messageFor };
+    const resetSubmissionState = (form) => {
+        if (!form) return;
+        delete form.dataset?.submitting;
+        form.removeAttribute?.('aria-busy');
+        form.querySelectorAll?.('[data-submit-locked="true"]').forEach((submitter) => {
+            submitter.disabled = false;
+            submitter.removeAttribute?.('aria-busy');
+            delete submitter.dataset?.submitLocked;
+        });
+    };
+
+    return { enhanceForm, fileSelectionText, messageFor, resetSubmissionState };
 })();
 
 window.OEMSForms = OEMSForms;
 document.querySelectorAll('form[data-form-kind]').forEach((form) => OEMSForms.enhanceForm(form));
+window.addEventListener('pageshow', () => {
+    document.querySelectorAll('form[data-form-kind]').forEach((form) => OEMSForms.resetSubmissionState(form));
+});

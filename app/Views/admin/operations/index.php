@@ -27,8 +27,9 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
         <form class="mt-6" action="/admin/operations/maintenance" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
             <input type="hidden" name="enabled" value="<?= $nextEnabled ? '1' : '0' ?>">
+            <?php $fieldTargets = ['confirmation' => 'maintenance-confirmation', 'operations' => 'maintenance-confirmation']; $fieldLabels = ['confirmation' => 'Maintenance confirmation', 'operations' => 'Maintenance control']; $formErrorSummaryId = 'maintenance-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
             <label class="form-label" for="maintenance-confirmation">Type <strong><?= e($phrase) ?></strong> to continue</label>
-            <input class="form-input" id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" required aria-describedby="maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>">
+            <input class="form-input" id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" required aria-describedby="maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>"<?= !empty($errors['confirmation']) ? ' aria-invalid="true"' : '' ?>>
             <p id="maintenance-help" class="form-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
             <?php if (!empty($errors['confirmation'])): ?><p id="maintenance-confirmation-error" class="form-error" role="alert"><?= e($errors['confirmation'][0]) ?></p><?php endif; ?>
             <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> mt-5" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
