@@ -101,6 +101,8 @@ final class ParticipantFavoriteControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'Unavailable'));
         $this->assertTrue(str_contains($body, 'Page 1 of 2'));
         $this->assertFalse(str_contains($body, '/events/unavailable-archive'));
+        $this->assertTrue(str_contains($body, 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Removing…"'));
     }
 
     public function testFavoriteWriteRoutesRequireParticipantRoleAndCsrf(): void

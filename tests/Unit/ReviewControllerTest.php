@@ -103,6 +103,8 @@ final class ReviewControllerTest extends TestCase
         $this->assertTrue(str_contains($form->body(), 'aria-describedby="rating-help"'));
         $this->assertTrue(str_contains($form->body(), 'id="review-help"'));
         $this->assertTrue(str_contains($form->body(), 'class="review-rating-option'));
+        $this->assertTrue(str_contains($form->body(), 'data-form-kind="entry"'));
+        $this->assertTrue(str_contains($form->body(), 'data-submit-label="Submitting review…"'));
         $this->assertTrue(str_contains($form->body(), '&lt;script&gt;Thoughtful participant review&lt;/script&gt;'));
         $this->assertFalse(str_contains($form->body(), '<script>Thoughtful participant review</script>'));
         $this->assertSame(1, substr_count($form->body(), 'aria-current="page"'));

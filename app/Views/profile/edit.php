@@ -42,8 +42,29 @@ $profileInitials = implode('', array_map(
     </aside>
 
 <section class="dashboard-panel profile-form-panel">
-    <form class="form-stack" action="/profile" method="post" novalidate>
+    <form class="form-stack" action="/profile" method="post" data-form-kind="entry">
         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+
+        <?php
+        $fieldLabels = [
+            'name' => 'Full name',
+            'phone' => 'Phone',
+            'bio' => 'Bio',
+            'date_of_birth' => 'Date of birth',
+            'gender' => 'Gender',
+            'address_line' => 'Street address',
+            'city' => 'City',
+            'country' => 'Country',
+            'postal_code' => 'Postal code',
+            'website' => 'Website',
+            'locale' => 'Language',
+            'timezone' => 'Timezone',
+        ];
+        $formErrorSummaryId = 'profile-error-summary';
+        require base_path('app/Views/components/form-errors.php');
+        ?>
+
+        <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>Full name, language, and timezone are required.</span></p>
 
         <div class="profile-form-section" aria-labelledby="profile-account-heading">
             <div class="profile-form-section__heading">
@@ -53,14 +74,14 @@ $profileInitials = implode('', array_map(
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="name">Full name</label>
-                    <input id="name" name="name" type="text" value="<?= $profileValue('name') ?>" autocomplete="name" maxlength="100" required<?= $invalid('name') ?><?= $describedBy('name') ?>>
+                    <input id="name" name="name" type="text" value="<?= $profileValue('name') ?>" autocomplete="name" minlength="2" maxlength="100" data-form-label="Full name" required<?= $invalid('name') ?><?= $describedBy('name') ?>>
                     <?php if ($error = field_error($errors, 'name')): ?>
                         <p id="name-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="phone">Phone <span class="field-label-note">Optional</span></label>
-                    <input id="phone" name="phone" type="tel" value="<?= $profileValue('phone') ?>" autocomplete="tel" maxlength="30"<?= $invalid('phone') ?><?= $describedBy('phone', 'phone-help') ?>>
+                    <input id="phone" name="phone" type="tel" value="<?= $profileValue('phone') ?>" autocomplete="tel" maxlength="30" data-form-label="Phone"<?= $invalid('phone') ?><?= $describedBy('phone', 'phone-help') ?>>
                     <p id="phone-help" class="field-help">Include the country code when possible.</p>
                     <?php if ($error = field_error($errors, 'phone')): ?>
                         <p id="phone-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -86,7 +107,7 @@ $profileInitials = implode('', array_map(
             </div>
             <div class="field-group">
                 <label for="bio">Bio <span class="field-label-note">Optional</span></label>
-                <textarea id="bio" name="bio" maxlength="2000" rows="5"<?= $invalid('bio') ?><?= $describedBy('bio', 'bio-help') ?>><?= $profileValue('bio') ?></textarea>
+                <textarea id="bio" name="bio" maxlength="2000" rows="5" data-form-label="Bio"<?= $invalid('bio') ?><?= $describedBy('bio', 'bio-help') ?>><?= $profileValue('bio') ?></textarea>
                 <p id="bio-help" class="field-help">A short introduction for event activity.</p>
                 <?php if ($error = field_error($errors, 'bio')): ?>
                     <p id="bio-error" class="field-error" role="alert"><?= e($error) ?></p>
@@ -95,14 +116,14 @@ $profileInitials = implode('', array_map(
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="date_of_birth">Date of birth <span class="field-label-note">Optional</span></label>
-                    <input id="date_of_birth" name="date_of_birth" type="date" value="<?= $profileValue('date_of_birth') ?>" max="<?= e(date('Y-m-d')) ?>"<?= $invalid('date_of_birth') ?><?= $describedBy('date_of_birth') ?>>
+                    <input id="date_of_birth" name="date_of_birth" type="date" value="<?= $profileValue('date_of_birth') ?>" max="<?= e(date('Y-m-d')) ?>" data-form-label="Date of birth"<?= $invalid('date_of_birth') ?><?= $describedBy('date_of_birth') ?>>
                     <?php if ($error = field_error($errors, 'date_of_birth')): ?>
                         <p id="date-of-birth-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="gender">Gender <span class="field-label-note">Optional</span></label>
-                    <select id="gender" name="gender"<?= $invalid('gender') ?><?= $describedBy('gender') ?>>
+                    <select id="gender" name="gender" data-form-label="Gender"<?= $invalid('gender') ?><?= $describedBy('gender') ?>>
                         <option value="">Choose an option</option>
                         <option value="female" <?= $selectedValue('gender') === 'female' ? 'selected' : '' ?>>Female</option>
                         <option value="male" <?= $selectedValue('gender') === 'male' ? 'selected' : '' ?>>Male</option>
@@ -123,7 +144,7 @@ $profileInitials = implode('', array_map(
             </div>
             <div class="field-group">
                 <label for="address_line">Street address</label>
-                <input id="address_line" name="address_line" type="text" value="<?= $profileValue('address_line') ?>" autocomplete="street-address" maxlength="190"<?= $invalid('address_line') ?><?= $describedBy('address_line') ?>>
+                <input id="address_line" name="address_line" type="text" value="<?= $profileValue('address_line') ?>" autocomplete="street-address" maxlength="190" data-form-label="Street address"<?= $invalid('address_line') ?><?= $describedBy('address_line') ?>>
                 <?php if ($error = field_error($errors, 'address_line')): ?>
                     <p id="address-line-error" class="field-error" role="alert"><?= e($error) ?></p>
                 <?php endif; ?>
@@ -131,21 +152,21 @@ $profileInitials = implode('', array_map(
             <div class="grid gap-5 sm:grid-cols-3">
                 <div class="field-group">
                     <label for="city">City</label>
-                    <input id="city" name="city" type="text" value="<?= $profileValue('city') ?>" autocomplete="address-level2" maxlength="100"<?= $invalid('city') ?><?= $describedBy('city') ?>>
+                    <input id="city" name="city" type="text" value="<?= $profileValue('city') ?>" autocomplete="address-level2" maxlength="100" data-form-label="City"<?= $invalid('city') ?><?= $describedBy('city') ?>>
                     <?php if ($error = field_error($errors, 'city')): ?>
                         <p id="city-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="country">Country</label>
-                    <input id="country" name="country" type="text" value="<?= $profileValue('country') ?>" autocomplete="country-name" maxlength="100"<?= $invalid('country') ?><?= $describedBy('country') ?>>
+                    <input id="country" name="country" type="text" value="<?= $profileValue('country') ?>" autocomplete="country-name" maxlength="100" data-form-label="Country"<?= $invalid('country') ?><?= $describedBy('country') ?>>
                     <?php if ($error = field_error($errors, 'country')): ?>
                         <p id="country-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="postal_code">Postal code</label>
-                    <input id="postal_code" name="postal_code" type="text" value="<?= $profileValue('postal_code') ?>" autocomplete="postal-code" maxlength="30"<?= $invalid('postal_code') ?><?= $describedBy('postal_code') ?>>
+                    <input id="postal_code" name="postal_code" type="text" value="<?= $profileValue('postal_code') ?>" autocomplete="postal-code" maxlength="30" data-form-label="Postal code"<?= $invalid('postal_code') ?><?= $describedBy('postal_code') ?>>
                     <?php if ($error = field_error($errors, 'postal_code')): ?>
                         <p id="postal-code-error" class="field-error" role="alert"><?= e($error) ?></p>
                     <?php endif; ?>
@@ -160,7 +181,7 @@ $profileInitials = implode('', array_map(
             </div>
             <div class="field-group">
                 <label for="website">Website <span class="field-label-note">Optional</span></label>
-                <input id="website" name="website" type="url" value="<?= $profileValue('website') ?>" autocomplete="url" maxlength="255" placeholder="https://example.com"<?= $invalid('website') ?><?= $describedBy('website') ?>>
+                <input id="website" name="website" type="url" value="<?= $profileValue('website') ?>" autocomplete="url" maxlength="255" placeholder="https://example.com" data-form-label="Website"<?= $invalid('website') ?><?= $describedBy('website') ?>>
                 <?php if ($error = field_error($errors, 'website')): ?>
                     <p id="website-error" class="field-error" role="alert"><?= e($error) ?></p>
                 <?php endif; ?>
@@ -168,7 +189,7 @@ $profileInitials = implode('', array_map(
             <div class="grid gap-5 sm:grid-cols-2">
                 <div class="field-group">
                     <label for="locale">Language</label>
-                    <select id="locale" name="locale" required<?= $invalid('locale') ?><?= $describedBy('locale') ?>>
+                    <select id="locale" name="locale" data-form-label="Language" required<?= $invalid('locale') ?><?= $describedBy('locale') ?>>
                         <option value="en" <?= $selectedValue('locale') === 'en' ? 'selected' : '' ?>>English</option>
                         <option value="bn" <?= $selectedValue('locale') === 'bn' ? 'selected' : '' ?>>Bangla</option>
                     </select>
@@ -178,7 +199,7 @@ $profileInitials = implode('', array_map(
                 </div>
                 <div class="field-group">
                     <label for="timezone">Timezone</label>
-                    <select id="timezone" name="timezone" required<?= $invalid('timezone') ?><?= $describedBy('timezone') ?>>
+                    <select id="timezone" name="timezone" data-form-label="Timezone" required<?= $invalid('timezone') ?><?= $describedBy('timezone') ?>>
                         <option value="Asia/Dhaka" <?= $selectedValue('timezone') === 'Asia/Dhaka' ? 'selected' : '' ?>>Asia/Dhaka</option>
                         <option value="UTC" <?= $selectedValue('timezone') === 'UTC' ? 'selected' : '' ?>>UTC</option>
                     </select>
@@ -191,7 +212,7 @@ $profileInitials = implode('', array_map(
 
         <div class="profile-form-actions">
             <p><i class="ph ph-info" aria-hidden="true"></i><span>Your changes apply to this account only.</span></p>
-            <button class="button button--primary w-full sm:w-auto" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span>Save profile</span></button>
+            <button class="button button--primary w-full sm:w-auto" type="submit" data-submit-label="Saving profile…"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span data-submit-text>Save profile</span></button>
         </div>
     </form>
 </section>

@@ -53,6 +53,8 @@ final class ParticipantNotificationControllerTest extends TestCase
 
         $this->assertTrue(str_contains($index->body(), 'Your ticket is ready.'));
         $this->assertFalse(str_contains($index->body(), 'Not yours.'));
+        $this->assertTrue(str_contains($index->body(), 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($index->body(), 'data-submit-label="Marking read…"'));
         $this->assertSame('/participant/notifications', $foreign->header('Location'));
         $this->assertNull($this->repository->notifications[2]['read_at']);
         $this->assertSame('/participant/notifications', $owned->header('Location'));

@@ -82,9 +82,9 @@ $paymentDetailLabel = $eventCancelled
             </div>
         <?php endif; ?>
         <?php if ($registrationStatus === 'confirmed' && (string) ($registration['event_status'] ?? '') === 'completed' && (string) ($registration['ticket']['ticket_status'] ?? '') === 'used'): ?>
-            <form class="mt-4" action="/participant/registrations/<?= e($registration['id']) ?>/certificate" method="post">
+            <form class="mt-4" action="/participant/registrations/<?= e($registration['id']) ?>/certificate" method="post" data-form-kind="action">
                 <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-                <button class="button button--primary" type="submit"><i class="ph ph-seal-check" aria-hidden="true"></i><span>Get attendance certificate</span></button>
+                <button class="button button--primary" type="submit" data-submit-label="Preparing certificate…"><i class="ph ph-seal-check" aria-hidden="true"></i><span data-submit-text>Get attendance certificate</span></button>
             </form>
         <?php endif; ?>
     </section>
@@ -124,11 +124,18 @@ $paymentDetailLabel = $eventCancelled
                 <?php if (!empty($manualPayment['instructions'])): ?><p class="mt-2 text-sm"><?= e($manualPayment['instructions']) ?></p><?php endif; ?>
             </div>
         <?php endif; ?>
-        <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/payment" method="post" novalidate>
+        <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/payment" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+            <?php
+            $fieldTargets = ['channel' => 'channel', 'transaction_reference' => 'transaction_reference', 'payment' => 'transaction_reference', 'registration' => 'waitlist-payment-heading'];
+            $fieldLabels = ['channel' => 'Payment channel', 'transaction_reference' => 'Transaction reference', 'payment' => 'Payment', 'registration' => 'Registration'];
+            $formErrorSummaryId = 'promoted-payment-error-summary';
+            require base_path('app/Views/components/form-errors.php');
+            ?>
+            <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>Payment channel and transaction reference are required.</span></p>
             <div class="field-group">
                 <label for="channel">Payment channel</label>
-                <select id="channel" name="channel" required aria-describedby="channel-help<?= $channelError !== null ? ' channel-error' : '' ?>"<?= $channelError !== null ? ' aria-invalid="true"' : '' ?>>
+                <select id="channel" name="channel" required aria-describedby="channel-help<?= $channelError !== null ? ' channel-error' : '' ?>"<?= $channelError !== null ? ' aria-invalid="true"' : '' ?> data-form-label="Payment channel">
                     <option value="">Choose a channel</option>
                     <?php foreach (['bank_transfer' => 'Bank transfer', 'mobile_banking' => 'Mobile banking', 'cash_deposit' => 'Cash deposit'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($old['channel'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
                 </select>
@@ -137,11 +144,11 @@ $paymentDetailLabel = $eventCancelled
             </div>
             <div class="field-group">
                 <label for="transaction_reference">Transaction reference</label>
-                <input id="transaction_reference" name="transaction_reference" type="text" maxlength="190" required autocomplete="off" aria-describedby="transaction-reference-help<?= $referenceError !== null ? ' transaction-reference-error' : '' ?>"<?= $referenceError !== null ? ' aria-invalid="true"' : '' ?>>
+                <input id="transaction_reference" name="transaction_reference" type="text" minlength="6" maxlength="190" required autocomplete="off" aria-describedby="transaction-reference-help<?= $referenceError !== null ? ' transaction-reference-error' : '' ?>"<?= $referenceError !== null ? ' aria-invalid="true"' : '' ?> data-form-label="Transaction reference">
                 <p id="transaction-reference-help" class="field-help">Enter the exact reference from your payment receipt. It is never repopulated after an error.</p>
                 <?php if ($referenceError !== null): ?><p id="transaction-reference-error" class="field-error" role="alert"><?= e($referenceError) ?></p><?php endif; ?>
             </div>
-            <button class="button button--primary w-full sm:w-auto" type="submit"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Submit payment</span></button>
+            <button class="button button--primary w-full sm:w-auto" type="submit" data-submit-label="Submitting payment…"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span data-submit-text>Submit payment</span></button>
         </form>
     </section>
 <?php endif; ?>
@@ -149,10 +156,17 @@ $paymentDetailLabel = $eventCancelled
 <?php if ($registration['can_cancel']): ?>
     <section class="dashboard-panel mt-6" aria-labelledby="cancel-registration-heading">
         <h2 id="cancel-registration-heading" class="text-lg font-bold">Cancel registration</h2><p class="mt-2 text-sm text-[var(--ink-muted)]">Cancellation releases your place and invalidates related payment or ticket state.</p>
-        <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/cancel" method="post" novalidate>
+        <form class="form-stack mt-5" action="/participant/registrations/<?= e($registration['id']) ?>/cancel" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-            <div class="field-group"><label for="reason">Cancellation reason</label><textarea id="reason" name="reason" rows="3" maxlength="500" required aria-describedby="reason-help<?= $reasonError !== null ? ' reason-error' : '' ?>"<?= $reasonError !== null ? ' aria-invalid="true"' : '' ?>></textarea><p id="reason-help" class="field-help">Explain the cancellation without including private payment information.</p><?php if ($reasonError !== null): ?><p id="reason-error" class="field-error" role="alert"><?= e($reasonError) ?></p><?php endif; ?></div>
-            <button class="button button--danger w-full sm:w-auto" type="submit"><i class="ph ph-x-circle" aria-hidden="true"></i><span>Cancel registration</span></button>
+            <?php
+            $fieldTargets = ['reason' => 'reason', 'registration' => 'reason'];
+            $fieldLabels = ['reason' => 'Cancellation reason', 'registration' => 'Cancellation'];
+            $formErrorSummaryId = 'cancellation-error-summary';
+            require base_path('app/Views/components/form-errors.php');
+            ?>
+            <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>A cancellation reason is required.</span></p>
+            <div class="field-group"><label for="reason">Cancellation reason</label><textarea id="reason" name="reason" rows="3" maxlength="500" required aria-describedby="reason-help<?= $reasonError !== null ? ' reason-error' : '' ?>"<?= $reasonError !== null ? ' aria-invalid="true"' : '' ?> data-form-label="Cancellation reason"></textarea><p id="reason-help" class="field-help">Explain the cancellation without including private payment information.</p><?php if ($reasonError !== null): ?><p id="reason-error" class="field-error" role="alert"><?= e($reasonError) ?></p><?php endif; ?></div>
+            <button class="button button--danger w-full sm:w-auto" type="submit" data-submit-label="Cancelling registration…"><i class="ph ph-x-circle" aria-hidden="true"></i><span data-submit-text>Cancel registration</span></button>
         </form>
     </section>
 <?php elseif ($cancellationReason !== null): ?>

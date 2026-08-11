@@ -74,6 +74,9 @@ final class ParticipantWaitlistControllerTest extends TestCase
         $this->assertTrue(str_contains($body, '৳1,250'));
         $this->assertTrue(str_contains($body, 'name="reason"'));
         $this->assertTrue(str_contains($body, 'aria-describedby="waitlist-reason-help-'));
+        $this->assertTrue(str_contains($body, 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($body, 'method="post" novalidate'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Leaving waitlist…"'));
 
         $left = $controller->destroy(Request::create('POST', '/participant/waitlist/' . $entry['id'] . '/leave', input: [
             'reason' => 'Schedule conflict',

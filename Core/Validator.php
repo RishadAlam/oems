@@ -80,6 +80,9 @@ final class Validator
                 ? null
                 : "{$label} must be true or false.",
             'date' => self::isDate($value) ? null : "{$label} must be a valid date.",
+            'before_or_equal_date' => self::compareDates($value, $parameters[0] ?? '', '<=')
+                ? null
+                : "{$label} must be today or earlier.",
             'datetime_local' => self::localDateTime($value) !== null
                 ? null
                 : "{$label} must be a valid date and time.",
@@ -169,6 +172,24 @@ final class Validator
         }
 
         return $operator === '>' ? $date > $comparison : $date <= $comparison;
+    }
+
+    private static function compareDates(mixed $value, string $boundary, string $operator): bool
+    {
+        if (!self::isDate($value)) {
+            return false;
+        }
+
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', (string) $value);
+        $comparison = $boundary === 'today'
+            ? new DateTimeImmutable('today')
+            : DateTimeImmutable::createFromFormat('!Y-m-d', $boundary);
+
+        if ($date === false || $comparison === false) {
+            return false;
+        }
+
+        return $operator === '<=' ? $date <= $comparison : $date < $comparison;
     }
 
     private static function fieldLabel(string $field): string

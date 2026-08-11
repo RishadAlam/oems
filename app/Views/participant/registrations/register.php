@@ -44,18 +44,40 @@ $described = static function (string $field, string $help, array $errors): strin
             </aside>
         <?php endif; ?>
 
-        <form class="form-stack mt-6" action="/participant/events/<?= e($event['slug']) ?>/register" method="post" novalidate>
+        <form class="form-stack mt-6" action="/participant/events/<?= e($event['slug']) ?>/register" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+            <?php
+            $fieldTargets = [
+                'event' => 'checkout-action-heading',
+                'registration' => 'checkout-action-heading',
+                'account' => 'checkout-action-heading',
+                'coupon_code' => 'coupon_code',
+                'channel' => 'channel',
+                'transaction_reference' => 'transaction_reference',
+                'payment' => 'transaction_reference',
+            ];
+            $fieldLabels = [
+                'event' => 'Event',
+                'registration' => 'Registration',
+                'account' => 'Account',
+                'coupon_code' => 'Coupon code',
+                'channel' => 'Payment channel',
+                'transaction_reference' => 'Transaction reference',
+                'payment' => 'Payment',
+            ];
+            $formErrorSummaryId = 'registration-error-summary';
+            require base_path('app/Views/components/form-errors.php');
+            ?>
             <?php if (!$isFree): ?>
                 <div class="field-group">
                     <label for="coupon_code">Coupon code <span class="field-label-note">Optional</span></label>
-                    <input id="coupon_code" name="coupon_code" type="text" maxlength="80" autocomplete="off" value="<?= e($couponCode) ?>"<?= $described('coupon_code', 'coupon-code-help', $errors) ?>>
+                    <input id="coupon_code" name="coupon_code" type="text" maxlength="80" autocomplete="off" value="<?= e($couponCode) ?>" data-form-label="Coupon code"<?= $described('coupon_code', 'coupon-code-help', $errors) ?>>
                     <p id="coupon-code-help" class="field-help">Enter a code if you have one. Pricing and availability are rechecked when you submit. If it covers the total, payment fields may be left blank.</p>
                     <?php if ($error = field_error($errors, 'coupon_code')): ?><p id="coupon_code-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
                 </div>
                 <div class="field-group">
                     <label for="channel">Payment channel</label>
-                    <select id="channel" name="channel"<?= $described('channel', 'channel-help', $errors) ?>>
+                    <select id="channel" name="channel" data-form-label="Payment channel"<?= $described('channel', 'channel-help', $errors) ?>>
                         <option value="">Select a channel</option>
                         <?php foreach (['bank' => 'Bank', 'mobile' => 'Mobile banking', 'cash' => 'Cash', 'bank_transfer' => 'Bank transfer', 'mobile_banking' => 'Mobile banking transfer', 'cash_deposit' => 'Cash deposit'] as $value => $label): ?>
                             <option value="<?= e($value) ?>"<?= $channel === $value ? ' selected' : '' ?>><?= e($label) ?></option>
@@ -66,12 +88,12 @@ $described = static function (string $field, string $help, array $errors): strin
                 </div>
                 <div class="field-group">
                     <label for="transaction_reference">Transaction reference</label>
-                    <input id="transaction_reference" name="transaction_reference" type="text" minlength="6" maxlength="190" autocomplete="off"<?= $described('transaction_reference', 'transaction-reference-help', $errors) ?>>
+                    <input id="transaction_reference" name="transaction_reference" type="text" minlength="6" maxlength="190" autocomplete="off" data-form-label="Transaction reference"<?= $described('transaction_reference', 'transaction-reference-help', $errors) ?>>
                     <p id="transaction-reference-help" class="field-help">Enter the reference issued by your payment provider. Do not enter card or account secrets.</p>
                     <?php if ($error = field_error($errors, 'transaction_reference')): ?><p id="transaction_reference-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
                 </div>
             <?php endif; ?>
-            <button class="button button--primary w-full sm:w-auto" type="submit"><i class="ph ph-check" aria-hidden="true"></i><span><?= $isFree ? 'Confirm free registration' : 'Submit for review' ?></span></button>
+            <button class="button button--primary w-full sm:w-auto" type="submit" data-submit-label="Submitting registration…"><i class="ph ph-check" aria-hidden="true"></i><span data-submit-text><?= $isFree ? 'Confirm free registration' : 'Submit for review' ?></span></button>
         </form>
     </section>
 

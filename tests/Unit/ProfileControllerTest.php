@@ -82,6 +82,10 @@ final class ProfileControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'aria-labelledby="profile-account-heading"'));
         $this->assertTrue(str_contains($body, 'id="profile-account-heading"'));
         $this->assertTrue(str_contains($body, 'aria-labelledby="profile-regional-heading"'));
+        $this->assertTrue(str_contains($body, 'action="/profile" method="post" data-form-kind="entry"'));
+        $this->assertFalse(str_contains($body, 'action="/profile" method="post" novalidate'));
+        $this->assertTrue(str_contains($body, 'name="name" type="text"') && str_contains($body, 'minlength="2" maxlength="100"'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Saving profile…"'));
     }
 
     public function testUpdateRejectsAMissingNameWithoutPersisting(): void
@@ -94,6 +98,23 @@ final class ProfileControllerTest extends TestCase
         $errors = $this->session->get('_flash.errors', []);
         $this->assertSame('/profile', $response->header('Location'));
         $this->assertArrayHasKey('name', $errors);
+        $this->assertSame([], $this->profiles->updates);
+    }
+
+    public function testUpdateRejectsShortNamesUnsafeWebsitesAndFutureBirthDatesWithoutPersisting(): void
+    {
+        $input = $this->validInput();
+        $input['name'] = 'A';
+        $input['website'] = 'javascript:alert(1)';
+        $input['date_of_birth'] = (new \DateTimeImmutable('tomorrow'))->format('Y-m-d');
+
+        $response = $this->controller->update(Request::create('POST', '/profile', input: $input));
+
+        $errors = $this->session->get('_flash.errors', []);
+        $this->assertSame('/profile', $response->header('Location'));
+        $this->assertArrayHasKey('name', $errors);
+        $this->assertArrayHasKey('website', $errors);
+        $this->assertArrayHasKey('date_of_birth', $errors);
         $this->assertSame([], $this->profiles->updates);
     }
 

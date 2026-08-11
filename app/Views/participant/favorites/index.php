@@ -32,10 +32,10 @@
                 </dl>
                 <div class="favorite-history__actions">
                     <?php if (!empty($favorite['is_available'])): ?><a class="text-link" href="/events/<?= e($favorite['slug']) ?>"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a><?php endif; ?>
-                    <form action="/participant/favorites/<?= e($favorite['event_id']) ?>/remove" method="post">
+                    <form action="/participant/favorites/<?= e($favorite['event_id']) ?>/remove" method="post" data-form-kind="action">
                         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                         <input type="hidden" name="return_to" value="/participant/favorites<?= (int) $pagination['page'] > 1 ? '?page=' . (int) $pagination['page'] : '' ?>">
-                        <button class="button button--quiet button--compact" type="submit" aria-label="Remove <?= e($favorite['title']) ?> from saved events"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Remove</span></button>
+                        <button class="button button--quiet button--compact" type="submit" aria-label="Remove <?= e($favorite['title']) ?> from saved events" data-submit-label="Removing…"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span data-submit-text>Remove</span></button>
                     </form>
                 </div>
             </article>

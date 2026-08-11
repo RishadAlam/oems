@@ -62,16 +62,16 @@ final class ProfileController extends Controller
     {
         $data = $request->only(self::FIELDS);
         $errors = Validator::validate($data, [
-            'name' => 'required|string|max:100',
+            'name' => 'required|string|min:2|max:100',
             'phone' => 'nullable|string|max:30',
             'bio' => 'nullable|string|max:2000',
-            'date_of_birth' => 'nullable|date',
+            'date_of_birth' => 'nullable|date|before_or_equal_date:today',
             'gender' => 'nullable|in:female,male,non-binary,prefer-not-to-say',
             'address_line' => 'nullable|string|max:190',
             'city' => 'nullable|string|max:100',
             'country' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:30',
-            'website' => 'nullable|string|max:255',
+            'website' => 'nullable|string|url|max:255',
             'locale' => 'required|in:en,bn',
             'timezone' => 'required|in:Asia/Dhaka,UTC',
         ]);

@@ -149,6 +149,9 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'name="channel"'));
         $this->assertTrue(str_contains($body, 'name="transaction_reference"'));
         $this->assertTrue(str_contains($body, 'maxlength="190"'));
+        $this->assertTrue(str_contains($body, 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($body, 'method="post" novalidate'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Submitting registration…"'));
         $this->assertTrue(str_contains($body, 'Manual &lt;Demo&gt; payment'));
         $this->assertTrue(str_contains($body, 'OEMS &lt;Demo&gt; Payments'));
         $this->assertTrue(str_contains($body, 'DEMO-&lt;NOT-REAL&gt;'));
@@ -243,7 +246,9 @@ final class ParticipantRegistrationControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'Waitlist seat ready'));
         $this->assertTrue(str_contains($body, 'name="transaction_reference"'));
         $this->assertTrue(str_contains($body, 'name="channel"'));
-        $this->assertTrue(str_contains($body, 'maxlength="190"'));
+        $this->assertTrue(str_contains($body, 'minlength="6" maxlength="190"'));
+        $this->assertTrue(str_contains($body, 'data-form-kind="entry"'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Submitting payment…"'));
 
         $invalid = $this->controller()->submitPromotedPayment(Request::create('POST', '/participant/registrations/55/payment', input: [
             'channel' => 'not-allowed',

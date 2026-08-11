@@ -182,4 +182,19 @@ final class ValidatorTest extends TestCase
             $this->assertArrayHasKey('capacity', $errors);
         }
     }
+
+    public function testDateCannotBeLaterThanTodayWhenProfileUsesTheDateBoundaryRule(): void
+    {
+        $today = date('Y-m-d');
+        $tomorrow = (new \DateTimeImmutable('tomorrow'))->format('Y-m-d');
+
+        $this->assertSame([], Validator::validate(
+            ['date_of_birth' => $today],
+            ['date_of_birth' => 'date|before_or_equal_date:today'],
+        ));
+        $this->assertArrayHasKey('date_of_birth', Validator::validate(
+            ['date_of_birth' => $tomorrow],
+            ['date_of_birth' => 'date|before_or_equal_date:today'],
+        ));
+    }
 }
