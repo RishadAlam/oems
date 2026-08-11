@@ -147,4 +147,77 @@ final class ResponseTest extends TestCase
         $this->assertSame('first-second', $streamed);
         $this->assertSame('text/plain; charset=UTF-8', $response->header('Content-Type'));
     }
+
+    public function testSendingResponseKeepsNativeSessionCookieAlongsideApplicationCookie(): void
+    {
+        $port = $this->unusedPort();
+        $process = proc_open(
+            [PHP_BINARY, '-S', "127.0.0.1:{$port}", base_path('tests/Fixtures/response-cookie-router.php')],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            base_path(),
+        );
+        $this->assertTrue(is_resource($process), 'The response cookie fixture must start.');
+
+        try {
+            $this->waitForServer($port);
+            $context = stream_context_create(['http' => ['ignore_errors' => true]]);
+            file_get_contents("http://127.0.0.1:{$port}/", false, $context);
+            $cookieHeaders = array_values(array_filter(
+                $http_response_header ?? [],
+                static fn (string $header): bool => str_starts_with(strtolower($header), 'set-cookie:'),
+            ));
+
+            $this->assertSame(2, count($cookieHeaders));
+            $this->assertTrue($this->headersContain($cookieHeaders, 'OEMS_RESPONSE_COOKIE_TEST='));
+            $this->assertTrue($this->headersContain($cookieHeaders, 'OEMS_REMEMBER=rotated'));
+        } finally {
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+
+            proc_terminate($process);
+            proc_close($process);
+        }
+    }
+
+    private function headersContain(array $headers, string $needle): bool
+    {
+        foreach ($headers as $header) {
+            if (str_contains($header, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function unusedPort(): int
+    {
+        $socket = stream_socket_server('tcp://127.0.0.1:0');
+        $this->assertTrue(is_resource($socket));
+        $name = stream_socket_get_name($socket, false);
+        fclose($socket);
+
+        return (int) substr((string) $name, strrpos((string) $name, ':') + 1);
+    }
+
+    private function waitForServer(int $port): void
+    {
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $connection = @fsockopen('127.0.0.1', $port);
+
+            if (is_resource($connection)) {
+                fclose($connection);
+
+                return;
+            }
+
+            usleep(20_000);
+        }
+
+        $this->assertTrue(false, 'The response cookie fixture did not become reachable.');
+    }
 }
