@@ -90,6 +90,7 @@ function createHarness({
     longitude = '',
     geolocationError = null,
     fetchResults = [],
+    secureContext = true,
     tileUrl = 'https://tiles.example.test/{z}/{x}/{y}.png',
 } = {}) {
     const form = new ElementStub();
@@ -159,6 +160,7 @@ function createHarness({
             windowListeners.get(type)?.delete(callback);
         },
         URLSearchParams,
+        isSecureContext: secureContext,
         L: leaflet.L,
     };
     sandbox.window = sandbox;
@@ -252,6 +254,15 @@ test('current position is explicit, reports success or denial, and clear pin rem
     const denied = createHarness({ geolocationError: 1 });
     denied.useLocation.click();
     assert.match(denied.status.textContent, /permission/i);
+});
+
+test('current position requires a secure page before requesting browser geolocation', () => {
+    const harness = createHarness({ secureContext: false });
+
+    harness.useLocation.click();
+
+    assert.equal(harness.geoCalls.length, 0);
+    assert.match(harness.status.textContent, /HTTPS/i);
 });
 
 test('pagehide cleans up map and marker resources', () => {

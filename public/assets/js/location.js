@@ -45,6 +45,11 @@
         useLocation.addEventListener('click', () => {
             if (locationSubmitted || useLocation.disabled) return;
 
+            if (global.isSecureContext === false) {
+                setStatus('Current position requires HTTPS. Open this page securely or continue with the event list.');
+                return;
+            }
+
             if (!global.navigator?.geolocation?.getCurrentPosition) {
                 setStatus('This browser does not support location access.');
                 return;

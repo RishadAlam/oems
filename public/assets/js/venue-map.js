@@ -168,6 +168,11 @@
         findButton?.addEventListener('click', handleFind);
 
         const handleUseLocation = () => {
+            if (global.isSecureContext === false) {
+                setStatus('Current position requires HTTPS. Open this page securely or place the pin manually.');
+                return;
+            }
+
             if (!global.navigator?.geolocation?.getCurrentPosition) {
                 setStatus('This browser does not support location access.');
                 return;

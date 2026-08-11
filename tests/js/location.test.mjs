@@ -126,6 +126,7 @@ function createHarness({
     markers = null,
     mobile = false,
     reducedMotion = false,
+    secureContext = true,
     supported = true,
     tileOutcome = 'load',
 } = {}) {
@@ -235,6 +236,7 @@ function createHarness({
         addEventListener(type, callback) { windowListeners.set(type, callback); },
         setTimeout,
         clearTimeout,
+        isSecureContext: secureContext,
         L: leaflet.L,
     };
     sandbox.window = sandbox;
@@ -294,6 +296,16 @@ test('permission denial and timeout provide actionable status without posting', 
     await timeout.clickUseLocation();
     assert.match(timeout.status.textContent, /timed out/i);
     assert.equal(timeout.requests.length, 0);
+});
+
+test('use my location requires a secure page before requesting browser geolocation', async () => {
+    const harness = createHarness({ secureContext: false });
+
+    await harness.clickUseLocation();
+
+    assert.equal(harness.geolocationCalls.length, 0);
+    assert.equal(harness.requests.length, 0);
+    assert.match(harness.status.textContent, /HTTPS/i);
 });
 
 test('unsupported browser leaves the canonical list usable', async () => {
