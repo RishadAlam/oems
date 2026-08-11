@@ -100,6 +100,31 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '.field-group input[type="file"]::file-selector-button'));
     }
 
+    public function testSectionedFormsRemoveTheContentDividerBeforeTheActionDivider(): void
+    {
+        $css = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        foreach (['profile-form-section', 'organizer-form__section'] as $sectionClass) {
+            $this->assertTrue(
+                preg_match(
+                    '/\.' . preg_quote($sectionClass, '/') . ':last-of-type\s*\{\s*@apply[^;]*border-b-0[^;]*;\s*\}/',
+                    $css,
+                ) === 1,
+                $sectionClass . ' must remove its final divider before the form action footer.',
+            );
+        }
+
+        foreach (['profile-form-actions', 'organizer-form__actions'] as $actionClass) {
+            $this->assertTrue(
+                preg_match(
+                    '/\.' . preg_quote($actionClass, '/') . '\s*\{[^}]*@apply[^;]*border-t[^;]*;/s',
+                    $css,
+                ) === 1,
+                $actionClass . ' must retain the single intentional footer divider.',
+            );
+        }
+    }
+
     public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
     {
         $view = new View(base_path('app/Views'));
