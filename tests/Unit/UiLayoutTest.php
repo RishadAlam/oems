@@ -113,7 +113,7 @@ final class UiLayoutTest extends TestCase
 
         $this->assertTrue(str_contains($html, 'href="/assets/vendor/leaflet/leaflet.css"'));
         $this->assertTrue(str_contains($html, 'src="/assets/vendor/leaflet/leaflet.js"'));
-        $this->assertTrue(str_contains($html, 'src="/assets/js/location.js"'));
+        $this->assertTrue(str_contains($html, 'src="/assets/js/location.js?v=20260811-geolocation-secure"'));
         $this->assertFalse(str_contains($html, 'unpkg.com'));
         $this->assertFalse(str_contains($html, 'jsdelivr.net'));
     }

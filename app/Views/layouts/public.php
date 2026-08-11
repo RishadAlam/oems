@@ -40,7 +40,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($leafletEnabled)): ?>
         <script src="/assets/vendor/leaflet/leaflet.js" defer></script>
-        <script src="/assets/js/location.js" defer></script>
+        <script src="/assets/js/location.js?v=20260811-geolocation-secure" defer></script>
     <?php endif; ?>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">

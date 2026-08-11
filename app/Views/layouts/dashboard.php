@@ -16,7 +16,7 @@
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($analyticsChartsEnabled)): ?><script src="/assets/vendor/chartjs/chart.umd.min.js" defer></script><script src="/assets/js/analytics-charts.js" defer></script><?php endif; ?>
     <?php if (!empty($leafletEnabled)): ?><script src="/assets/vendor/leaflet/leaflet.js" defer></script><?php endif; ?>
-    <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js" defer></script><?php endif; ?>
+    <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js?v=20260811-geolocation-secure" defer></script><?php endif; ?>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface-soft)] text-[var(--ink)] antialiased">
     <?php

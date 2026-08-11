@@ -160,7 +160,7 @@ final class OrganizerVenueControllerTest extends TestCase
 
         $this->assertTrue(str_contains($body, '/assets/vendor/leaflet/leaflet.css'));
         $this->assertTrue(str_contains($body, '/assets/vendor/leaflet/leaflet.js'));
-        $this->assertTrue(str_contains($body, '/assets/js/venue-map.js'));
+        $this->assertTrue(str_contains($body, '/assets/js/venue-map.js?v=20260811-geolocation-secure'));
         $this->assertTrue(str_contains($body, 'data-venue-map-form'));
         $this->assertTrue(str_contains($body, 'aria-live="polite"'));
         $this->assertTrue(str_contains($body, 'aria-label="Venue pin map"'));
