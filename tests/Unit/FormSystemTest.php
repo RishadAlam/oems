@@ -234,4 +234,53 @@ final class FormSystemTest extends TestCase
         $this->assertTrue(str_contains($contact, 'name="reply" rows="7" minlength="2" maxlength="4000"'));
         $this->assertTrue(str_contains($contact, 'data-submit-label="Queueing reply…"'));
     }
+
+    public function testEveryRenderedFormUsesTheSharedInteractionAndSecurityContract(): void
+    {
+        $directory = base_path('app/Views');
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory));
+        $forms = [];
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $source = file_get_contents($file->getPathname()) ?: '';
+            preg_match_all(
+                '/<form\b(?:(?:<\?[\s\S]*?\?>)|[^>])*?>[\s\S]*?<\/form>/i',
+                $source,
+                $matches,
+            );
+            foreach ($matches[0] as $form) {
+                preg_match('/^<form\b(?:(?:<\?[\s\S]*?\?>)|[^>])*?>/i', $form, $openingTag);
+                $forms[] = [$file->getPathname(), $openingTag[0] ?? '', $form];
+            }
+        }
+
+        $this->assertSame(86, count($forms));
+        foreach ($forms as [$path, $openingTag, $form]) {
+            $this->assertTrue(
+                str_contains($openingTag, 'data-form-kind='),
+                $path . ' contains an unclassified form.',
+            );
+            $this->assertFalse(str_contains($openingTag, 'novalidate'));
+
+            if (!str_contains(strtolower($openingTag), 'method="post"')) {
+                continue;
+            }
+
+            $this->assertTrue(
+                str_contains($form, 'name="_token"'),
+                $path . ' contains a POST form without a CSRF token.',
+            );
+
+            if (!str_contains($openingTag, 'data-form-kind="special"')) {
+                $this->assertTrue(
+                    str_contains($form, 'data-submit-label='),
+                    $path . ' contains a state-changing form without progress feedback.',
+                );
+            }
+        }
+    }
 }

@@ -120,9 +120,9 @@
                     <span class="dashboard-user__avatar" aria-hidden="true"><?= e($userInitials !== '' ? $userInitials : 'O') ?></span>
                     <span class="min-w-0"><strong><?= e($userName) ?></strong><small><?= e($currentUser['email'] ?? '') ?></small></span>
                 </div>
-                <form action="/logout" method="post" class="mt-4">
+                <form action="/logout" method="post" class="mt-4" data-form-kind="action">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-                    <button class="button button--quiet w-full" type="submit"><i class="ph ph-sign-out" aria-hidden="true"></i><span>Log out</span></button>
+                    <button class="button button--quiet w-full" type="submit" data-submit-label="Logging out…"><i class="ph ph-sign-out" aria-hidden="true"></i><span data-submit-text>Log out</span></button>
                 </form>
             </div>
         </aside>
