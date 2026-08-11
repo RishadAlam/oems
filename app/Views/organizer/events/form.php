@@ -20,6 +20,7 @@ $waitlistValue = array_key_exists('waitlist_enabled', $old)
     : ($event['waitlist_enabled'] ?? 1);
 $waitlistChecked = is_scalar($waitlistValue)
     && in_array(strtolower((string) $waitlistValue), ['1', 'true', 'on'], true);
+$locationVisibility = $selected('location_visibility') ?: 'public';
 $invalid = static fn (string $key): string => field_error($errors, $key) === null ? '' : ' aria-invalid="true" aria-describedby="' . str_replace('_', '-', $key) . '-error"';
 $described = static function (string $key) use ($errors): string {
     $id = str_replace('_', '-', $key);
@@ -63,15 +64,21 @@ $described = static function (string $key) use ($errors): string {
     <section class="organizer-form__section" aria-labelledby="event-location-heading">
         <div class="organizer-form__heading"><span><i class="ph ph-map-pin-line" aria-hidden="true"></i></span><div><h2 id="event-location-heading">Location access</h2><p>Choose who can see exact venue details and add concise arrival guidance.</p></div></div>
         <div class="grid gap-5 sm:grid-cols-2">
-            <div class="field-group">
-                <label for="location_visibility">Exact location visibility</label>
-                <select id="location_visibility" name="location_visibility"<?= $described('location_visibility') ?>>
-                    <option value="public" <?= ($selected('location_visibility') ?: 'public') === 'public' ? 'selected' : '' ?>>Public exact location</option>
-                    <option value="registered" <?= $selected('location_visibility') === 'registered' ? 'selected' : '' ?>>Confirmed participants only</option>
-                </select>
+            <fieldset class="field-group">
+                <legend>Exact location visibility</legend>
+                <div class="location-visibility-options">
+                    <label>
+                        <input id="location_visibility_public" name="location_visibility" type="radio" value="public"<?= $locationVisibility === 'public' ? ' checked' : '' ?><?= $described('location_visibility') ?>>
+                        <span><i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i><strong>Public exact location</strong><small>Guests can see the venue details.</small><i class="ph ph-check-circle" aria-hidden="true"></i></span>
+                    </label>
+                    <label>
+                        <input id="location_visibility_registered" name="location_visibility" type="radio" value="registered"<?= $locationVisibility === 'registered' ? ' checked' : '' ?><?= $described('location_visibility') ?>>
+                        <span><i class="ph ph-users-three" aria-hidden="true"></i><strong>Confirmed participants only</strong><small>Reveal details after registration.</small><i class="ph ph-check-circle" aria-hidden="true"></i></span>
+                    </label>
+                </div>
                 <p id="location-visibility-help" class="field-help">Restricted mode hides the exact address, pin, directions, and arrival notes until registration is confirmed.</p>
                 <?php if ($error = field_error($errors, 'location_visibility')): ?><p id="location-visibility-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?>
-            </div>
+            </fieldset>
             <div class="field-group">
                 <label for="arrival_notes">Arrival notes <span class="field-label-note">Optional</span></label>
                 <textarea id="arrival_notes" name="arrival_notes" rows="4" maxlength="500"<?= $described('arrival_notes') ?>><?= $eventValue('arrival_notes') ?></textarea>

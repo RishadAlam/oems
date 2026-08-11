@@ -28,16 +28,16 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($layoutDocumentTitle) ?></title>
-    <script src="/assets/js/theme.js?v=20260810-week4-release"></script>
+    <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260810-week4-release">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260811-form-controls-fix">
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
-    <script src="/assets/js/app.js?v=20260810-week4-release" defer></script>
-    <script src="/assets/js/pwa.js?v=20260810-week4-release" defer></script>
+    <script src="/assets/js/app.js?v=20260811-form-controls-fix" defer></script>
+    <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($leafletEnabled)): ?>
         <script src="/assets/vendor/leaflet/leaflet.js" defer></script>
         <script src="/assets/js/location.js" defer></script>

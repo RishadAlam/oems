@@ -704,7 +704,7 @@
     }
 
     .field-group {
-        @apply grid gap-2;
+        @apply grid content-start gap-2;
     }
 
     .form-field {
@@ -734,10 +734,22 @@
         @apply outline-3 outline-offset-2 outline-[var(--accent)];
     }
 
-    .field-group input:not([type="checkbox"]):not([type="radio"]),
+    .field-group input:where(:not([type="checkbox"]):not([type="radio"])),
     .field-group select,
     .field-group textarea {
         @apply min-h-12 w-full rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] transition focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
+    .field-group input[type="file"] {
+        @apply min-h-14 cursor-pointer p-2 text-[var(--ink-muted)];
+    }
+
+    .field-group input[type="file"]::file-selector-button {
+        @apply mr-3 cursor-pointer rounded-[9px] border-0 bg-[var(--surface-soft)] px-4 py-2 text-sm font-bold text-[var(--ink)] transition;
+    }
+
+    .field-group input[type="file"]:hover::file-selector-button {
+        @apply bg-[var(--accent-soft)] text-[var(--accent)];
     }
 
     .field-group input[aria-invalid="true"],
@@ -782,7 +794,7 @@
         @apply pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-lg text-[var(--ink-muted)];
     }
 
-    .field-group .input-with-icon > input {
+    .input-with-icon > input:where(:not([type="checkbox"]):not([type="radio"])) {
         @apply pl-11;
     }
 
@@ -1405,6 +1417,50 @@
 
     .organizer-form__heading p {
         @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .location-visibility-options {
+        @apply grid gap-2;
+    }
+
+    .location-visibility-options label {
+        @apply relative cursor-pointer;
+    }
+
+    .location-visibility-options input {
+        @apply sr-only;
+    }
+
+    .location-visibility-options label > span {
+        @apply grid min-h-14 grid-cols-[auto_1fr_auto] items-center gap-x-3 rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 py-3 transition;
+    }
+
+    .location-visibility-options label > span > .ph:first-child {
+        @apply row-span-2 text-xl text-[var(--accent)];
+    }
+
+    .location-visibility-options strong {
+        @apply text-sm;
+    }
+
+    .location-visibility-options small {
+        @apply col-start-2 mt-0.5 text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .location-visibility-options label > span > .ph:last-child {
+        @apply row-span-2 text-xl text-[var(--accent)] opacity-0 transition;
+    }
+
+    .location-visibility-options input:checked + span {
+        @apply border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_9%,var(--surface-raised))] ring-2 ring-[color-mix(in_srgb,var(--accent)_18%,transparent)];
+    }
+
+    .location-visibility-options input:checked + span > .ph:last-child {
+        @apply opacity-100;
+    }
+
+    .location-visibility-options input:focus-visible + span {
+        @apply outline outline-3 outline-offset-3 outline-[var(--accent)];
     }
 
     .organizer-form__actions {

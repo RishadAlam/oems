@@ -8,12 +8,12 @@
     <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <?php if (!empty($robots)): ?><meta name="robots" content="<?= e($robots) ?>"><?php endif; ?>
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
-    <script src="/assets/js/theme.js?v=20260810-week4-release"></script>
+    <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260810-week4-release">
-    <script src="/assets/js/app.js?v=20260810-week4-release" defer></script>
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260811-form-controls-fix">
+    <script src="/assets/js/app.js?v=20260811-form-controls-fix" defer></script>
     <script src="/assets/js/dashboard-sidebar.js" defer></script>
-    <script src="/assets/js/pwa.js?v=20260810-week4-release" defer></script>
+    <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($analyticsChartsEnabled)): ?><script src="/assets/vendor/chartjs/chart.umd.min.js" defer></script><script src="/assets/js/analytics-charts.js" defer></script><?php endif; ?>
     <?php if (!empty($leafletEnabled)): ?><script src="/assets/vendor/leaflet/leaflet.js" defer></script><?php endif; ?>
     <?php if (!empty($venueMapEnabled)): ?><script src="/assets/js/venue-map.js" defer></script><?php endif; ?>

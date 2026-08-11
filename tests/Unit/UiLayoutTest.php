@@ -89,6 +89,17 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '@apply min-h-12'));
     }
 
+    public function testSharedFormControlsReserveSpaceForIconsAndStyleFilePickers(): void
+    {
+        $css = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(str_contains($css, '.field-group {'));
+        $this->assertTrue(str_contains($css, '@apply grid content-start gap-2;'));
+        $this->assertTrue(str_contains($css, '.field-group input:where(:not([type="checkbox"]):not([type="radio"]))'));
+        $this->assertTrue(str_contains($css, '.input-with-icon > input:where(:not([type="checkbox"]):not([type="radio"]))'));
+        $this->assertTrue(str_contains($css, '.field-group input[type="file"]::file-selector-button'));
+    }
+
     public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
     {
         $view = new View(base_path('app/Views'));
@@ -150,7 +161,7 @@ final class UiLayoutTest extends TestCase
         ], 'auth');
 
         foreach ([$public, $auth] as $html) {
-            $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js?v=20260810-week4-release"></script>'));
+            $this->assertTrue(str_contains($html, '<script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>'));
             $this->assertTrue(
                 strpos($html, '/assets/js/theme.js') < strpos($html, '/assets/css/app.css'),
                 'The synchronous local theme bootstrap must run before stylesheet rendering.',

@@ -7,10 +7,10 @@
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($pageTitle ?? 'Account') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
-    <script src="/assets/js/theme.js?v=20260810-week4-release"></script>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260810-week4-release">
-    <script src="/assets/js/app.js?v=20260810-week4-release" defer></script>
-    <script src="/assets/js/pwa.js?v=20260810-week4-release" defer></script>
+    <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260811-form-controls-fix">
+    <script src="/assets/js/app.js?v=20260811-form-controls-fix" defer></script>
+    <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface)] text-[var(--ink)] antialiased">
     <a class="skip-link" href="#auth-content">Skip to form</a>

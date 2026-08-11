@@ -203,6 +203,18 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'aria-describedby="arrival-notes-help arrival-notes-error"'));
     }
 
+    public function testEventFormUsesAccessibleLocationVisibilityChoices(): void
+    {
+        $body = $this->controller->create(Request::create('GET', '/organizer/events/create'))->body();
+
+        $this->assertSame(2, substr_count($body, 'name="location_visibility" type="radio"'));
+        $this->assertTrue(str_contains($body, 'id="location_visibility_public"'));
+        $this->assertTrue(str_contains($body, 'id="location_visibility_registered"'));
+        $this->assertTrue(str_contains($body, 'Public exact location'));
+        $this->assertTrue(str_contains($body, 'Confirmed participants only'));
+        $this->assertFalse(str_contains($body, '<select id="location_visibility"'));
+    }
+
     public function testIndexAcceptsOnlyKnownStatusFilters(): void
     {
         $filtered = $this->controller->index(Request::create(
