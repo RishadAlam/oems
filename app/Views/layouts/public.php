@@ -32,7 +32,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260811-form-controls-fix">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260812-form-system">
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
@@ -143,14 +143,14 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
             <div id="newsletter">
                 <h2 class="footer-heading">Event updates</h2>
                 <p class="mt-4 text-sm leading-6 text-[var(--ink-muted)]">Confirm your address before OEMS sends occasional event news.</p>
-                <form class="mt-4 grid gap-3" action="/newsletter/subscribe" method="post" novalidate>
+                <form class="mt-4 grid gap-3" action="/newsletter/subscribe" method="post" data-form-kind="entry">
                     <input type="hidden" name="_token" value="<?= e($layoutCsrfToken) ?>">
                     <div class="sr-only" aria-hidden="true"><label for="newsletter-website">Website</label><input id="newsletter-website" name="website" tabindex="-1" autocomplete="off"></div>
                     <label class="sr-only" for="newsletter-email">Email address</label>
-                    <input class="newsletter-input" id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" required aria-describedby="newsletter-help<?= $newsletterError ? ' newsletter-error' : '' ?>"<?= $newsletterError ? ' aria-invalid="true"' : '' ?>>
+                    <input class="newsletter-input" id="newsletter-email" name="email" type="email" maxlength="190" value="<?= old_value($layoutOld, 'newsletter_email') ?>" placeholder="you@example.com" autocomplete="email" inputmode="email" required data-form-label="Email address"<?= form_control_attributes($newsletterError ? ['email' => [$newsletterError]] : [], 'email', ['newsletter-help'], 'newsletter-error') ?>>
                     <p id="newsletter-help" class="text-xs leading-5 text-[var(--ink-muted)]">Double opt-in. Unsubscribe from any campaign.</p>
                     <?php if ($newsletterError): ?><p id="newsletter-error" class="field-error" role="alert"><?= e($newsletterError) ?></p><?php endif; ?>
-                    <button class="button button--primary" type="submit">Request confirmation</button>
+                    <button class="button button--primary" type="submit" data-submit-label="Requesting confirmation…"><span data-submit-text>Request confirmation</span></button>
                 </form>
             </div>
         </div>

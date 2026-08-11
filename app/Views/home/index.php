@@ -11,10 +11,10 @@
                 <a href="/register?role=organizer" class="button button--quiet"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>Host an event</span></a>
             </div>
 
-            <form class="hero-search" action="/events" method="get" role="search" aria-label="Search events">
+            <form class="hero-search" action="/events" method="get" role="search" aria-label="Search events" data-form-kind="filter">
                 <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
                 <label class="sr-only" for="hero-search">Search events</label>
-                <input id="hero-search" name="search" type="search" placeholder="Search events" autocomplete="off">
+                <input id="hero-search" name="search" type="search" maxlength="120" placeholder="Search events" autocomplete="off" data-form-label="Search events">
                 <button class="button button--primary button--compact" type="submit"><span>Search</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
             </form>
         </div>
@@ -91,10 +91,10 @@
                             <strong class="text-sm"><?= e($event['price']) ?></strong>
                             <div class="event-card__actions">
                                 <?php if (!empty($event['favorite']['is_participant'])): ?>
-                                    <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post">
+                                    <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post" data-form-kind="action">
                                         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                                         <input type="hidden" name="return_to" value="/">
-                                        <button class="favorite-control" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
+                                        <button class="favorite-control" type="submit" data-submit-label="Updating…" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span data-submit-text><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
                                     </form>
                                 <?php elseif (!empty($event['favorite']['is_guest'])): ?>
                                     <a class="favorite-guest-link" href="/login?return_to=%2F" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>

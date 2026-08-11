@@ -45,6 +45,26 @@ final class AuthControllerMailTest extends TestCase
         $this->assertSame('Verify your OEMS email', $transport->messages[0]->subject);
     }
 
+    public function testRegistrationRejectsTooShortNamesAndOversizedPasswordsBeforeCreatingAnAccount(): void
+    {
+        [$controller, $transport, $session] = $this->controller();
+
+        $response = $controller->register(Request::create('POST', '/register', input: [
+            'name' => 'A',
+            'email' => 'boundary@example.test',
+            'password' => str_repeat('x', 129),
+            'password_confirmation' => str_repeat('x', 129),
+            'role' => 'participant',
+            'terms' => '1',
+        ]));
+
+        $errors = $session->get('_flash.errors', []);
+        $this->assertSame('/register', $response->header('Location'));
+        $this->assertSame(0, count($transport->messages));
+        $this->assertArrayHasKey('name', $errors);
+        $this->assertArrayHasKey('password', $errors);
+    }
+
     public function testEligiblePasswordResetSendsTheResetMessage(): void
     {
         $users = new FakeUserRepository();
@@ -259,6 +279,6 @@ final class AuthControllerMailTest extends TestCase
             $accountMailer,
         );
 
-        return [$controller, $transport];
+        return [$controller, $transport, $session];
     }
 }

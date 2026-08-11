@@ -473,6 +473,8 @@ const OEMSForms = (() => {
         }
 
         const validity = control?.validity ?? {};
+        if (validity.valueMissing && control?.type === 'checkbox') return `Select ${lowerLabel} to continue.`;
+        if (validity.valueMissing && control?.type === 'radio') return `Choose ${lowerLabel}.`;
         if (validity.valueMissing) return `Enter ${lowerLabel}.`;
         if (validity.typeMismatch && control?.type === 'email') return `Enter a valid ${lowerLabel}.`;
         if (validity.typeMismatch && control?.type === 'url') return `Enter a valid HTTP or HTTPS URL for ${lowerLabel}.`;
@@ -596,6 +598,21 @@ const OEMSForms = (() => {
             if (touched.has(control) || control.getAttribute?.('aria-invalid') === 'true') {
                 validateControl(form, control);
             }
+
+            form.querySelectorAll?.('input, select, textarea').forEach((dependent) => {
+                if (dependent === control) return;
+                const dependsOnEditedField = [
+                    dependent.dataset?.matchField,
+                    dependent.dataset?.afterField,
+                    dependent.dataset?.beforeOrEqualField,
+                    dependent.dataset?.pairedWith,
+                ].includes(control.name);
+
+                if (dependsOnEditedField
+                    && (touched.has(dependent) || dependent.getAttribute?.('aria-invalid') === 'true')) {
+                    validateControl(form, dependent);
+                }
+            });
         };
 
         form.addEventListener('input', revalidateEditedControl);

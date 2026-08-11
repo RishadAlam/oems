@@ -890,6 +890,14 @@
         @apply border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,var(--surface-raised))] ring-2 ring-[color-mix(in_srgb,var(--accent)_22%,transparent)];
     }
 
+    .account-type-grid input[aria-invalid="true"] + span {
+        @apply border-[var(--error)] bg-[var(--error-soft)];
+    }
+
+    .check-row:has(input[aria-invalid="true"]) {
+        @apply rounded-[10px] bg-[var(--error-soft)] px-3 py-2 text-[var(--error)];
+    }
+
     .account-type-grid__check {
         @apply absolute right-3 top-3 text-xl text-[var(--accent)] opacity-0 transition;
     }

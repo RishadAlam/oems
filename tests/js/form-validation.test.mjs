@@ -93,6 +93,23 @@ test('required controls receive a specific actionable message', () => {
     assert.equal(api?.messageFor(input), 'Enter email address.');
 });
 
+test('required choices use selection language instead of text-entry language', () => {
+    const api = loadFormApi();
+    const checkbox = control({
+        dataset: { formLabel: 'Terms and privacy' },
+        type: 'checkbox',
+        validity: { ...control().validity, valid: false, valueMissing: true },
+    });
+    const radio = control({
+        dataset: { formLabel: 'Account type' },
+        type: 'radio',
+        validity: { ...control().validity, valid: false, valueMissing: true },
+    });
+
+    assert.equal(api?.messageFor(checkbox), 'Select terms and privacy to continue.');
+    assert.equal(api?.messageFor(radio), 'Choose account type.');
+});
+
 test('format and range failures use the field label and valid boundary', () => {
     const api = loadFormApi();
     const invalidEmail = control({
@@ -242,4 +259,47 @@ test('invalid submission prevents native bubbles and focuses the form error summ
     assert.equal(event.defaultPrevented, true);
     assert.equal(summary.hidden, false);
     assert.equal(summary.focusCalls, 1);
+});
+
+test('editing a source field revalidates a touched confirmation field', () => {
+    const api = loadFormApi();
+    const form = new EventTargetStub();
+    const error = new EventTargetStub();
+    const password = new EventTargetStub();
+    const confirmation = new EventTargetStub();
+    const controls = new Map();
+    form.dataset.formKind = 'entry';
+    form.method = 'post';
+    form.elements = { namedItem: (name) => controls.get(name) ?? null };
+    form.querySelector = (selector) => selector === '[data-client-error-for="password_confirmation"]' ? error : null;
+    form.querySelectorAll = () => [password, confirmation];
+
+    for (const input of [password, confirmation]) {
+        input.form = form;
+        input.matches = () => true;
+        input.setCustomValidity = () => {};
+        input.type = 'password';
+        input.validity = { ...control().validity, valid: true };
+    }
+    password.dataset.formLabel = 'Password';
+    password.id = 'password';
+    password.name = 'password';
+    password.value = 'first password';
+    confirmation.dataset.formLabel = 'Password confirmation';
+    confirmation.dataset.matchField = 'password';
+    confirmation.id = 'password_confirmation';
+    confirmation.name = 'password_confirmation';
+    confirmation.value = 'second password';
+    controls.set('password', password);
+    controls.set('password_confirmation', confirmation);
+
+    api?.enhanceForm(form);
+    form.dispatch('focusout', { target: confirmation });
+    assert.equal(confirmation.getAttribute('aria-invalid'), 'true');
+
+    password.value = 'second password';
+    form.dispatch('input', { target: password });
+
+    assert.equal(confirmation.getAttribute('aria-invalid'), null);
+    assert.equal(error.hidden, true);
 });

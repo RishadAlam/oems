@@ -45,7 +45,7 @@ final class AuthController extends Controller
         $returnTo = $this->safeLoginReturnTo($data['return_to'] ?? null);
         $errors = Validator::validate($data, [
             'email' => 'required|email|max:190',
-            'password' => 'required|string',
+            'password' => 'required|string|max:1024',
         ]);
 
         if ($errors !== []) {
@@ -82,9 +82,9 @@ final class AuthController extends Controller
     {
         $data = $request->only(['name', 'email', 'password', 'password_confirmation', 'role', 'terms']);
         $errors = Validator::validate($data, [
-            'name' => 'required|string|max:100',
+            'name' => 'required|string|min:2|max:100',
             'email' => 'required|email|max:190',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|max:128|confirmed',
             'role' => 'required|in:participant,organizer',
             'terms' => 'required|in:1',
         ]);
@@ -189,7 +189,7 @@ final class AuthController extends Controller
     {
         $data = $request->only(['password', 'password_confirmation']);
         $errors = Validator::validate($data, [
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|max:128|confirmed',
         ]);
         $token = (string) $request->route('token');
 
@@ -217,8 +217,8 @@ final class AuthController extends Controller
     {
         $data = $request->only(['current_password', 'password', 'password_confirmation']);
         $errors = Validator::validate($data, [
-            'current_password' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'current_password' => 'required|string|max:1024',
+            'password' => 'required|string|min:8|max:128|confirmed',
         ]);
 
         if ($errors !== []) {

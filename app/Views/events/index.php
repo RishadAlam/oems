@@ -13,10 +13,10 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
             <div class="events-index__count" aria-live="polite"><strong><?= count($events) ?></strong><span><?= count($events) === 1 ? 'event' : 'events' ?></span></div>
         </div>
 
-        <form class="event-filter-panel" action="/events" method="get" role="search" aria-label="Search and filter events">
+        <form class="event-filter-panel" action="/events" method="get" role="search" aria-label="Search and filter events" data-form-kind="filter">
             <div class="event-filter-panel__search">
                 <label for="event-search">Search events</label>
-                <div><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="event-search" name="search" type="search" value="<?= e($filters['search']) ?>" placeholder="Title, organizer, speaker, or place"></div>
+                <div><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input id="event-search" name="search" type="search" maxlength="120" value="<?= e($filters['search']) ?>" placeholder="Title, organizer, speaker, or place" data-form-label="Search events"></div>
             </div>
             <div class="event-filter-panel__field">
                 <label for="event-category">Category</label>
@@ -75,7 +75,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
 
         <div class="event-location-controls" aria-label="Location and result view controls">
             <div class="event-location-controls__preference">
-                <form action="/events/location" method="post" data-location-form>
+                <form action="/events/location" method="post" data-location-form data-form-kind="special">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <input type="hidden" name="latitude" value="">
                     <input type="hidden" name="longitude" value="">
@@ -87,9 +87,9 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                 </form>
                 <?php if ($location !== null): ?>
                     <span class="event-location-controls__active"><i class="ph ph-map-pin" aria-hidden="true"></i><?= e($location['label']) ?></span>
-                    <form action="/events/location/clear" method="post">
+                    <form action="/events/location/clear" method="post" data-form-kind="action">
                         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
-                        <button class="button button--quiet button--compact" type="submit">Clear location</button>
+                        <button class="button button--quiet button--compact" type="submit" data-submit-label="Clearing…"><span data-submit-text>Clear location</span></button>
                     </form>
                 <?php endif; ?>
                 <p class="event-location-controls__status" data-location-status role="status" aria-live="polite"></p>
@@ -130,10 +130,10 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                                 <strong><?= e($event['price_display']) ?></strong>
                                 <div class="event-card__actions">
                                     <?php if (!empty($event['favorite']['is_participant'])): ?>
-                                        <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post">
+                                        <form action="/participant/favorites/<?= e($event['id']) ?><?= !empty($event['favorite']['is_saved']) ? '/remove' : '' ?>" method="post" data-form-kind="action">
                                             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                                             <input type="hidden" name="return_to" value="/events">
-                                            <button class="favorite-control" type="submit" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
+                                            <button class="favorite-control" type="submit" data-submit-label="Updating…" aria-label="<?= !empty($event['favorite']['is_saved']) ? 'Remove ' : 'Save ' ?><?= e($event['title']) ?><?= !empty($event['favorite']['is_saved']) ? ' from saved events' : '' ?>"><i class="ph <?= !empty($event['favorite']['is_saved']) ? 'ph-bookmark-simple-fill' : 'ph-bookmark-simple' ?>" aria-hidden="true"></i><span data-submit-text><?= !empty($event['favorite']['is_saved']) ? 'Saved' : 'Save' ?></span></button>
                                         </form>
                                     <?php elseif (!empty($event['favorite']['is_guest'])): ?>
                                         <a class="favorite-guest-link" href="/login?return_to=%2Fevents" aria-label="Sign in to save <?= e($event['title']) ?>"><i class="ph ph-bookmark-simple" aria-hidden="true"></i><span>Sign in to save</span></a>

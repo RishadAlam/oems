@@ -11,6 +11,7 @@
     <?php
     $fieldTargets = ['email' => 'email', 'password' => 'password'];
     $fieldLabels = ['email' => 'Email address', 'password' => 'Password'];
+    $formErrorSummaryId = 'login-error-summary';
     require base_path('app/Views/components/form-errors.php');
     ?>
 
@@ -20,7 +21,7 @@
         <label for="email">Email address</label>
         <div class="input-with-icon">
             <i class="ph ph-envelope-simple" aria-hidden="true"></i>
-            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" required data-form-label="Email address"<?= form_control_attributes($errors, 'email', ['email-help']) ?>>
+            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" maxlength="190" required data-form-label="Email address"<?= form_control_attributes($errors, 'email', ['email-help']) ?>>
         </div>
         <p id="email-help" class="field-help">Use the email connected to your OEMS account.</p>
         <?php if ($error = field_error($errors, 'email')): ?>
@@ -40,6 +41,7 @@
                 name="password"
                 type="password"
                 autocomplete="current-password"
+                maxlength="1024"
                 required
                 data-form-label="Password"
                 <?= ltrim(form_control_attributes($errors, 'password')) ?>

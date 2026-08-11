@@ -266,7 +266,7 @@ final class UiLayoutTest extends TestCase
         foreach ($forms as $html) {
             $this->assertTrue(str_contains(
                 $html,
-                'id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required aria-invalid="true" aria-describedby="password-confirmation-error"',
+                'id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" maxlength="128" required data-form-label="Password confirmation" data-match-field="password" aria-invalid="true" aria-describedby="password-confirmation-error"',
             ));
             $this->assertTrue(str_contains(
                 $html,
