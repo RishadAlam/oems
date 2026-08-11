@@ -36,7 +36,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
-    <script src="/assets/js/app.js?v=20260811-form-controls-fix" defer></script>
+    <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($leafletEnabled)): ?>
         <script src="/assets/vendor/leaflet/leaflet.js" defer></script>

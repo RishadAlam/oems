@@ -53,6 +53,37 @@ function control(overrides = {}) {
     };
 }
 
+class EventTargetStub {
+    constructor() {
+        this.attributes = new Map();
+        this.dataset = {};
+        this.hidden = false;
+        this.listeners = new Map();
+        this.textContent = '';
+    }
+
+    addEventListener(type, callback) {
+        const callbacks = this.listeners.get(type) ?? [];
+        callbacks.push(callback);
+        this.listeners.set(type, callbacks);
+    }
+
+    dispatch(type, detail = {}) {
+        const event = {
+            defaultPrevented: false,
+            preventDefault() { this.defaultPrevented = true; },
+            target: this,
+            ...detail,
+        };
+        for (const callback of this.listeners.get(type) ?? []) callback(event);
+        return event;
+    }
+
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
+    removeAttribute(name) { this.attributes.delete(name); }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+}
+
 test('required controls receive a specific actionable message', () => {
     const api = loadFormApi();
     const input = control({
@@ -123,4 +154,92 @@ test('paired coordinates and file policies reject incomplete or unsafe input', (
 
     assert.equal(api?.messageFor(latitude, form), 'Enter both latitude and longitude, or leave both blank.');
     assert.equal(api?.messageFor(gallery, form), 'Gallery images must use JPEG, PNG, or WebP files.');
+});
+
+test('valid state-changing submission locks only its submitter with specific progress copy', () => {
+    const api = loadFormApi();
+    const form = new EventTargetStub();
+    const submitter = new EventTargetStub();
+    submitter.dataset = { submitLabel: 'Saving event…' };
+    submitter.disabled = false;
+    submitter.textContent = 'Save event';
+    form.checkValidity = () => true;
+    form.dataset = { formKind: 'entry' };
+    form.method = 'post';
+
+    api?.enhanceForm(form);
+    form.dispatch('submit', { submitter });
+
+    assert.equal(submitter.disabled, true);
+    assert.equal(submitter.textContent, 'Saving event…');
+    assert.equal(form.getAttribute('aria-busy'), 'true');
+});
+
+test('field errors appear after blur and clear as soon as the value is corrected', () => {
+    const api = loadFormApi();
+    const form = new EventTargetStub();
+    const error = new EventTargetStub();
+    const input = new EventTargetStub();
+    form.dataset.formKind = 'entry';
+    form.method = 'post';
+    form.querySelector = (selector) => selector === '[data-client-error-for="email"]' ? error : null;
+    form.querySelectorAll = () => [input];
+    input.dataset.formLabel = 'Email address';
+    input.form = form;
+    input.id = 'email';
+    input.name = 'email';
+    input.type = 'email';
+    input.value = 'not-an-email';
+    input.validity = { ...control().validity, valid: false, typeMismatch: true };
+    input.matches = () => true;
+    input.setCustomValidity = () => {};
+    error.hidden = true;
+
+    api?.enhanceForm(form);
+    form.dispatch('focusout', { target: input });
+
+    assert.equal(input.getAttribute('aria-invalid'), 'true');
+    assert.equal(error.hidden, false);
+    assert.equal(error.textContent, 'Enter a valid email address.');
+
+    input.value = 'person@example.com';
+    input.validity = { ...control().validity, valid: true };
+    form.dispatch('input', { target: input });
+
+    assert.equal(input.getAttribute('aria-invalid'), null);
+    assert.equal(error.hidden, true);
+});
+
+test('invalid submission prevents native bubbles and focuses the form error summary', () => {
+    const api = loadFormApi();
+    const form = new EventTargetStub();
+    const summary = new EventTargetStub();
+    const error = new EventTargetStub();
+    const input = new EventTargetStub();
+    summary.focusCalls = 0;
+    summary.focus = () => { summary.focusCalls += 1; };
+    summary.hidden = true;
+    form.dataset.formKind = 'entry';
+    form.method = 'post';
+    form.querySelector = (selector) => ({
+        '[data-form-error-summary]': summary,
+        '[data-client-error-for="email"]': error,
+    }[selector] ?? null);
+    form.querySelectorAll = () => [input];
+    input.dataset.formLabel = 'Email address';
+    input.form = form;
+    input.id = 'email';
+    input.name = 'email';
+    input.type = 'email';
+    input.value = '';
+    input.validity = { ...control().validity, valid: false, valueMissing: true };
+    input.matches = () => true;
+    input.setCustomValidity = () => {};
+
+    api?.enhanceForm(form);
+    const event = form.dispatch('invalid', { target: input });
+
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(summary.hidden, false);
+    assert.equal(summary.focusCalls, 1);
 });

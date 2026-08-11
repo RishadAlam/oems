@@ -11,7 +11,7 @@
     <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
     <link rel="stylesheet" href="/assets/css/app.css?v=20260811-form-controls-fix">
-    <script src="/assets/js/app.js?v=20260811-form-controls-fix" defer></script>
+    <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/dashboard-sidebar.js" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
     <?php if (!empty($analyticsChartsEnabled)): ?><script src="/assets/vendor/chartjs/chart.umd.min.js" defer></script><script src="/assets/js/analytics-charts.js" defer></script><?php endif; ?>

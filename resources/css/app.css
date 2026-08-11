@@ -778,6 +778,54 @@
         @apply text-xs font-semibold leading-5 text-[var(--error)];
     }
 
+    .form-required-note {
+        @apply flex items-center gap-2 text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .form-required-note .ph {
+        @apply text-[var(--error)];
+    }
+
+    .form-error-summary {
+        @apply grid gap-3 rounded-[14px] border border-[color-mix(in_srgb,var(--error)_38%,var(--line))] bg-[var(--error-soft)] p-4 text-sm text-[var(--error)];
+    }
+
+    .form-error-summary:focus-visible {
+        @apply outline outline-3 outline-offset-3 outline-[var(--error)];
+    }
+
+    .form-error-summary__heading {
+        @apply flex items-start gap-3;
+    }
+
+    .form-error-summary__heading > .ph {
+        @apply mt-0.5 shrink-0 text-xl;
+    }
+
+    .form-error-summary h2 {
+        @apply font-bold;
+    }
+
+    .form-error-summary p {
+        @apply mt-0.5 text-xs leading-5;
+    }
+
+    .form-error-summary ul {
+        @apply grid list-disc gap-1 pl-8 text-xs leading-5;
+    }
+
+    .form-error-summary a {
+        @apply underline decoration-1 underline-offset-2;
+    }
+
+    form[aria-busy="true"] {
+        @apply cursor-wait;
+    }
+
+    form[aria-busy="true"] :is(input, select, textarea, button) {
+        @apply cursor-wait;
+    }
+
     .newsletter-input {
         @apply min-h-12 w-full rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-4 text-sm text-[var(--ink)] placeholder:text-[var(--ink-muted)] transition focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
     }

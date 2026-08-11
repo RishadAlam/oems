@@ -369,3 +369,272 @@ if (checkInCamera) {
         });
     }
 }
+
+const OEMSForms = (() => {
+    const fieldLabel = (control) => control?.dataset?.formLabel
+        || control?.labels?.[0]?.textContent?.replace(/\s+Optional\s*$/i, '').trim()
+        || control?.name?.replaceAll?.('_', ' ')
+        || 'This field';
+
+    const lowerFirst = (value) => value === '' ? value : value.charAt(0).toLowerCase() + value.slice(1);
+    const hasValue = (control) => String(control?.value ?? '').trim() !== '';
+
+    const readableFieldName = (name) => String(name ?? '')
+        .replace(/\[\]$/, '')
+        .replaceAll('_', ' ')
+        .trim();
+
+    const relatedControl = (form, name) => form?.elements?.namedItem?.(name) ?? null;
+
+    const acceptedTypeNames = (accept) => {
+        const labels = {
+            'image/jpeg': 'JPEG',
+            'image/png': 'PNG',
+            'image/webp': 'WebP',
+        };
+
+        return String(accept ?? '')
+            .split(',')
+            .map((type) => type.trim().toLowerCase())
+            .filter(Boolean)
+            .map((type) => labels[type] ?? type.replace(/^\./, '').toUpperCase());
+    };
+
+    const formatList = (items) => {
+        if (items.length <= 1) return items[0] ?? '';
+        if (items.length === 2) return `${items[0]} or ${items[1]}`;
+        return `${items.slice(0, -1).join(', ')}, or ${items.at(-1)}`;
+    };
+
+    const fileMessage = (control, label) => {
+        const files = Array.from(control?.files ?? []);
+        const maximumFiles = Number.parseInt(control?.dataset?.maxFiles ?? '', 10);
+        const maximumBytes = Number.parseInt(control?.dataset?.maxBytes ?? '', 10);
+        const allowedTypes = String(control?.accept ?? '')
+            .split(',')
+            .map((type) => type.trim().toLowerCase())
+            .filter(Boolean);
+
+        if (Number.isFinite(maximumFiles) && files.length > maximumFiles) {
+            return `${label} allows up to ${maximumFiles} files.`;
+        }
+
+        if (allowedTypes.length > 0 && files.some((file) => !allowedTypes.includes(String(file.type ?? '').toLowerCase()))) {
+            return `${label} must use ${formatList(acceptedTypeNames(control.accept))} files.`;
+        }
+
+        if (Number.isFinite(maximumBytes) && files.some((file) => Number(file.size ?? 0) > maximumBytes)) {
+            const megabytes = maximumBytes / (1024 * 1024);
+            return `${label} files must be ${Number.isInteger(megabytes) ? megabytes : megabytes.toFixed(1)} MB or smaller.`;
+        }
+
+        return '';
+    };
+
+    const messageFor = (control, form = control?.form ?? null) => {
+        const label = fieldLabel(control);
+        const lowerLabel = lowerFirst(label);
+        const matchField = control?.dataset?.matchField;
+        const afterField = control?.dataset?.afterField;
+        const beforeOrEqualField = control?.dataset?.beforeOrEqualField;
+        const pairedWith = control?.dataset?.pairedWith;
+
+        if (control?.type === 'file') {
+            const message = fileMessage(control, label);
+            if (message !== '') return message;
+        }
+
+        if (pairedWith) {
+            const related = relatedControl(form, pairedWith);
+            if (hasValue(control) !== hasValue(related)) {
+                return `Enter both ${lowerLabel} and ${readableFieldName(pairedWith)}, or leave both blank.`;
+            }
+        }
+
+        if (matchField && hasValue(control)) {
+            const related = relatedControl(form, matchField);
+            if (related && control.value !== related.value) {
+                return `${label} must match ${readableFieldName(matchField)}.`;
+            }
+        }
+
+        if (afterField && hasValue(control)) {
+            const related = relatedControl(form, afterField);
+            if (hasValue(related) && control.value <= related.value) {
+                return `${label} must be after ${readableFieldName(afterField)}.`;
+            }
+        }
+
+        if (beforeOrEqualField && hasValue(control)) {
+            const related = relatedControl(form, beforeOrEqualField);
+            if (hasValue(related) && control.value > related.value) {
+                return `${label} must be before or equal to ${readableFieldName(beforeOrEqualField)}.`;
+            }
+        }
+
+        const validity = control?.validity ?? {};
+        if (validity.valueMissing) return `Enter ${lowerLabel}.`;
+        if (validity.typeMismatch && control?.type === 'email') return `Enter a valid ${lowerLabel}.`;
+        if (validity.typeMismatch && control?.type === 'url') return `Enter a valid HTTP or HTTPS URL for ${lowerLabel}.`;
+        if (validity.tooShort) return `${label} must be at least ${control.minLength} characters.`;
+        if (validity.tooLong) return `${label} must be no more than ${control.maxLength} characters.`;
+        if (validity.rangeUnderflow) return `${label} must be at least ${control.min}.`;
+        if (validity.rangeOverflow) return `${label} must be no more than ${control.max}.`;
+        if (validity.stepMismatch) return `Enter a valid increment for ${lowerLabel}.`;
+        if (validity.patternMismatch || validity.badInput) return `Enter a valid ${lowerLabel}.`;
+        if (validity.valid === false) return control.validationMessage || `Check ${lowerLabel}.`;
+
+        return '';
+    };
+
+    const isValidatableControl = (candidate) => candidate?.matches?.(
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea',
+    ) === true;
+
+    const clientErrorFor = (form, control) => {
+        const key = control.id || String(control.name ?? '').replace(/[^a-zA-Z0-9_-]+/g, '-');
+        if (!key) return null;
+
+        let error = form.querySelector?.(`[data-client-error-for="${key}"]`) ?? null;
+        if (error || typeof document.createElement !== 'function') return error;
+
+        error = document.createElement('p');
+        error.id = `${key}-client-error`;
+        error.className = 'field-error';
+        error.dataset.clientErrorFor = key;
+        error.hidden = true;
+        error.setAttribute('role', 'alert');
+
+        const group = control.closest?.('.field-group, .form-field');
+        if (group?.append) group.append(error);
+        else control.insertAdjacentElement?.('afterend', error);
+
+        return error;
+    };
+
+    const updateDescription = (control, errorId, add) => {
+        if (!errorId) return;
+        const ids = new Set(String(control.getAttribute?.('aria-describedby') ?? '').split(/\s+/).filter(Boolean));
+        if (add) ids.add(errorId);
+        else ids.delete(errorId);
+
+        if (ids.size > 0) control.setAttribute?.('aria-describedby', Array.from(ids).join(' '));
+        else control.removeAttribute?.('aria-describedby');
+    };
+
+    const validateControl = (form, control) => {
+        control.setCustomValidity?.('');
+        const message = messageFor(control, form);
+        const error = clientErrorFor(form, control);
+
+        if (message !== '') {
+            control.setCustomValidity?.(message);
+            control.setAttribute?.('aria-invalid', 'true');
+            if (error) {
+                error.textContent = message;
+                error.hidden = false;
+                updateDescription(control, error.id, true);
+            }
+            return false;
+        }
+
+        control.removeAttribute?.('aria-invalid');
+        if (error) {
+            error.textContent = '';
+            error.hidden = true;
+            updateDescription(control, error.id, false);
+        }
+        return true;
+    };
+
+    const ensureErrorSummary = (form) => {
+        let summary = form.querySelector?.('[data-form-error-summary]') ?? null;
+        if (summary || typeof document.createElement !== 'function') return summary;
+
+        summary = document.createElement('section');
+        summary.className = 'form-error-summary';
+        summary.dataset.formErrorSummary = '';
+        summary.dataset.clientGenerated = 'true';
+        summary.tabIndex = -1;
+        summary.setAttribute('role', 'alert');
+
+        const heading = document.createElement('div');
+        heading.className = 'form-error-summary__heading';
+
+        const icon = document.createElement('i');
+        icon.className = 'ph ph-warning-circle';
+        icon.setAttribute('aria-hidden', 'true');
+
+        const copy = document.createElement('div');
+        const title = document.createElement('h2');
+        title.textContent = 'Check the highlighted fields';
+        const guidance = document.createElement('p');
+        guidance.textContent = 'Correct the highlighted information, then submit the form again.';
+        copy.append(title, guidance);
+        heading.append(icon, copy);
+        summary.append(heading);
+        form.prepend?.(summary);
+
+        return summary;
+    };
+
+    const enhanceForm = (form) => {
+        if (!form || form.dataset?.formEnhanced === 'true') return;
+        form.dataset.formEnhanced = 'true';
+        const touched = new WeakSet();
+
+        form.addEventListener('focusout', (event) => {
+            const control = event.target;
+            if (!isValidatableControl(control)) return;
+            touched.add(control);
+            validateControl(form, control);
+        });
+
+        const revalidateEditedControl = (event) => {
+            const control = event.target;
+            if (!isValidatableControl(control)) return;
+            if (touched.has(control) || control.getAttribute?.('aria-invalid') === 'true') {
+                validateControl(form, control);
+            }
+        };
+
+        form.addEventListener('input', revalidateEditedControl);
+        form.addEventListener('change', revalidateEditedControl);
+
+        form.addEventListener('invalid', (event) => {
+            const control = event.target;
+            if (!isValidatableControl(control)) return;
+            event.preventDefault();
+            touched.add(control);
+            validateControl(form, control);
+
+            const summary = ensureErrorSummary(form);
+            if (!summary) return;
+            summary.hidden = false;
+            summary.focus?.({ preventScroll: true });
+        }, true);
+
+        form.addEventListener('submit', (event) => {
+            if (String(form.method ?? 'get').toLowerCase() === 'get' || form.checkValidity?.() === false) return;
+
+            const submitter = event.submitter;
+            if (!submitter || submitter.disabled) return;
+
+            form.setAttribute?.('aria-busy', 'true');
+            submitter.setAttribute?.('aria-busy', 'true');
+            submitter.disabled = true;
+
+            const progress = submitter.dataset?.submitLabel;
+            if (!progress) return;
+
+            const text = submitter.querySelector?.('[data-submit-text], span');
+            if (text) text.textContent = progress;
+            else submitter.textContent = progress;
+        });
+    };
+
+    return { enhanceForm, messageFor };
+})();
+
+window.OEMSForms = OEMSForms;
+document.querySelectorAll('form[data-form-kind]').forEach((form) => OEMSForms.enhanceForm(form));

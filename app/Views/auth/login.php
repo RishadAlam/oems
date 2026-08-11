@@ -4,15 +4,23 @@
     <p>Sign in to reach your events, tickets, and workspace.</p>
 </div>
 
-<form class="form-stack mt-9" action="/login" method="post" novalidate>
+<form class="form-stack mt-9" action="/login" method="post" data-form-kind="entry">
     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
     <?php if (is_string($returnTo ?? null)): ?><input type="hidden" name="return_to" value="<?= e($returnTo) ?>"><?php endif; ?>
+
+    <?php
+    $fieldTargets = ['email' => 'email', 'password' => 'password'];
+    $fieldLabels = ['email' => 'Email address', 'password' => 'Password'];
+    require base_path('app/Views/components/form-errors.php');
+    ?>
+
+    <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>All fields marked required must be completed.</span></p>
 
     <div class="field-group">
         <label for="email">Email address</label>
         <div class="input-with-icon">
             <i class="ph ph-envelope-simple" aria-hidden="true"></i>
-            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" required aria-describedby="email-help<?= field_error($errors, 'email') ? ' email-error' : '' ?>" <?= field_error($errors, 'email') ? 'aria-invalid="true"' : '' ?>>
+            <input id="email" name="email" type="email" value="<?= old_value($old, 'email') ?>" autocomplete="email" inputmode="email" required data-form-label="Email address"<?= form_control_attributes($errors, 'email', ['email-help']) ?>>
         </div>
         <p id="email-help" class="field-help">Use the email connected to your OEMS account.</p>
         <?php if ($error = field_error($errors, 'email')): ?>
@@ -33,7 +41,8 @@
                 type="password"
                 autocomplete="current-password"
                 required
-                <?= field_error($errors, 'password') ? 'aria-invalid="true" aria-describedby="password-error"' : '' ?>
+                data-form-label="Password"
+                <?= ltrim(form_control_attributes($errors, 'password')) ?>
             >
             <button type="button" data-password-toggle aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
         </div>
@@ -47,7 +56,7 @@
         <span>Keep me signed in on this device</span>
     </label>
 
-    <button class="button button--primary w-full" type="submit"><span>Sign in</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+    <button class="button button--primary w-full" type="submit" data-submit-label="Signing in…"><span data-submit-text>Sign in</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
 </form>
 
 <p class="auth-switch">New to OEMS? <a href="/register">Create an account</a></p>
