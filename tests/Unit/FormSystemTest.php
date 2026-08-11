@@ -185,4 +185,53 @@ final class FormSystemTest extends TestCase
         $this->assertFalse(str_contains($newsletter, 'action="/newsletter/subscribe" method="post" novalidate'));
         $this->assertTrue(str_contains($newsletter, 'data-submit-label="Requesting confirmation…"'));
     }
+
+    public function testEveryAdministratorFormDeclaresItsInteractionPattern(): void
+    {
+        $directory = base_path('app/Views/admin');
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory));
+        $forms = [];
+
+        foreach ($files as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $source = file_get_contents($file->getPathname()) ?: '';
+            preg_match_all('/<form\b(?:(?:<\?[\s\S]*?\?>)|[^>])*?>/i', $source, $matches);
+            foreach ($matches[0] as $form) {
+                $forms[] = [$file->getPathname(), $form];
+            }
+        }
+
+        $this->assertTrue(count($forms) >= 35);
+        foreach ($forms as [$path, $form]) {
+            $this->assertTrue(
+                str_contains($form, 'data-form-kind='),
+                $path . ' contains an unclassified form.',
+            );
+            $this->assertFalse(str_contains($form, 'novalidate'));
+        }
+    }
+
+    public function testAdministratorEditorsMirrorTheirServerBoundariesAndProgressStates(): void
+    {
+        $blog = file_get_contents(base_path('app/Views/admin/blog/form.php')) ?: '';
+        $banner = file_get_contents(base_path('app/Views/admin/cms/banner-form.php')) ?: '';
+        $campaign = file_get_contents(base_path('app/Views/admin/newsletter/campaign-form.php')) ?: '';
+        $settings = file_get_contents(base_path('app/Views/admin/settings/edit.php')) ?: '';
+        $contact = file_get_contents(base_path('app/Views/admin/contact/show.php')) ?: '';
+
+        $this->assertTrue(str_contains($blog, 'data-form-kind="entry"'));
+        $this->assertTrue(str_contains($blog, "['title','Title','text',3,180"));
+        $this->assertTrue(str_contains($blog, "['body','Body',40,50000"));
+        $this->assertTrue(str_contains($blog, 'data-max-bytes="5242880"'));
+        $this->assertTrue(str_contains($banner, 'data-after-field="starts_at"'));
+        $this->assertTrue(str_contains($banner, 'data-max-bytes="5242880"'));
+        $this->assertTrue(str_contains($campaign, 'name="subject" minlength="3" maxlength="180"'));
+        $this->assertTrue(str_contains($campaign, 'name="message" rows="10" minlength="10" maxlength="4000"'));
+        $this->assertTrue(str_contains($settings, 'data-submit-label="Saving settings…"'));
+        $this->assertTrue(str_contains($contact, 'name="reply" rows="7" minlength="2" maxlength="4000"'));
+        $this->assertTrue(str_contains($contact, 'data-submit-label="Queueing reply…"'));
+    }
 }

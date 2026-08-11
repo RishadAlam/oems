@@ -11,7 +11,7 @@ $registrationLabels = ['pending' => 'Pending', 'confirmed' => 'Confirmed', 'canc
 <?php if ($filterError !== null): ?><div class="form-alert mt-6" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($filterError) ?></span></div><?php endif; ?>
 
 <section class="dashboard-panel mt-8" aria-labelledby="admin-analytics-filters"><div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-funnel" aria-hidden="true"></i></span><div><h2 id="admin-analytics-filters">Analytics filters</h2><p>Choose up to 366 inclusive calendar days and optional event filters.</p></div></div>
-<form class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.55fr)_auto]" method="get" action="/admin/analytics">
+<form class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.55fr)_auto]" method="get" action="/admin/analytics" data-form-kind="filter">
 <label class="form-field" for="admin-analytics-start"><span>Start date</span><input id="admin-analytics-start" name="start" type="date" value="<?= e($range['start'] ?? '') ?>"></label>
 <label class="form-field" for="admin-analytics-end"><span>End date</span><input id="admin-analytics-end" name="end" type="date" value="<?= e($range['end'] ?? '') ?>"></label>
 <label class="form-field" for="admin-analytics-status"><span>Event status</span><select id="admin-analytics-status" name="event_status"><?php foreach ($eventStatuses as $value => $label): ?><option value="<?= e($value) ?>"<?= ($filters['event_status'] ?? '') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>

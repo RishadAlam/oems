@@ -12,7 +12,7 @@ $query = static fn (array $changes = []): string => http_build_query(array_filte
 
 <section class="dashboard-panel mt-8" aria-labelledby="payment-filters-heading">
     <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-funnel" aria-hidden="true"></i></span><div><h2 id="payment-filters-heading">Find payments</h2><p>Search participant, event, or transaction reference.</p></div></div>
-    <form class="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_auto]" method="get" action="/admin/payments">
+    <form class="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_auto]" method="get" action="/admin/payments" data-form-kind="filter">
         <label class="form-field" for="payment-search"><span>Search</span><input id="payment-search" name="search" type="search" maxlength="120" value="<?= e($filters['search'] ?? '') ?>" placeholder="Participant, event, or reference"></label>
         <label class="form-field" for="payment-status"><span>Status</span><select id="payment-status" name="status"><?php foreach ($statuses as $status): ?><option value="<?= e($status) ?>"<?= ($filters['status'] ?? 'pending') === $status ? ' selected' : '' ?>><?= e($statusLabels[$status] ?? ucfirst($status)) ?></option><?php endforeach; ?></select></label>
         <input type="hidden" name="per_page" value="<?= e($perPage) ?>">

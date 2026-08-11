@@ -26,10 +26,10 @@
                         <td data-label="Status"><span class="status-chip <?= $isActive ? 'status-chip--approved' : 'status-chip--cancelled' ?>"><?= $isActive ? 'Active' : 'Inactive' ?></span></td>
                         <td class="organizer-table__action admin-table-actions">
                             <a class="button button--quiet button--compact" href="/admin/categories/<?= e($category['id']) ?>/edit"><i class="ph ph-pencil-simple" aria-hidden="true"></i><span>Edit</span></a>
-                            <form action="/admin/categories/<?= e($category['id']) ?>/status" method="post">
+                            <form action="/admin/categories/<?= e($category['id']) ?>/status" method="post" data-form-kind="action"<?= $isActive ? ' data-confirm="Deactivate this category? It will no longer be available for new event drafts."' : '' ?>>
                                 <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                                 <input type="hidden" name="is_active" value="<?= $isActive ? '0' : '1' ?>">
-                                <button class="button button--compact <?= $isActive ? 'button--danger' : 'button--quiet' ?>" type="submit"><i class="ph <?= $isActive ? 'ph-eye-slash' : 'ph-eye' ?>" aria-hidden="true"></i><span><?= $isActive ? 'Deactivate' : 'Activate' ?></span></button>
+                                <button class="button button--compact <?= $isActive ? 'button--danger' : 'button--quiet' ?>" type="submit" data-submit-label="Updating category…"><i class="ph <?= $isActive ? 'ph-eye-slash' : 'ph-eye' ?>" aria-hidden="true"></i><span data-submit-text><?= $isActive ? 'Deactivate' : 'Activate' ?></span></button>
                             </form>
                         </td>
                     </tr>

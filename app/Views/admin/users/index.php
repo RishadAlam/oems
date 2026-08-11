@@ -28,7 +28,7 @@ $query = static function (int $targetPage) use ($search, $role, $status, $pagina
 
 <div class="organizer-toolbar mt-8">
     <p><strong><?= e($total) ?></strong> matching <?= $total === 1 ? 'user' : 'users' ?></p>
-    <form action="/admin/users" method="get">
+    <form action="/admin/users" method="get" data-form-kind="filter">
         <div class="field-group"><label for="user-search">Search</label><input id="user-search" name="search" type="search" maxlength="100" value="<?= e($search) ?>" placeholder="Name or email"></div>
         <div class="field-group"><label for="user-role">Role</label><select id="user-role" name="role"><option value="">All roles</option><option value="participant"<?= $role === 'participant' ? ' selected' : '' ?>>Participant</option><option value="organizer"<?= $role === 'organizer' ? ' selected' : '' ?>>Organizer</option><option value="super-admin"<?= $role === 'super-admin' ? ' selected' : '' ?>>Super administrator</option></select></div>
         <div class="field-group"><label for="user-status">Status</label><select id="user-status" name="status"><option value="">All statuses</option><?php foreach (['active' => 'Active', 'inactive' => 'Inactive', 'suspended' => 'Suspended'] as $value => $label): ?><option value="<?= e($value) ?>"<?= $status === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>

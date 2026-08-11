@@ -36,24 +36,24 @@ $canReactivate = in_array($role, ['participant', 'organizer'], true)
         <div class="organizer-action-stack">
             <?php if ($canSuspend): ?>
                 <div class="form-alert" role="note"><i class="ph ph-warning" aria-hidden="true"></i><span>Suspending signs the user out of remembered sessions and invalidates pending reset links.</span></div>
-                <form action="/admin/users/<?= e($managedUser['id']) ?>/suspend" method="post">
+                <form action="/admin/users/<?= e($managedUser['id']) ?>/suspend" method="post" data-form-kind="action" data-confirm="Suspend this account and revoke its active sessions?">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <input type="hidden" name="expected_status" value="active">
-                    <button class="button button--danger w-full" type="submit"><i class="ph ph-user-minus" aria-hidden="true"></i><span>Suspend account</span></button>
+                    <button class="button button--danger w-full" type="submit" data-submit-label="Suspending account…"><i class="ph ph-user-minus" aria-hidden="true"></i><span data-submit-text>Suspend account</span></button>
                 </form>
                 <?php if ($canDeactivate): ?>
-                    <form action="/admin/users/<?= e($managedUser['id']) ?>/deactivate" method="post">
+                    <form action="/admin/users/<?= e($managedUser['id']) ?>/deactivate" method="post" data-form-kind="action" data-confirm="Deactivate this account and revoke its active sessions?">
                         <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                         <input type="hidden" name="expected_status" value="active">
-                        <button class="button button--quiet w-full" type="submit"><i class="ph ph-user-circle-minus" aria-hidden="true"></i><span>Deactivate account</span></button>
+                        <button class="button button--quiet w-full" type="submit" data-submit-label="Deactivating account…"><i class="ph ph-user-circle-minus" aria-hidden="true"></i><span data-submit-text>Deactivate account</span></button>
                     </form>
                 <?php endif; ?>
             <?php elseif ($canReactivate): ?>
                 <p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>Reactivation restores sign-in eligibility. Previous sessions remain revoked.</span></p>
-                <form action="/admin/users/<?= e($managedUser['id']) ?>/reactivate" method="post">
+                <form action="/admin/users/<?= e($managedUser['id']) ?>/reactivate" method="post" data-form-kind="action">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <input type="hidden" name="expected_status" value="<?= e($status) ?>">
-                    <button class="button button--primary w-full" type="submit"><i class="ph ph-user-check" aria-hidden="true"></i><span>Reactivate account</span></button>
+                    <button class="button button--primary w-full" type="submit" data-submit-label="Reactivating account…"><i class="ph ph-user-check" aria-hidden="true"></i><span data-submit-text>Reactivate account</span></button>
                 </form>
             <?php else: ?>
                 <p class="organizer-action-note"><i class="ph ph-lock-key" aria-hidden="true"></i><span>This account cannot be changed from this workspace.</span></p>

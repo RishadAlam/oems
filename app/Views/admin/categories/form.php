@@ -11,8 +11,10 @@ $selectedParent = (string) ($old['parent_id'] ?? $category['parent_id'] ?? '');
     <a class="button button--quiet" href="/admin/categories"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>Back to categories</span></a>
 </div>
 
-<form class="dashboard-panel organizer-form mt-8" action="<?= e($action) ?>" method="post">
+<form class="dashboard-panel organizer-form mt-8" action="<?= e($action) ?>" method="post" data-form-kind="entry">
     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+    <?php $fieldTargets=['category'=>'category-details-heading']; $fieldLabels=['category'=>'Category','name'=>'Category name','slug'=>'Slug','parent_id'=>'Parent category','sort_order'=>'Sort order','icon'=>'Icon','description'=>'Description']; $formErrorSummaryId='category-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
+    <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>Category name, slug, and sort order are required.</span></p>
     <?php if ($error = field_error($errors, 'category')): ?><div class="form-alert" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($error) ?></span></div><?php endif; ?>
     <section class="organizer-form__section" aria-labelledby="category-details-heading">
         <div class="organizer-form__heading"><span><i class="ph ph-identification-card" aria-hidden="true"></i></span><div><h2 id="category-details-heading">Category details</h2><p>The slug is normalized to lowercase words joined by hyphens.</p></div></div>
@@ -25,5 +27,5 @@ $selectedParent = (string) ($old['parent_id'] ?? $category['parent_id'] ?? '');
         </div>
         <div class="field-group"><label for="description">Description <span class="field-label-note">Optional</span></label><textarea id="description" name="description" rows="5" maxlength="500"<?= $invalid('description') ?>><?= $categoryValue('description') ?></textarea><?php if ($error = field_error($errors, 'description')): ?><p id="description-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
     </section>
-    <div class="organizer-form__actions"><p><i class="ph ph-info" aria-hidden="true"></i><span>New categories start active. Status changes remain separate from editing.</span></p><button class="button button--primary" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span><?= $isEdit ? 'Save category' : 'Create category' ?></span></button></div>
+    <div class="organizer-form__actions"><p><i class="ph ph-info" aria-hidden="true"></i><span>New categories start active. Status changes remain separate from editing.</span></p><button class="button button--primary" type="submit" data-submit-label="<?= $isEdit ? 'Saving category…' : 'Creating category…' ?>"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span data-submit-text><?= $isEdit ? 'Save category' : 'Create category' ?></span></button></div>
 </form>

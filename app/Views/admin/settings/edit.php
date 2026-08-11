@@ -4,8 +4,10 @@ $invalid = static fn (string $key): string => field_error($errors, $key) === nul
 $error = static function (string $key) use ($errors): void { if ($message = field_error($errors, $key)) echo '<p id="' . e(str_replace('_', '-', $key)) . '-error" class="field-error" role="alert">' . e($message) . '</p>'; };
 ?>
 <div class="dashboard-page-heading organizer-page-heading"><div><p class="dashboard-kicker"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span>Public platform identity</span></p><h1>Platform settings</h1><p>Manage only the public copy used across OEMS. Security, SMTP, and infrastructure stay environment-owned.</p></div></div>
-<form class="dashboard-panel organizer-form mt-8" action="/admin/settings" method="post">
+<form class="dashboard-panel organizer-form mt-8" action="/admin/settings" method="post" data-form-kind="entry">
 <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+<?php $fieldTargets=['settings'=>'identity-settings']; $fieldLabels=['settings'=>'Platform settings']; $formErrorSummaryId='settings-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
+<p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>All public identity and home-page values are required.</span></p>
 <?php if ($message = field_error($errors, 'settings')): ?><div class="form-alert" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($message) ?></span></div><?php endif; ?>
 <section class="organizer-form__section" aria-labelledby="identity-settings"><div class="organizer-form__heading"><span><i class="ph ph-identification-badge" aria-hidden="true"></i></span><div><h2 id="identity-settings">Identity and contact</h2><p>These fields appear in navigation, account pages, and the public footer.</p></div></div>
 <div class="grid gap-5 sm:grid-cols-2">
@@ -23,5 +25,5 @@ $error = static function (string $key) use ($errors): void { if ($message = fiel
 <div class="field-group sm:col-span-2"><label for="home_hero_copy">Hero summary</label><textarea id="home_hero_copy" name="home_hero_copy" rows="3" maxlength="240" required<?= $invalid('home_hero_copy') ?>><?= $value('home_hero_copy') ?></textarea><?php $error('home_hero_copy'); ?></div>
 <div class="field-group sm:col-span-2"><label for="default_seo_description">Default SEO description</label><textarea id="default_seo_description" name="default_seo_description" rows="3" maxlength="320" required<?= $invalid('default_seo_description') ?>><?= $value('default_seo_description') ?></textarea><?php $error('default_seo_description'); ?></div>
 </div></section>
-<div class="organizer-form__actions"><p><i class="ph ph-shield-check" aria-hidden="true"></i><span>Only these nine public values can be stored here.</span></p><button class="button button--primary" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span>Save settings</span></button></div>
+<div class="organizer-form__actions"><p><i class="ph ph-shield-check" aria-hidden="true"></i><span>Only these nine public values can be stored here.</span></p><button class="button button--primary" type="submit" data-submit-label="Saving settings…"><i class="ph ph-floppy-disk" aria-hidden="true"></i><span data-submit-text>Save settings</span></button></div>
 </form>

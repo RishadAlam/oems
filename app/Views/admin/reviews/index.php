@@ -10,7 +10,7 @@
 
 <div class="organizer-toolbar mt-8">
     <p><strong><?= e(count($reviews)) ?></strong> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</p>
-    <form action="/admin/reviews" method="get">
+    <form action="/admin/reviews" method="get" data-form-kind="filter">
         <label for="review-status">Status</label>
         <select id="review-status" name="status">
             <option value="">All statuses</option>
@@ -40,8 +40,8 @@
                 </div>
                 <?php if ($reviewStatus === 'pending'): ?>
                     <div class="flex min-w-44 flex-col gap-3">
-                        <form action="/admin/reviews/<?= e($review['id']) ?>/publish" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Publish</span></button></form>
-                        <form action="/admin/reviews/<?= e($review['id']) ?>/hide" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--danger w-full" type="submit"><i class="ph ph-eye-slash" aria-hidden="true"></i><span>Hide</span></button></form>
+                        <form action="/admin/reviews/<?= e($review['id']) ?>/publish" method="post" data-form-kind="action"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit" data-submit-label="Publishing review…"><i class="ph ph-check-circle" aria-hidden="true"></i><span data-submit-text>Publish</span></button></form>
+                        <form action="/admin/reviews/<?= e($review['id']) ?>/hide" method="post" data-form-kind="action"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--danger w-full" type="submit" data-submit-label="Hiding review…"><i class="ph ph-eye-slash" aria-hidden="true"></i><span data-submit-text>Hide</span></button></form>
                     </div>
                 <?php else: ?>
                     <p class="max-w-48 text-xs leading-5 text-[var(--ink-muted)]"><?= $reviewStatus === 'published' ? 'This review is visible publicly.' : 'This review is not visible publicly.' ?></p>

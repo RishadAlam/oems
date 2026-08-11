@@ -24,14 +24,14 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
     <section class="panel" aria-labelledby="maintenance-control-title">
         <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Maintenance</p><h2 id="maintenance-control-title" class="mt-1 text-xl font-bold">Traffic control</h2></div><span class="status-pill <?= $maintenanceEnabled ? 'status-pill--pending' : 'status-pill--published' ?>"><?= $maintenanceEnabled ? 'Active' : 'Inactive' ?></span></div>
         <p class="mt-4 text-[var(--ink-muted)]"><?= $maintenanceEnabled ? 'Public and non-administrator application routes return an accessible 503 response.' : 'All application routes are available according to their normal access rules.' ?></p>
-        <form class="mt-6" action="/admin/operations/maintenance" method="post">
+        <form class="mt-6" action="/admin/operations/maintenance" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
             <input type="hidden" name="enabled" value="<?= $nextEnabled ? '1' : '0' ?>">
             <label class="form-label" for="maintenance-confirmation">Type <strong><?= e($phrase) ?></strong> to continue</label>
             <input class="form-input" id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" required aria-describedby="maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>">
             <p id="maintenance-help" class="form-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
             <?php if (!empty($errors['confirmation'])): ?><p id="maintenance-confirmation-error" class="form-error" role="alert"><?= e($errors['confirmation'][0]) ?></p><?php endif; ?>
-            <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> mt-5" type="submit"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
+            <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> mt-5" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
         </form>
     </section>
 </div>

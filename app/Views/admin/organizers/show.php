@@ -37,13 +37,13 @@ $canReject = $organizerIdentity && in_array($approval, ['pending', 'approved'], 
     <aside class="dashboard-panel organizer-actions-panel" aria-labelledby="organizer-actions-heading">
         <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-gavel" aria-hidden="true"></i></span><div><h2 id="organizer-actions-heading">Application actions</h2><p>Each action checks the latest application state.</p></div></div>
         <div class="organizer-action-stack">
-            <?php if ($canApprove): ?><form action="/admin/organizers/<?= e($organizer['id']) ?>/approve" method="post"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><input type="hidden" name="expected_status" value="<?= e($approval) ?>"><button class="button button--primary w-full" type="submit"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Approve organizer</span></button></form><?php endif; ?>
+            <?php if ($canApprove): ?><form action="/admin/organizers/<?= e($organizer['id']) ?>/approve" method="post" data-form-kind="action"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><input type="hidden" name="expected_status" value="<?= e($approval) ?>"><button class="button button--primary w-full" type="submit" data-submit-label="Approving organizer…"><i class="ph ph-check-circle" aria-hidden="true"></i><span data-submit-text>Approve organizer</span></button></form><?php endif; ?>
             <?php if ($canReject): ?>
-                <form action="/admin/organizers/<?= e($organizer['id']) ?>/reject" method="post">
+                <form action="/admin/organizers/<?= e($organizer['id']) ?>/reject" method="post" data-form-kind="entry">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
                     <input type="hidden" name="expected_status" value="<?= e($approval) ?>">
                     <div class="field-group"><label for="reason">Reason for rejection</label><textarea id="reason" name="reason" rows="5" maxlength="500" required aria-describedby="<?= field_error($errors, 'reason') === null ? 'reason-help' : 'reason-help reason-error' ?>"<?= field_error($errors, 'reason') === null ? '' : ' aria-invalid="true"' ?>><?= old_value($old, 'reason') ?></textarea><p id="reason-help" class="field-help">Explain the exact change needed. Maximum 500 characters.</p><?php if ($error = field_error($errors, 'reason')): ?><p id="reason-error" class="field-error" role="alert"><?= e($error) ?></p><?php endif; ?></div>
-                    <button class="button button--danger w-full" type="submit"><i class="ph ph-x-circle" aria-hidden="true"></i><span>Reject organizer</span></button>
+                    <button class="button button--danger w-full" type="submit" data-submit-label="Rejecting organizer…"><i class="ph ph-x-circle" aria-hidden="true"></i><span data-submit-text>Reject organizer</span></button>
                 </form>
             <?php endif; ?>
             <?php if (!$canApprove && !$canReject): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>No organizer action is available for the current account and approval state.</span></p><?php endif; ?>

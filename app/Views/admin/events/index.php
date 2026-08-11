@@ -20,7 +20,7 @@ $statusLabels = [
 
 <div class="organizer-toolbar mt-8">
     <p><strong><?= e(count($events)) ?></strong> <?= count($events) === 1 ? 'event' : 'events' ?> in this queue</p>
-    <form action="/admin/events" method="get">
+    <form action="/admin/events" method="get" data-form-kind="filter">
         <label for="status">Status</label>
         <select id="status" name="status">
             <option value="all"<?= $status === null ? ' selected' : '' ?>>All statuses</option>
