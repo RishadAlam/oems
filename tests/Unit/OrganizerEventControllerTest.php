@@ -121,6 +121,7 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($index->body(), 'href="/organizer/events"'));
         $this->assertTrue(str_contains($index->body(), 'href="/organizer/venues"'));
         $this->assertTrue(str_contains($index->body(), 'data-auto-submit'));
+        $this->assertTrue(str_contains($index->body(), 'data-form-kind="filter"'));
         $this->assertTrue(str_contains($index->body(), '>Apply</button>'));
         $this->assertTrue(str_contains($index->body(), 'class="organizer-table__action" data-label="Action"'));
         $this->assertFalse(str_contains($index->body(), 'onchange='));
@@ -128,11 +129,22 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($create->body(), 'Create event'));
         $this->assertTrue(str_contains($create->body(), 'type="datetime-local"'));
         $this->assertTrue(str_contains($create->body(), 'accept="image/jpeg,image/png,image/webp"'));
+        $this->assertTrue(str_contains($create->body(), 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($create->body(), 'method="post" enctype="multipart/form-data" novalidate'));
+        $this->assertTrue(str_contains($create->body(), 'name="title" type="text" minlength="5" maxlength="180"'));
+        $this->assertTrue(str_contains($create->body(), 'name="description" rows="8" minlength="30" maxlength="20000"'));
+        $this->assertTrue(str_contains($create->body(), 'data-after-field="start_date"'));
+        $this->assertTrue(str_contains($create->body(), 'data-before-or-equal-field="start_date"'));
+        $this->assertTrue(str_contains($create->body(), 'data-max-bytes="5242880"'));
+        $this->assertTrue(str_contains($create->body(), 'data-max-files="6"'));
+        $this->assertTrue(str_contains($create->body(), 'data-submit-label="Creating draft…"'));
         $this->assertSame(200, $edit->status());
         $this->assertTrue(str_contains($edit->body(), 'Edit event'));
         $this->assertSame(0, preg_match('/id="waitlist_enabled"[^>]*\schecked(?:\s|>)/', $edit->body()));
         $this->assertSame(200, $show->status());
         $this->assertTrue(str_contains($show->body(), 'Draft'));
+        $this->assertTrue(str_contains($show->body(), 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($show->body(), 'data-submit-label="Submitting for review…"'));
         $this->assertFalse(str_contains($show->body(), 'Register now'));
         $this->assertFalse(str_contains($show->body(), 'Checkout'));
 
@@ -388,6 +400,8 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertFalse(str_contains($trash->body(), 'Foreign Event'));
         $this->assertTrue(str_contains($trash->body(), 'data-label="Lifecycle"'));
         $this->assertTrue(str_contains($trash->body(), '/organizer/events/trash/11/restore'));
+        $this->assertTrue(str_contains($trash->body(), 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($trash->body(), 'data-submit-label="Restoring event…"'));
         $this->assertSame('/organizer/events/11', $restore->header('Location'));
         $this->assertNull($this->events->events[11]['deleted_at']);
         $this->assertSame('draft', $this->events->events[11]['status']);

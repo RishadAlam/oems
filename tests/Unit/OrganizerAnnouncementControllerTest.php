@@ -86,6 +86,7 @@ final class OrganizerAnnouncementControllerTest extends TestCase
         ];
 
         $index = $this->controller->index($this->routed('GET', '/organizer/events/11/announcements', '11'));
+        $this->session->flash('errors', ['subject' => ['Enter a subject.']]);
         $create = $this->controller->create($this->routed('GET', '/organizer/events/11/announcements/create', '11'));
 
         $this->assertSame(200, $index->status());
@@ -101,6 +102,9 @@ final class OrganizerAnnouncementControllerTest extends TestCase
         $this->assertTrue(str_contains($create->body(), 'maxlength="1000"'));
         $this->assertTrue(str_contains($create->body(), 'aria-describedby="announcement-message-help"'));
         $this->assertTrue(str_contains($create->body(), 'Review announcement'));
+        $this->assertTrue(str_contains($create->body(), 'data-form-kind="entry"'));
+        $this->assertTrue(str_contains($create->body(), 'data-form-error-summary'));
+        $this->assertTrue(str_contains($create->body(), 'data-submit-label="Reviewing announcement…"'));
     }
 
     public function testInvalidComposerInputPreservesOnlyBoundedScalarFields(): void
@@ -136,6 +140,8 @@ final class OrganizerAnnouncementControllerTest extends TestCase
         $this->assertTrue(str_contains($review->body(), 'Confirm announcement send'));
         $this->assertTrue(str_contains($review->body(), 'This will notify every currently eligible participant'));
         $this->assertTrue(str_contains($review->body(), 'Doors open earlier'));
+        $this->assertTrue(str_contains($review->body(), 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($review->body(), 'data-submit-label="Sending announcement…"'));
 
         $sent = $this->controller->store($this->routed('POST', '/organizer/events/11/announcements', '11', [
             'confirm_send' => '1',

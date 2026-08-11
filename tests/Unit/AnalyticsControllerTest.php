@@ -35,6 +35,8 @@ final class AnalyticsControllerTest extends TestCase
 
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'Organizer analytics'));
+        $this->assertTrue(str_contains($response->body(), 'data-form-kind="filter"'));
+        $this->assertTrue(str_contains($response->body(), 'data-before-or-equal-field="organizer-analytics-end"'));
         $this->assertTrue(str_contains($response->body(), 'name="start" type="date" value="2026-08-01"'));
         $this->assertTrue(str_contains($response->body(), 'href="/organizer/analytics.csv?'));
         $this->assertTrue(str_contains($response->body(), '&lt;script&gt;event&lt;/script&gt;'));

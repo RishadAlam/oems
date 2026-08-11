@@ -21,6 +21,13 @@ final class OrganizerCouponControllerTest extends TestCase
         $this->assertTrue(str_contains($index, 'data-label='));
         $this->assertTrue(str_contains($form, 'aria-describedby'));
         $this->assertTrue(str_contains($form, 'field-error'));
+        $this->assertTrue(str_contains($form, 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($form, 'method="post" novalidate'));
+        $this->assertTrue(str_contains($form, 'data-max-when-field="discount_type"'));
+        $this->assertTrue(str_contains($form, 'data-before-or-equal-field="expires_at"'));
+        $this->assertTrue(str_contains($form, 'data-submit-label=') && str_contains($form, 'Creating coupon…'));
+        $this->assertTrue(str_contains($index, 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($index, 'data-submit-label=') && str_contains($index, 'Deactivating coupon…'));
         $this->assertFalse(str_contains($form, 'coupon_id'));
     }
 

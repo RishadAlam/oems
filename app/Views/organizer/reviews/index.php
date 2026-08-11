@@ -31,13 +31,23 @@
                         <div class="mt-5 rounded-[12px] bg-[var(--surface)] p-4"><strong class="text-sm">Current reply</strong><p class="mt-2 text-sm leading-6 text-[var(--ink-muted)]"><?= e($review['organizer_reply']) ?></p></div>
                     <?php endif; ?>
                 </div>
-                <form class="field-group rounded-[14px] bg-[var(--surface)] p-5" action="/organizer/reviews/<?= e($review['id']) ?>/reply" method="post">
+                <form class="field-group rounded-[14px] bg-[var(--surface)] p-5" action="/organizer/reviews/<?= e($review['id']) ?>/reply" method="post" data-form-kind="entry">
                     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
+                    <?php if ($replyError !== null):
+                        $allReplyErrors = $errors;
+                        $errors = ['reply' => [$replyError]];
+                        $fieldTargets = ['reply' => 'reply-' . (int) $review['id']];
+                        $fieldLabels = ['reply' => 'Organizer reply'];
+                        $formErrorSummaryId = 'reply-error-summary-' . (int) $review['id'];
+                        require base_path('app/Views/components/form-errors.php');
+                        $errors = $allReplyErrors;
+                    endif; ?>
+                    <p class="form-required-note"><i class="ph ph-asterisk" aria-hidden="true"></i><span>A public reply is required.</span></p>
                     <label for="reply-<?= e($review['id']) ?>"><?= empty($review['organizer_reply']) ? 'Write a reply' : 'Update reply' ?></label>
-                    <textarea id="reply-<?= e($review['id']) ?>" name="reply" rows="6" minlength="2" maxlength="1000" required aria-describedby="reply-<?= e($review['id']) ?>-help<?= $replyError !== null ? ' ' . e($replyErrorId) : '' ?>"<?= $replyError !== null ? ' aria-invalid="true"' : '' ?>><?= $replyValue ?></textarea>
+                    <textarea id="reply-<?= e($review['id']) ?>" name="reply" rows="6" minlength="2" maxlength="1000" required aria-describedby="reply-<?= e($review['id']) ?>-help<?= $replyError !== null ? ' ' . e($replyErrorId) : '' ?>"<?= $replyError !== null ? ' aria-invalid="true"' : '' ?> data-form-label="Organizer reply"><?= $replyValue ?></textarea>
                     <p id="reply-<?= e($review['id']) ?>-help" class="field-help">Use 2 to 1000 characters. The reply appears publicly with this review.</p>
                     <?php if ($replyError !== null): ?><p id="<?= e($replyErrorId) ?>" class="field-error" role="alert"><?= e($replyError) ?></p><?php endif; ?>
-                    <button class="button button--primary mt-4 w-full" type="submit"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span>Save reply</span></button>
+                    <button class="button button--primary mt-4 w-full" type="submit" data-submit-label="Saving reply…"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><span data-submit-text>Save reply</span></button>
                 </form>
             </article>
         <?php endforeach; ?>

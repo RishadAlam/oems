@@ -208,6 +208,8 @@ final class ReviewControllerTest extends TestCase
         $this->assertFalse(str_contains($body, '<b>Existing reply</b>'));
         $this->assertTrue(str_contains($body, 'maxlength="1000"'));
         $this->assertTrue(str_contains($body, 'aria-describedby="reply-15-help"'));
+        $this->assertTrue(str_contains($body, 'data-form-kind="entry"'));
+        $this->assertTrue(str_contains($body, 'data-submit-label="Saving reply…"'));
 
         $foreign = $this->organizerController(12)->reply($this->idRequest('POST', '/organizer/reviews/15/reply', 15, [
             'reply' => 'x',

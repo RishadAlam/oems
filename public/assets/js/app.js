@@ -431,6 +431,9 @@ const OEMSForms = (() => {
         const afterField = control?.dataset?.afterField;
         const beforeOrEqualField = control?.dataset?.beforeOrEqualField;
         const pairedWith = control?.dataset?.pairedWith;
+        const maxWhenField = control?.dataset?.maxWhenField;
+        const maxWhenValue = control?.dataset?.maxWhenValue;
+        const maxWhen = control?.dataset?.maxWhen;
 
         if (control?.type === 'file') {
             const message = fileMessage(control, label);
@@ -462,6 +465,13 @@ const OEMSForms = (() => {
             const related = relatedControl(form, beforeOrEqualField);
             if (hasValue(related) && control.value > related.value) {
                 return `${label} must be before or equal to ${readableFieldName(beforeOrEqualField)}.`;
+            }
+        }
+
+        if (maxWhenField && maxWhen !== undefined && hasValue(control)) {
+            const related = relatedControl(form, maxWhenField);
+            if (related?.value === maxWhenValue && Number(control.value) > Number(maxWhen)) {
+                return `${label} must be no more than ${maxWhen} for ${maxWhenValue}.`;
             }
         }
 
@@ -599,6 +609,7 @@ const OEMSForms = (() => {
                     dependent.dataset?.afterField,
                     dependent.dataset?.beforeOrEqualField,
                     dependent.dataset?.pairedWith,
+                    dependent.dataset?.maxWhenField,
                 ].includes(control.name);
 
                 if (dependsOnEditedField
@@ -626,6 +637,12 @@ const OEMSForms = (() => {
 
         form.addEventListener('submit', (event) => {
             if (String(form.method ?? 'get').toLowerCase() === 'get' || form.checkValidity?.() === false) return;
+
+            const confirmation = form.dataset?.confirm;
+            if (confirmation && !window.confirm(confirmation)) {
+                event.preventDefault();
+                return;
+            }
 
             const submitter = event.submitter;
             if (!submitter || submitter.disabled) return;

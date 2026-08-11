@@ -20,10 +20,10 @@ $registrationLabels = ['pending' => 'Pending', 'confirmed' => 'Confirmed', 'canc
 
 <section class="dashboard-panel mt-8" aria-labelledby="organizer-analytics-filters">
     <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-funnel" aria-hidden="true"></i></span><div><h2 id="organizer-analytics-filters">Analytics range</h2><p>Choose up to 366 inclusive calendar days.</p></div></div>
-    <form class="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]" method="get" action="/organizer/analytics">
-        <label class="form-field" for="organizer-analytics-start"><span>Start date</span><input id="organizer-analytics-start" name="start" type="date" value="<?= e($range['start'] ?? '') ?>"></label>
-        <label class="form-field" for="organizer-analytics-end"><span>End date</span><input id="organizer-analytics-end" name="end" type="date" value="<?= e($range['end'] ?? '') ?>"></label>
-        <label class="form-field" for="organizer-analytics-event"><span>Event ID <small>(optional)</small></span><input id="organizer-analytics-event" name="event" type="number" min="1" step="1" inputmode="numeric" value="<?= e($eventId ?? '') ?>"></label>
+    <form class="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_auto]" method="get" action="/organizer/analytics" data-form-kind="filter">
+        <label class="form-field" for="organizer-analytics-start"><span>Start date</span><input id="organizer-analytics-start" name="start" type="date" value="<?= e($range['start'] ?? '') ?>" data-form-label="Start date" data-before-or-equal-field="organizer-analytics-end"></label>
+        <label class="form-field" for="organizer-analytics-end"><span>End date</span><input id="organizer-analytics-end" name="end" type="date" value="<?= e($range['end'] ?? '') ?>" data-form-label="End date"></label>
+        <label class="form-field" for="organizer-analytics-event"><span>Event ID <small>(optional)</small></span><input id="organizer-analytics-event" name="event" type="number" min="1" step="1" inputmode="numeric" value="<?= e($eventId ?? '') ?>" data-form-label="Event ID"></label>
         <div class="flex items-end gap-2"><button class="button button--primary" type="submit">Apply</button><a class="button button--quiet" href="/organizer/analytics">Reset</a></div>
     </form>
 </section>

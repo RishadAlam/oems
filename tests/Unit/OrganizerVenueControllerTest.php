@@ -140,6 +140,11 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertSame(200, $create->status());
         $this->assertTrue(str_contains($create->body(), 'Create venue'));
         $this->assertTrue(str_contains($create->body(), 'type="number"'));
+        $this->assertTrue(str_contains($create->body(), 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($create->body(), 'method="post" novalidate'));
+        $this->assertTrue(str_contains($create->body(), 'data-paired-with="longitude"'));
+        $this->assertTrue(str_contains($create->body(), 'data-paired-with="latitude"'));
+        $this->assertTrue(str_contains($create->body(), 'data-submit-label="Creating venue…"'));
         $this->assertSame(200, $edit->status());
         $this->assertTrue(str_contains($edit->body(), 'Edit venue'));
     }
@@ -202,6 +207,8 @@ final class OrganizerVenueControllerTest extends TestCase
         $this->assertFalse(str_contains($editMarkup, '/delete'));
         $this->assertNotSame(false, $deleteStart);
         $this->assertTrue(str_contains($deleteMarkup, 'action="/organizer/venues/1/delete" method="post"'));
+        $this->assertTrue(str_contains($deleteMarkup, 'data-form-kind="action"'));
+        $this->assertTrue(str_contains($deleteMarkup, 'data-submit-label="Deleting venue…"'));
         $this->assertTrue(str_contains($deleteMarkup, '<span>Delete venue</span>'));
     }
 

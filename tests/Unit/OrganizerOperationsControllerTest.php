@@ -140,6 +140,7 @@ final class OrganizerOperationsControllerTest extends TestCase
         }
         $this->assertFalse(str_contains($response->body(), 'qr_payload_hash'));
         $this->assertFalse(str_contains($response->body(), 'gateway_response'));
+        $this->assertTrue(str_contains($response->body(), 'data-form-kind="filter"'));
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/99/participants', '99'))->status());
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
     }
@@ -264,6 +265,9 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertSame(200, $workspace->status());
         $this->assertTrue(str_contains($workspace->body(), 'name="code"'));
         $this->assertTrue(str_contains($workspace->body(), 'data-check-in-camera'));
+        $this->assertTrue(str_contains($workspace->body(), 'data-form-kind="entry"'));
+        $this->assertFalse(str_contains($workspace->body(), 'data-check-in-form novalidate'));
+        $this->assertTrue(str_contains($workspace->body(), 'data-submit-label="Checking in…"'));
         $this->assertSame('/organizer/events/10/check-in', $first->header('Location'));
         $this->assertSame('Ticket checked in.', $this->session->get('_flash.success'));
         $this->assertFalse(str_contains(serialize($_SESSION), $rawToken));

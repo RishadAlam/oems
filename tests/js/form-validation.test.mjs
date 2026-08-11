@@ -5,7 +5,7 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync(new URL('../../public/assets/js/app.js', import.meta.url), 'utf8');
 
-function loadFormApi() {
+function loadFormApi(confirm = () => true) {
     const media = { matches: false, addEventListener() {} };
     const sandbox = {
         console,
@@ -22,6 +22,7 @@ function loadFormApi() {
         requestAnimationFrame() { return 1; },
         cancelAnimationFrame() {},
         addEventListener() {},
+        confirm,
     };
     sandbox.window = sandbox;
     vm.runInNewContext(source, sandbox, { filename: 'app.js' });
@@ -151,6 +152,25 @@ test('confirmation and schedule rules compare against the related field', () => 
     assert.equal(api?.messageFor(end, form), 'End date must be after start date.');
 });
 
+test('conditional numeric limits mirror organizer discount rules', () => {
+    const api = loadFormApi();
+    const type = control({ name: 'discount_type', type: 'select-one', value: 'percentage' });
+    const form = { elements: { namedItem: (name) => name === 'discount_type' ? type : null } };
+    const value = control({
+        dataset: {
+            formLabel: 'Discount value',
+            maxWhenField: 'discount_type',
+            maxWhenValue: 'percentage',
+            maxWhen: '100',
+        },
+        name: 'discount_value',
+        type: 'number',
+        value: '101',
+    });
+
+    assert.equal(api?.messageFor(value, form), 'Discount value must be no more than 100 for percentage.');
+});
+
 test('paired coordinates and file policies reject incomplete or unsafe input', () => {
     const api = loadFormApi();
     const longitude = control({ name: 'longitude', type: 'number', value: '' });
@@ -190,6 +210,27 @@ test('valid state-changing submission locks only its submitter with specific pro
     assert.equal(submitter.disabled, true);
     assert.equal(submitter.textContent, 'Saving event…');
     assert.equal(form.getAttribute('aria-busy'), 'true');
+});
+
+test('destructive actions require confirmation before submission is locked', () => {
+    let prompt = '';
+    const api = loadFormApi((message) => {
+        prompt = message;
+        return false;
+    });
+    const form = new EventTargetStub();
+    const submitter = new EventTargetStub();
+    form.checkValidity = () => true;
+    form.dataset = { confirm: 'Delete this event?', formKind: 'action' };
+    form.method = 'post';
+    submitter.disabled = false;
+
+    api?.enhanceForm(form);
+    const event = form.dispatch('submit', { submitter });
+
+    assert.equal(prompt, 'Delete this event?');
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(submitter.disabled, false);
 });
 
 test('field errors appear after blur and clear as soon as the value is corrected', () => {

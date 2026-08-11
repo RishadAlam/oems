@@ -21,7 +21,7 @@ $statusLabels = [
 
 <div class="organizer-toolbar mt-8">
     <p><strong><?= e($summary['total'] ?? count($events)) ?></strong> <?= (int) ($summary['total'] ?? count($events)) === 1 ? 'event' : 'events' ?></p>
-    <form action="/organizer/events" method="get">
+    <form action="/organizer/events" method="get" data-form-kind="filter">
         <label for="event-status">Filter by status</label>
         <select id="event-status" name="status" data-auto-submit>
             <option value="">All statuses</option>
