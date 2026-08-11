@@ -90,6 +90,44 @@ PHP,
         $this->assertTrue($parameters['secure'] ?? false);
     }
 
+    public function testHttpSessionCookieCannotCollideWithTheSecureSessionCookie(): void
+    {
+        $httpCode = sprintf(
+            <<<'PHP'
+require %s;
+unset($_SERVER['HTTPS']);
+new OEMS\Core\Session(true, ['name' => 'OEMS_SCHEME_TEST', 'secure' => false]);
+echo json_encode(['name' => session_name(), 'parameters' => session_get_cookie_params()], JSON_THROW_ON_ERROR);
+session_destroy();
+PHP,
+            var_export(base_path('vendor/autoload.php'), true),
+        );
+        $httpsCode = sprintf(
+            <<<'PHP'
+require %s;
+$_SERVER['HTTPS'] = 'on';
+new OEMS\Core\Session(true, ['name' => 'OEMS_SCHEME_TEST', 'secure' => false]);
+echo json_encode(['name' => session_name(), 'parameters' => session_get_cookie_params()], JSON_THROW_ON_ERROR);
+session_destroy();
+PHP,
+            var_export(base_path('vendor/autoload.php'), true),
+        );
+
+        [$httpStatus, $httpOutput, $httpError] = $this->runPhpProcess($httpCode);
+        [$httpsStatus, $httpsOutput, $httpsError] = $this->runPhpProcess($httpsCode);
+        $http = json_decode($httpOutput, true);
+        $https = json_decode($httpsOutput, true);
+
+        $this->assertSame(0, $httpStatus, $httpError);
+        $this->assertSame(0, $httpsStatus, $httpsError);
+        $this->assertTrue(is_array($http));
+        $this->assertTrue(is_array($https));
+        $this->assertSame('OEMS_SCHEME_TEST_HTTP', $http['name'] ?? null);
+        $this->assertSame('OEMS_SCHEME_TEST', $https['name'] ?? null);
+        $this->assertFalse($http['parameters']['secure'] ?? true);
+        $this->assertTrue($https['parameters']['secure'] ?? false);
+    }
+
     public function testAuthenticatedSessionRegenerationChangesTheLiveIdentifier(): void
     {
         $code = sprintf(

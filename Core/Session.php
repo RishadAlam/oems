@@ -12,15 +12,17 @@ final class Session
             return;
         }
 
-        $secure = (($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off');
+        $secureRequest = (($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off');
+        $secureCookie = $secureRequest || (bool) ($options['secure'] ?? false);
+        $sessionName = (string) ($options['name'] ?? 'OEMS_SESSION');
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
-        session_name((string) ($options['name'] ?? 'OEMS_SESSION'));
+        session_name($secureCookie ? $sessionName : $sessionName . '_HTTP');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',
             'domain' => '',
-            'secure' => $secure || (bool) ($options['secure'] ?? false),
+            'secure' => $secureCookie,
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
