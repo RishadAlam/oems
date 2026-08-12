@@ -25,7 +25,11 @@
     },
     "scripts": {
         "test": "php tests/run.php",
-        "check:syntax": "find app Core bootstrap config public routes tests -name '*.php' -print0 | xargs -0 -n1 php -l"
+        "check:syntax": "find app Core bootstrap config public routes scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+        "db:migrate": "@php scripts/database.php migrate",
+        "db:rollback": "@php scripts/database.php rollback",
+        "db:refresh": "@php scripts/database.php refresh",
+        "db:seed": "@php scripts/database.php seed"
     },
     "config": {
         "optimize-autoloader": true,
