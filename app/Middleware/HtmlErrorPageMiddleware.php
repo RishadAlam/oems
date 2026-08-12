@@ -35,23 +35,24 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
         $layout = $currentUser !== null && $this->isWorkspacePath($request->path())
             ? 'dashboard'
             : 'public';
-        $html = $this->view->render('errors/404', [
+        $status = $response->status();
+        $html = $this->view->render($status === 403 ? 'errors/403' : 'errors/404', [
             'app' => $this->config->all(),
             'currentUser' => $currentUser,
             'csrfToken' => $this->security->csrfToken(),
             'errors' => [],
             'old' => [],
             'flash' => [],
-            'pageTitle' => 'Page not found',
+            'pageTitle' => $status === 403 ? 'Access denied' : 'Page not found',
             'robots' => 'noindex, nofollow',
         ], $layout);
 
-        return Response::html($html, 404, ['Cache-Control' => 'no-store']);
+        return Response::html($html, $status, ['Cache-Control' => 'no-store']);
     }
 
     private function shouldRenderHtml(Request $request, Response $response): bool
     {
-        if ($response->status() !== 404) {
+        if (!in_array($response->status(), [403, 404], true)) {
             return false;
         }
 

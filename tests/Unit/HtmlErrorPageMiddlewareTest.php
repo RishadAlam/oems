@@ -62,6 +62,35 @@ final class HtmlErrorPageMiddlewareTest extends TestCase
         $this->assertTrue(str_contains($response->body(), '<h1>This page is not here.</h1>'));
     }
 
+    public function testBrowserAccessDeniedUsesTheWorkspaceErrorPageWithoutChangingItsStatus(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $users->users[7] = [
+            'id' => 7,
+            'role_id' => 1,
+            'name' => 'OEMS Administrator',
+            'email' => 'admin@example.test',
+            'password' => password_hash('AdminPass!2026', PASSWORD_DEFAULT),
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 10:00:00',
+        ];
+        $this->authenticateSession($session, $users, 7);
+
+        $response = $this->middleware($session, $users)->handle(
+            Request::create('GET', '/participant/dashboard', headers: ['Accept' => 'text/html']),
+            static fn (): Response => Response::text('Forbidden', 403),
+        );
+
+        $this->assertSame(403, $response->status());
+        $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertTrue(str_contains($response->body(), '<title>Access denied | OEMS</title>'));
+        $this->assertTrue(str_contains($response->body(), '<h1>You cannot open this page.</h1>'));
+        $this->assertTrue(str_contains($response->body(), 'href="/dashboard"'));
+        $this->assertTrue(str_contains($response->body(), 'aria-label="Workspace navigation"'));
+    }
+
     public function testStructuredAndNonHtmlNotFoundResponsesRemainMachineReadable(): void
     {
         $_SESSION = [];
