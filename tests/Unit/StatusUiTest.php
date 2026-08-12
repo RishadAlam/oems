@@ -110,12 +110,83 @@ final class StatusUiTest extends TestCase
         $this->assertFalse(str_contains($html, 'status-chip--cancelled'));
     }
 
+    public function testProfileTrustStatesUseDistinctSemanticTones(): void
+    {
+        $profile = [
+            'name' => 'Profile User',
+            'email' => 'profile@example.test',
+            'status' => 'active',
+            'email_verified_at' => '2026-08-13 10:00:00',
+            'role_name' => 'Participant',
+            'role_slug' => 'participant',
+            'locale' => 'en',
+            'timezone' => 'Asia/Dhaka',
+        ];
+        $active = $this->render('profile/edit', ['profile' => $profile]);
+        $inactive = $this->render('profile/edit', ['profile' => array_merge($profile, [
+            'status' => 'inactive',
+            'email_verified_at' => null,
+        ])]);
+
+        $this->assertTrue(str_contains($active, '<dt>Account</dt><dd class="profile-identity__status--info">'));
+        $this->assertTrue(str_contains($active, '<dt>Email</dt><dd class="profile-identity__status--success">'));
+        $this->assertTrue(str_contains($inactive, '<dt>Account</dt><dd class="profile-identity__status--neutral">'));
+        $this->assertTrue(str_contains($inactive, '<dt>Email</dt><dd class="profile-identity__status--warning">'));
+    }
+
+    public function testOperationsStatesUseSharedBadgesInsteadOfUnstyledStatusPills(): void
+    {
+        $available = $this->render('admin/operations/index', [
+            'readiness' => ['status' => 'ok', 'checks' => ['database' => true, 'schema' => true, 'storage' => true]],
+            'maintenanceEnabled' => false,
+        ]);
+        $restricted = $this->render('admin/operations/index', [
+            'readiness' => ['status' => 'unavailable', 'checks' => []],
+            'maintenanceEnabled' => true,
+        ]);
+
+        $this->assertTrue(str_contains($available, 'status-badge status-badge--success">Ready'));
+        $this->assertTrue(str_contains($available, 'status-badge status-badge--neutral">Inactive'));
+        $this->assertTrue(str_contains($restricted, 'status-badge status-badge--danger">Unavailable'));
+        $this->assertTrue(str_contains($restricted, 'status-badge status-badge--warning">Active'));
+        $this->assertFalse(str_contains($available . $restricted, 'status-pill'));
+    }
+
+    public function testDetailRowsStayNeutralUntilAStatusComponentAddsMeaning(): void
+    {
+        $css = file_get_contents(base_path('resources/css/app.css'));
+
+        if (!is_string($css)) {
+            throw new RuntimeException('Unable to read the source stylesheet.');
+        }
+
+        $profileDefault = $this->cssRule($css, '/\.profile-identity dd\s*\{([^{}]+)\}/', 'profile identity values');
+        $profileInfo = $this->cssRule($css, '/\.profile-identity__status--info\s*\{([^{}]+)\}/', 'profile informational state');
+        $profileNeutral = $this->cssRule($css, '/\.profile-identity__status--neutral\s*\{([^{}]+)\}/', 'profile neutral state');
+        $detailDefault = $this->cssRule($css, '/\.status-list dd\s*,\s*\.readiness-grid dd\s*\{([^{}]+)\}/', 'detail values');
+
+        $this->assertTrue(str_contains($profileDefault, 'var(--ink-muted)'));
+        $this->assertFalse(str_contains($profileDefault, 'var(--success)'));
+        $this->assertTrue(str_contains($profileInfo, 'var(--info)'));
+        $this->assertTrue(str_contains($profileNeutral, 'var(--ink-muted)'));
+        $this->assertTrue(str_contains($detailDefault, 'var(--ink)'));
+        $this->assertFalse(str_contains($detailDefault, 'var(--success)'));
+    }
+
     private function statusRule(string $css, string $component, string $state): string
     {
         $selector = preg_quote('.' . $component . '--' . $state, '/');
         $matched = preg_match('/[^{}]*' . $selector . '[^{}]*\{([^{}]+)\}/', $css, $matches);
 
         $this->assertSame(1, $matched, sprintf('Missing semantic rule for %s--%s.', $component, $state));
+
+        return (string) ($matches[1] ?? '');
+    }
+
+    private function cssRule(string $css, string $pattern, string $label): string
+    {
+        $matched = preg_match($pattern, $css, $matches);
+        $this->assertSame(1, $matched, sprintf('Missing CSS rule for %s.', $label));
 
         return (string) ($matches[1] ?? '');
     }
