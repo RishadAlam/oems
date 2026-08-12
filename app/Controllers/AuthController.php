@@ -116,13 +116,6 @@ final class AuthController extends Controller
 
         $this->session->flash('success', 'Account created. Verify your email to continue.');
 
-        if ((bool) $this->config->get('debug', false)) {
-            $this->session->flash(
-                'development_link',
-                '/verify-email/' . rawurlencode((string) $result['verification_token']),
-            );
-        }
-
         return Response::redirect('/login');
     }
 
@@ -166,13 +159,6 @@ final class AuthController extends Controller
         }
 
         $this->session->flash('success', 'If that account exists, a password reset link has been prepared.');
-
-        if ((bool) $this->config->get('debug', false) && is_string($result['reset_token'])) {
-            $this->session->flash(
-                'development_link',
-                '/reset-password/' . rawurlencode((string) $result['reset_token']),
-            );
-        }
 
         return Response::redirect('/forgot-password');
     }

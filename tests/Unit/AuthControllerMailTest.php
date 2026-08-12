@@ -28,7 +28,7 @@ final class AuthControllerMailTest extends TestCase
 
     public function testSuccessfulRegistrationSendsTheVerificationMessage(): void
     {
-        [$controller, $transport] = $this->controller();
+        [$controller, $transport, $session] = $this->controller();
 
         $response = $controller->register(Request::create('POST', '/register', input: [
             'name' => 'Maliha Rahman',
@@ -43,6 +43,10 @@ final class AuthControllerMailTest extends TestCase
         $this->assertSame(1, count($transport->messages));
         $this->assertSame('maliha@example.test', $transport->messages[0]->recipientEmail);
         $this->assertSame('Verify your OEMS email', $transport->messages[0]->subject);
+        $this->assertNull(
+            $session->get('_flash.development_link'),
+            'Email ownership tokens must never be exposed in a browser flash message.',
+        );
     }
 
     public function testRegistrationRejectsTooShortNamesAndOversizedPasswordsBeforeCreatingAnAccount(): void
@@ -75,7 +79,7 @@ final class AuthControllerMailTest extends TestCase
             'role_id' => 3,
             'status' => 'active',
         ]);
-        [$controller, $transport] = $this->controller($users);
+        [$controller, $transport, $session] = $this->controller($users);
 
         $response = $controller->sendResetLink(Request::create('POST', '/forgot-password', input: [
             'email' => 'raihan@example.test',
@@ -85,6 +89,10 @@ final class AuthControllerMailTest extends TestCase
         $this->assertSame(1, count($transport->messages));
         $this->assertSame('raihan@example.test', $transport->messages[0]->recipientEmail);
         $this->assertSame('Reset your OEMS password', $transport->messages[0]->subject);
+        $this->assertNull(
+            $session->get('_flash.development_link'),
+            'Password-reset tokens must never be exposed in a browser flash message.',
+        );
     }
 
     public function testUnknownPasswordResetUsesThePrivacySinkInsteadOfTheSubmittedAddress(): void
