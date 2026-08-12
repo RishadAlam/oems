@@ -4,7 +4,7 @@ OEMS is a custom PHP MVC online event management platform for public discovery, 
 
 ## Requirements
 
-- PHP 8.2 or newer with PDO MySQL, GD, mbstring, and OpenSSL
+- PHP 8.2 or newer with PDO MySQL, GD, mbstring, OpenSSL, and ZIP
 - MySQL 8.0 or newer
 - Composer 2
 - Node.js 20 or newer
@@ -39,19 +39,15 @@ OEMS is a custom PHP MVC online event management platform for public discovery, 
 
    Keep SMTP credentials in `.env` only. Never commit them to the repository. The privacy sink receives reset-shaped probe messages for unknown addresses, keeping the public response behavior uniform without emailing the submitted unknown address.
 
-4. Create a MySQL database, then import the schema and development seed data.
+4. Create a MySQL database, then initialize the canonical schema and local fake data.
 
    ```bash
    mysql -u root -p -e "CREATE DATABASE oems CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-   mysql -u root -p oems < database/schema.sql
-   mysql -u root -p oems < database/seed.sql
+   composer db:migrate
+   composer db:seed
    ```
 
-   To add the optional local demo dataset, import the repeatable demo seed after the base seed. The demo seed uses keyed upserts and guarded inserts, so the same command can be run again without duplicating its accounts, events, schedules, or gallery references.
-
-   ```bash
-   mysql -u root -p oems < database/demo_seed.sql
-   ```
+   `db:seed` loads the required base records when needed and then adds the repeatable fake dataset. It is blocked when `APP_ENV=production`.
 
 5. Build the Tailwind stylesheet and copy self-hosted frontend assets.
 
@@ -74,6 +70,38 @@ When TLS terminates at a reverse proxy, set `COOKIE_SECURE=true`. Configure `TRU
 
 The application does not require `pnpm dev`. Run `npm run watch:css` only while editing Tailwind styles; the PHP server handles application requests.
 
+## Composer workflows
+
+The deployment and database workflows have stable Composer entry points:
+
+```bash
+# Validate, install production PHP dependencies, rebuild assets, and run all checks
+composer build
+
+# Create dist/oems-cpanel.zip after a successful build
+composer package:cpanel
+
+# Initialize a fresh database or apply pending migrations to an existing database
+composer db:migrate
+
+# Roll back the latest reversible migration batch
+composer db:rollback
+
+# Destructively rebuild the database with base and fake data
+composer db:refresh -- --force
+
+# Add or refresh repeatable fake data outside production
+composer db:seed
+```
+
+Production rollback additionally requires explicit confirmation: `composer db:rollback -- --force`. Current historical migrations are recorded as forward-only baseline migrations, so they cannot be rolled back. Add future reversible changes as paired `.up.sql` and `.down.sql` files and register both paths in `database/migrations/manifest.php`.
+
+### cPanel upload package
+
+Run `composer package:cpanel` on a trusted build machine. Upload `dist/oems-cpanel.zip` in cPanel File Manager, extract its single `oems/` directory, and point the domain document root to `oems/public`. Copy `oems/.env.example` to `oems/.env`, provide production secrets, create the configured MySQL database, and run `composer db:migrate` from the `oems` directory.
+
+The package includes production dependencies and compiled public assets. It deliberately excludes `.env`, tests, documentation, Node dependencies and source assets, build output, logs, database backups, generated private tickets and certificates, and user-uploaded media. Preserve existing writable `storage` and `public/uploads` data when upgrading a live installation; never replace those runtime directories with an empty release package.
+
 ### Progressive Web App shell
 
 OEMS publishes `/manifest.webmanifest`, same-origin 192px and 512px brand icons, and a root-scoped `/service-worker.js`. The service worker is deliberately narrow: it precaches only the generic offline shell and a fixed list of versioned public CSS, JavaScript, and icon files. Navigations always go to the network first and receive only `/offline.html` when the network is unavailable. API responses, authentication and dashboard pages, health probes, redirects, ticket/certificate downloads, map tiles, query-string assets, non-GET requests, and all other dynamic responses are never stored.
@@ -84,7 +112,9 @@ The PHP process must be able to create and write `storage/cache` (rate limits an
 
 ## Database upgrades
 
-`database/schema.sql` is the canonical schema for a fresh installation. For a new database, import `schema.sql`, then `seed.sql`, and finally the optional `demo_seed.sql` as shown above. Do not replay historical migrations on a fresh schema.
+`database/schema.sql` is the canonical schema for a fresh installation. `composer db:migrate` imports it into an empty configured database and records the historical manifest as a forward-only baseline without replaying those migrations. On a populated installation, the same command verifies applied checksums and runs pending migrations in manifest order.
+
+Before every production migration, back up the database and stop or drain application processes that can write to it. Do not import `schema.sql`, `seed.sql`, or `demo_seed.sql` over a populated database. Use `composer db:refresh -- --force` only for disposable development data because it drops every application table before loading the schema and fake dataset.
 
 For an existing populated database created from baseline `5857358`, use this exact order:
 
@@ -128,8 +158,8 @@ OEMS is designed as a production-ready single-node PHP/MySQL deployment. Copy th
 Recommended release sequence:
 
 1. Drain writes or enable maintenance, then run and verify a database backup.
-2. Deploy dependencies with `composer install --no-dev --classmap-authoritative` and `npm ci`; build assets with `npm run build:css` and `npm run build:assets` in the release artifact.
-3. Run the required forward migrations in the documented order and run `php scripts/migrate-ticket-artifacts.php` for pre-private-storage installations.
+2. Run `composer package:cpanel` on the build machine and deploy the resulting verified `dist/oems-cpanel.zip` artifact.
+3. Run `composer db:migrate` and then `php scripts/migrate-ticket-artifacts.php` for pre-private-storage installations.
 4. Make only `storage/cache`, `storage/logs`, `storage/tickets`, `storage/certificates`, `storage/backups`, and the documented public upload directories writable by the application user. Keep source, configuration, and vendor files read-only.
 5. Enable the PHP-FPM pool, Nginx site, and the four systemd timers. Confirm `systemctl list-timers 'oems-*'` reports future runs and inspect each oneshot service result.
 6. Probe `/health/live` and `/health/ready`, run the role/CSRF/download acceptance journey, then disable maintenance and restore traffic.

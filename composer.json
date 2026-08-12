@@ -24,6 +24,17 @@
         ]
     },
     "scripts": {
+        "build": [
+            "Composer\\Config::disableProcessTimeout",
+            "@composer validate --strict",
+            "@composer install --no-dev --classmap-authoritative --no-interaction --prefer-dist",
+            "npm ci --no-audit --no-fund",
+            "npm run build:css",
+            "@check:syntax",
+            "@test",
+            "npm run test:assets",
+            "npm run test:forms"
+        ],
         "test": "php tests/run.php",
         "check:syntax": "find app Core bootstrap config public routes scripts tests -name '*.php' -print0 | xargs -0 -n1 php -l",
         "db:migrate": "@php scripts/database.php migrate",
