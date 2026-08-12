@@ -87,8 +87,8 @@ const lifecycle = async type => {
 };
 await lifecycle('install');
 assert.equal(skipWaiting, 1);
-assert.equal(opened[0], 'oems-public-static-20260813-semantic-status-colors');
-assert.equal(JSON.stringify(opened[1]), JSON.stringify(['/offline.html', '/assets/css/app.css?v=20260813-semantic-status-colors', '/assets/js/theme.js?v=20260811-form-controls-fix', '/assets/js/app.js?v=20260812-form-system', '/assets/js/pwa.js?v=20260811-form-controls-fix', '/assets/icons/oems-192.png', '/assets/icons/oems-512.png']));
+assert.equal(opened[0], 'oems-public-static-20260813-semantic-status-colors-v2');
+assert.equal(JSON.stringify(opened[1]), JSON.stringify(['/offline.html', '/assets/css/app.css?v=20260813-semantic-status-colors-v2', '/assets/js/theme.js?v=20260811-form-controls-fix', '/assets/js/app.js?v=20260812-form-system', '/assets/js/pwa.js?v=20260811-form-controls-fix', '/assets/icons/oems-192.png', '/assets/icons/oems-512.png']));
 await lifecycle('activate');
 assert.deepEqual(deleted, ['oems-public-static-old']);
 assert.equal(claimed, 1);
@@ -115,9 +115,9 @@ assert.equal(offline.offline, true);
 assert.equal(put.length, 0);
 
 fetchImplementation = async request => ({ ok: true, type: 'basic', clone: () => ({ cloned: request.url }) });
-const staticResponse = await dispatchFetch({ method: 'GET', url: 'https://events.example.test/assets/css/app.css?v=20260813-semantic-status-colors', mode: 'cors' });
+const staticResponse = await dispatchFetch({ method: 'GET', url: 'https://events.example.test/assets/css/app.css?v=20260813-semantic-status-colors-v2', mode: 'cors' });
 assert.equal(staticResponse.ok, true);
 assert.equal(put.length, 1);
-assert.equal(put[0][0], '/assets/css/app.css?v=20260813-semantic-status-colors');
+assert.equal(put[0][0], '/assets/css/app.css?v=20260813-semantic-status-colors-v2');
 
 console.log('PASS PWA registration and static-only service-worker lifecycle');

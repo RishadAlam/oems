@@ -181,7 +181,7 @@ final class OrganizerVenueControllerTest extends TestCase
     {
         $body = $this->controller->create(Request::create('GET', '/organizer/venues/create'))->body();
         $leafletPosition = strpos($body, 'href="/assets/vendor/leaflet/leaflet.css"');
-        $applicationPosition = strpos($body, 'href="/assets/css/app.css?v=20260813-semantic-status-colors"');
+        $applicationPosition = strpos($body, 'href="/assets/css/app.css?v=20260813-semantic-status-colors-v2"');
 
         $this->assertNotSame(false, $leafletPosition);
         $this->assertNotSame(false, $applicationPosition);
