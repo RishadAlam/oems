@@ -27,7 +27,12 @@ final class PublicContactController extends Controller
     public function index(Request $request): Response
     {
         try { $page = $this->cms->findPage('contact', true); } catch (Throwable) { $page = null; }
-        return $this->render('pages/contact', ['pageTitle' => 'Contact OEMS', 'metaDescription' => 'Contact OEMS support.', 'page' => $page]);
+        return $this->render('pages/contact', [
+            'pageTitle' => 'Contact OEMS',
+            'metaDescription' => 'Contact OEMS support.',
+            'page' => $page,
+            'copy' => trim((string) ($page['content'] ?? '')),
+        ]);
     }
 
     public function store(Request $request): Response
