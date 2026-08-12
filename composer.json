@@ -29,7 +29,11 @@
         "db:migrate": "@php scripts/database.php migrate",
         "db:rollback": "@php scripts/database.php rollback",
         "db:refresh": "@php scripts/database.php refresh",
-        "db:seed": "@php scripts/database.php seed"
+        "db:seed": "@php scripts/database.php seed",
+        "package:cpanel": [
+            "@build",
+            "@php scripts/package-cpanel.php"
+        ]
     },
     "config": {
         "optimize-autoloader": true,
