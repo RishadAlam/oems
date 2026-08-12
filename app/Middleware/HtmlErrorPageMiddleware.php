@@ -17,8 +17,8 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
 {
     public function __construct(
         private View $view,
-        private Auth $auth,
-        private Security $security,
+        private Auth|Closure $auth,
+        private Security|Closure $security,
         private Config $config,
     ) {
     }
@@ -26,6 +26,10 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
+
+        if ($this->shouldRenderApiError($request, $response)) {
+            return $this->renderApiError($response);
+        }
 
         if (!$this->shouldRenderHtml($request, $response)) {
             return $response;
@@ -49,7 +53,9 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
 
     private function renderError(Request $request, int $status, ?Response $original = null): Response
     {
-        $currentUser = $this->auth->user();
+        $auth = $this->auth instanceof Closure ? ($this->auth)() : $this->auth;
+        $security = $this->security instanceof Closure ? ($this->security)() : $this->security;
+        $currentUser = $auth->user();
         $layout = $currentUser !== null && $this->isWorkspacePath($request->path())
             ? 'dashboard'
             : 'public';
@@ -70,7 +76,7 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
         $html = $this->view->render($template, [
             'app' => $this->config->all(),
             'currentUser' => $currentUser,
-            'csrfToken' => $this->security->csrfToken(),
+            'csrfToken' => $security->csrfToken(),
             'errors' => [],
             'old' => [],
             'flash' => [],
@@ -101,6 +107,32 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
         $accept = strtolower((string) $request->header('Accept', ''));
 
         return str_contains($accept, 'text/html') || str_contains($accept, 'application/xhtml+xml');
+    }
+
+    private function shouldRenderApiError(Request $request, Response $response): bool
+    {
+        return str_starts_with($request->path(), '/api/')
+            && in_array($response->status(), [403, 404, 405, 419], true)
+            && str_starts_with(strtolower((string) $response->header('Content-Type')), 'text/plain');
+    }
+
+    private function renderApiError(Response $response): Response
+    {
+        [$error, $message] = match ($response->status()) {
+            403 => ['forbidden', 'The request is not permitted.'],
+            405 => ['method_not_allowed', 'The request method is not supported.'],
+            419 => ['session_expired', 'The request session has expired.'],
+            default => ['not_found', 'The requested resource was not found.'],
+        };
+        $headers = ['Cache-Control' => 'no-store'];
+        if ($response->status() === 405 && $response->header('Allow') !== null) {
+            $headers['Allow'] = (string) $response->header('Allow');
+        }
+
+        return Response::json([
+            'error' => $error,
+            'message' => $message,
+        ], $response->status(), $headers);
     }
 
     private function isWorkspacePath(string $path): bool

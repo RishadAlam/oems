@@ -171,6 +171,64 @@ final class HtmlErrorPageMiddlewareTest extends TestCase
         $this->assertFalse(str_contains(strtolower($response->body()), 'exception'));
     }
 
+    public function testSuccessfulStructuredResponseDoesNotResolveSessionBackedDependencies(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $users = new FakeUserRepository();
+        $auth = new Auth($session, $users);
+        $security = new Security($session);
+        $authResolutions = 0;
+        $securityResolutions = 0;
+        $middleware = new HtmlErrorPageMiddleware(
+            new View(base_path('app/Views')),
+            static function () use (&$authResolutions, $auth): Auth {
+                $authResolutions++;
+
+                return $auth;
+            },
+            static function () use (&$securityResolutions, $security): Security {
+                $securityResolutions++;
+
+                return $security;
+            },
+            new Config(['name' => 'OEMS']),
+        );
+
+        $response = $middleware->handle(
+            Request::create('GET', '/api/v1/events', headers: ['Accept' => 'application/json']),
+            static fn (): Response => Response::json(['data' => []]),
+        );
+
+        $this->assertSame(200, $response->status());
+        $this->assertSame(0, $authResolutions);
+        $this->assertSame(0, $securityResolutions);
+    }
+
+    public function testPlainRouterErrorsBecomeStructuredForApiRequests(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $middleware = $this->middleware($session, new FakeUserRepository());
+
+        $missing = $middleware->handle(
+            Request::create('GET', '/api/v1/missing', headers: ['Accept' => 'application/json']),
+            static fn (): Response => Response::text('Not Found', 404),
+        );
+        $wrongMethod = $middleware->handle(
+            Request::create('POST', '/api/v1/events', headers: ['Accept' => 'application/json']),
+            static fn (): Response => Response::text('Method Not Allowed', 405, ['Allow' => 'GET']),
+        );
+        $missingPayload = json_decode($missing->body(), true, flags: JSON_THROW_ON_ERROR);
+        $methodPayload = json_decode($wrongMethod->body(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('application/json; charset=UTF-8', $missing->header('Content-Type'));
+        $this->assertSame('not_found', $missingPayload['error'] ?? null);
+        $this->assertSame('application/json; charset=UTF-8', $wrongMethod->header('Content-Type'));
+        $this->assertSame('method_not_allowed', $methodPayload['error'] ?? null);
+        $this->assertSame('GET', $wrongMethod->header('Allow'));
+    }
+
     public function testStructuredAndNonHtmlNotFoundResponsesRemainMachineReadable(): void
     {
         $_SESSION = [];

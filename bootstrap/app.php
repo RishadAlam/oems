@@ -689,8 +689,8 @@ $container->singleton(
     HtmlErrorPageMiddleware::class,
     static fn (Container $container): HtmlErrorPageMiddleware => new HtmlErrorPageMiddleware(
         $container->get(View::class),
-        $container->get(Auth::class),
-        $container->get(Security::class),
+        static fn (): Auth => $container->get(Auth::class),
+        static fn (): Security => $container->get(Security::class),
         $container->get(Config::class),
     ),
 );
