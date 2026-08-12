@@ -10,7 +10,7 @@
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260812-form-separators">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260812-profile-trust-state">
     <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/dashboard-sidebar.js" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
@@ -26,8 +26,6 @@
     $overviewActive = in_array($currentPath, $overviewPaths, true);
     $organizerTrashActive = str_starts_with($currentPath, '/organizer/events/trash');
     $organizerEventsActive = str_starts_with($currentPath, '/organizer/events') && !$organizerTrashActive;
-    $organizerOperationsActive = preg_match('#^/organizer/events/[^/]+/(participants|check-in)#', $currentPath) === 1;
-    $organizerEventsActive = $organizerEventsActive && !$organizerOperationsActive;
     $organizerVenuesActive = str_starts_with($currentPath, '/organizer/venues');
     $organizerCouponsActive = str_starts_with($currentPath, '/organizer/coupons');
     $organizerAnalyticsActive = str_starts_with($currentPath, '/organizer/analytics');
@@ -87,7 +85,6 @@
                     <?php if (($currentUser['role_slug'] ?? '') === 'organizer'): ?>
                         <a class="dashboard-nav-link<?= $organizerEventsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerEventsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Events</span></a>
                         <a class="dashboard-nav-link<?= $organizerTrashActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events/trash"<?= $organizerTrashActive ? ' aria-current="page"' : '' ?>><i class="ph ph-archive" aria-hidden="true"></i><span>Event trash</span></a>
-                        <a class="dashboard-nav-link<?= $organizerOperationsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/events"<?= $organizerOperationsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-users-three" aria-hidden="true"></i><span>Event operations</span></a>
                         <a class="dashboard-nav-link<?= $organizerVenuesActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/venues"<?= $organizerVenuesActive ? ' aria-current="page"' : '' ?>><i class="ph ph-buildings" aria-hidden="true"></i><span>Venues</span></a>
                         <a class="dashboard-nav-link<?= $organizerCouponsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/coupons"<?= $organizerCouponsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-ticket" aria-hidden="true"></i><span>Coupons</span></a>
                         <a class="dashboard-nav-link<?= $organizerReviewsActive ? ' dashboard-nav-link--active' : '' ?>" href="/organizer/reviews"<?= $organizerReviewsActive ? ' aria-current="page"' : '' ?>><i class="ph ph-chat-centered-text" aria-hidden="true"></i><span>Reviews</span></a>

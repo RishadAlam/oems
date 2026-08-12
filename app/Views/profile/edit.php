@@ -20,6 +20,33 @@ $profileInitials = implode('', array_map(
     static fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)),
     array_slice(array_filter($profileNameParts), 0, 2),
 ));
+$accountStatus = (string) ($profile['status'] ?? '');
+$accountStatusLabel = match ($accountStatus) {
+    'active' => 'Active',
+    'suspended' => 'Suspended',
+    'inactive' => 'Inactive',
+    default => 'Unavailable',
+};
+$accountStatusTone = $accountStatus === 'active' ? 'success' : 'error';
+$emailIsVerified = !empty($profile['email_verified_at']);
+$isOrganizer = ($profile['role_slug'] ?? null) === 'organizer';
+$organizerApprovalStatus = $isOrganizer ? (string) ($profile['organizer_approval_status'] ?? '') : '';
+$organizerApprovalLabel = match ($organizerApprovalStatus) {
+    'approved' => 'Approved',
+    'pending' => 'Pending',
+    'rejected' => 'Needs attention',
+    default => 'Approval required',
+};
+$organizerApprovalIcon = match ($organizerApprovalStatus) {
+    'approved' => 'ph-seal-check',
+    'pending' => 'ph-hourglass-medium',
+    default => 'ph-warning-circle',
+};
+$organizerApprovalTone = match ($organizerApprovalStatus) {
+    'approved' => 'success',
+    'pending' => 'warning',
+    default => 'error',
+};
 ?>
 
 <div class="dashboard-page-heading">
@@ -36,9 +63,22 @@ $profileInitials = implode('', array_map(
         <div><h2><?= e($profile['name']) ?></h2><p><?= e($profile['email']) ?></p></div>
         <span class="role-badge"><?= e($profile['role_name']) ?></span>
         <dl>
-            <div><dt>Account</dt><dd><i class="ph ph-check-circle" aria-hidden="true"></i>Active</dd></div>
-            <div><dt>Email</dt><dd><i class="ph ph-seal-check" aria-hidden="true"></i>Verified</dd></div>
+            <div><dt>Account</dt><dd class="profile-identity__status--<?= e($accountStatusTone) ?>"><i class="ph <?= $accountStatus === 'active' ? 'ph-check-circle' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= e($accountStatusLabel) ?></dd></div>
+            <div><dt>Email</dt><dd class="profile-identity__status--<?= $emailIsVerified ? 'success' : 'warning' ?>"><i class="ph <?= $emailIsVerified ? 'ph-seal-check' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= $emailIsVerified ? 'Verified' : 'Not verified' ?></dd></div>
+            <?php if ($isOrganizer): ?>
+                <div><dt>Organization approval</dt><dd class="profile-identity__status--<?= e($organizerApprovalTone) ?>"><i class="ph <?= e($organizerApprovalIcon) ?>" aria-hidden="true"></i><?= e($organizerApprovalLabel) ?></dd></div>
+            <?php endif; ?>
         </dl>
+        <?php if ($isOrganizer && $organizerApprovalStatus !== 'approved'): ?>
+            <div class="profile-approval-note profile-approval-note--<?= $organizerApprovalStatus === 'pending' ? 'pending' : 'required' ?>" role="status">
+                <strong><?= $organizerApprovalStatus === 'pending' ? 'Organization review in progress' : 'Organization approval required' ?></strong>
+                <p><?= $organizerApprovalStatus === 'pending'
+                    ? ($emailIsVerified
+                        ? 'Your account is active and your email is verified. An administrator must still approve your organization before event drafts can be submitted for review.'
+                        : 'Verify your email first. An administrator can approve your organization after verification; event submission stays unavailable until both steps are complete.')
+                    : 'Your account remains active, but event submission is unavailable until an administrator approves your organization profile.' ?></p>
+            </div>
+        <?php endif; ?>
     </aside>
 
 <section class="dashboard-panel profile-form-panel">

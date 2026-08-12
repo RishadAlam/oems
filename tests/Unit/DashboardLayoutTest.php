@@ -184,6 +184,17 @@ final class DashboardLayoutTest extends TestCase
         $this->assertFalse(str_contains($organizer, 'Week 3'));
     }
 
+    public function testOrganizerNavigationDoesNotDuplicateTheEventsDestination(): void
+    {
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [
+            'summary' => [],
+            'events' => [],
+        ]);
+
+        $this->assertTrue(str_contains($organizer, '<span>Events</span>'));
+        $this->assertFalse(str_contains($organizer, '<span>Event operations</span>'));
+    }
+
     public function testOrganizerDashboardEscapesHostileRecentEventContent(): void
     {
         $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [

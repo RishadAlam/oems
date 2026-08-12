@@ -381,7 +381,7 @@ final class EventRepository implements EventRepositoryInterface
     public function findOwned(int $userId, int $eventId): ?array
     {
         $statement = $this->connection->prepare(
-            $this->eventSelect()
+            $this->eventSelect(includeOrganizerApproval: true)
             . ' INNER JOIN organizers AS owner_organizers ON owner_organizers.id = events.organizer_id
                 WHERE owner_organizers.user_id = :user_id
                   AND events.id = :event_id
@@ -1007,14 +1007,22 @@ final class EventRepository implements EventRepositoryInterface
         return $delete->rowCount() === 1 ? $path : null;
     }
 
-    private function eventSelect(?string $distanceExpression = null): string
+    private function eventSelect(
+        ?string $distanceExpression = null,
+        bool $includeOrganizerApproval = false,
+    ): string
     {
+        $organizerApproval = $includeOrganizerApproval
+            ? 'organizers.approval_status AS organizer_approval_status,'
+            : '';
+
         return 'SELECT events.*, categories.name AS category_name, categories.slug AS category_slug,
                        venues.name AS venue_name, venues.address_line AS venue_address_line,
                        venues.city AS venue_city, venues.country AS venue_country,
                        venues.postal_code AS venue_postal_code, venues.latitude AS venue_latitude,
                        venues.longitude AS venue_longitude, venues.map_url AS venue_map_url,
                        organizers.organization_name, organizers.user_id AS organizer_user_id,
+                       ' . $organizerApproval . '
                        ' . ($distanceExpression ?? 'NULL') . ' AS distance_km
                 FROM events
                 INNER JOIN categories ON categories.id = events.category_id

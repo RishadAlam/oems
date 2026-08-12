@@ -347,6 +347,7 @@ final class EventRepositoryTest extends TestCase
         $this->assertSame(['draft-dhaka-summit'], array_column($events, 'slug'));
         $this->assertNotNull($owned);
         $this->assertSame('draft-dhaka-summit', $owned['slug']);
+        $this->assertSame('approved', $owned['organizer_approval_status']);
         $this->assertNull($this->repository->findOwned(20, 502));
     }
 

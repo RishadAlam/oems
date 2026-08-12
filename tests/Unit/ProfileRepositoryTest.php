@@ -31,7 +31,19 @@ final class ProfileRepositoryTest extends TestCase
         $this->assertNotNull($profile);
         $this->assertSame('Nusrat Jahan', $profile['name']);
         $this->assertSame('participant', $profile['role_slug']);
+        $this->assertSame('2026-08-01 09:00:00', $profile['email_verified_at']);
         $this->assertSame('Dhaka', $profile['city']);
+    }
+
+    public function testFindForOrganizerIncludesTheSeparateApprovalStatus(): void
+    {
+        $repository = new ProfileRepository($this->connection);
+
+        $profile = $repository->findForUser(9);
+
+        $this->assertNotNull($profile);
+        $this->assertSame('organizer', $profile['role_slug']);
+        $this->assertSame('pending', $profile['organizer_approval_status']);
     }
 
     public function testUpdateForUserChangesOnlyTheRequestedAccount(): void
@@ -84,6 +96,7 @@ final class ProfileRepositoryTest extends TestCase
                 email TEXT NOT NULL UNIQUE,
                 phone TEXT NULL,
                 status TEXT NOT NULL,
+                email_verified_at TEXT NULL,
                 deleted_at TEXT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -107,25 +120,41 @@ final class ProfileRepositoryTest extends TestCase
                 updated_at TEXT NOT NULL
             )',
         );
+        $this->connection->exec(
+            'CREATE TABLE organizers (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL UNIQUE,
+                organization_name TEXT NOT NULL,
+                approval_status TEXT NOT NULL
+            )',
+        );
     }
 
     private function seedAccounts(): void
     {
         $this->connection->exec(
-            "INSERT INTO roles (id, name, slug) VALUES (3, 'Participant', 'participant')",
+            "INSERT INTO roles (id, name, slug) VALUES
+                (2, 'Organizer', 'organizer'),
+                (3, 'Participant', 'participant')",
         );
         $this->connection->exec(
-            "INSERT INTO users (id, role_id, name, email, phone, status, created_at, updated_at)
+            "INSERT INTO users (id, role_id, name, email, phone, status, email_verified_at, created_at, updated_at)
              VALUES
-                (7, 3, 'Nusrat Jahan', 'nusrat@example.test', NULL, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-                (8, 3, 'Farhan Kabir', 'farhan@example.test', NULL, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                (7, 3, 'Nusrat Jahan', 'nusrat@example.test', NULL, 'active', '2026-08-01 09:00:00', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (8, 3, 'Farhan Kabir', 'farhan@example.test', NULL, 'active', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (9, 2, 'Osman', 'osman@example.test', NULL, 'active', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         );
         $this->connection->exec(
             "INSERT INTO profiles
                 (id, user_id, bio, city, country, locale, timezone, created_at, updated_at)
              VALUES
                 (11, 7, 'Volunteer.', 'Dhaka', 'Bangladesh', 'en', 'Asia/Dhaka', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-                (12, 8, 'Speaker.', 'Sylhet', 'Bangladesh', 'en', 'Asia/Dhaka', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                (12, 8, 'Speaker.', 'Sylhet', 'Bangladesh', 'en', 'Asia/Dhaka', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+                (13, 9, 'Organizer.', 'Dhaka', 'Bangladesh', 'en', 'Asia/Dhaka', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        );
+        $this->connection->exec(
+            "INSERT INTO organizers (id, user_id, organization_name, approval_status)
+             VALUES (21, 9, 'Osman Events', 'pending')",
         );
     }
 

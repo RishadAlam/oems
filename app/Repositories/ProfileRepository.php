@@ -24,8 +24,10 @@ final class ProfileRepository implements ProfileRepositoryInterface
                 users.email,
                 users.phone,
                 users.status,
+                users.email_verified_at,
                 roles.name AS role_name,
                 roles.slug AS role_slug,
+                organizers.approval_status AS organizer_approval_status,
                 profiles.bio,
                 profiles.date_of_birth,
                 profiles.gender,
@@ -39,6 +41,7 @@ final class ProfileRepository implements ProfileRepositoryInterface
              FROM users
              INNER JOIN roles ON roles.id = users.role_id
              LEFT JOIN profiles ON profiles.user_id = users.id
+             LEFT JOIN organizers ON organizers.user_id = users.id
              WHERE users.id = :user_id AND users.deleted_at IS NULL
              LIMIT 1',
         );

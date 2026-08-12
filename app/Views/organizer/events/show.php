@@ -1,8 +1,10 @@
 <?php
 $status = (string) ($event['status'] ?? 'draft');
 $statusLabels = ['draft' => 'Draft', 'pending' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Needs changes', 'published' => 'Published', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
+$organizerApprovalStatus = (string) ($event['organizer_approval_status'] ?? '');
 $canEdit = in_array($status, ['draft', 'rejected'], true);
-$canSubmit = $status === 'draft';
+$canSubmit = $status === 'draft' && $organizerApprovalStatus === 'approved';
+$approvalBlocksSubmission = $status === 'draft' && !$canSubmit;
 $canPublish = $status === 'approved';
 $canCancel = in_array($status, ['approved', 'published'], true);
 $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
@@ -45,8 +47,19 @@ $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
             <?php if ($canPublish): ?><form action="/organizer/events/<?= e($event['id']) ?>/publish" method="post" data-form-kind="action"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit" data-submit-label="Publishing event…"><i class="ph ph-broadcast" aria-hidden="true"></i><span data-submit-text>Publish event</span></button></form><?php endif; ?>
             <?php if ($canCancel): ?><form action="/organizer/events/<?= e($event['id']) ?>/cancel" method="post" data-form-kind="action" data-confirm="Cancel this event? Participant access and active ticket state may be affected."><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--quiet w-full" type="submit" data-submit-label="Cancelling event…"><i class="ph ph-x-circle" aria-hidden="true"></i><span data-submit-text>Cancel event</span></button></form><?php endif; ?>
             <?php if ($canDelete): ?><form action="/organizer/events/<?= e($event['id']) ?>/delete" method="post" data-form-kind="action" data-confirm="Delete this event? It will move to the recovery queue when eligible."><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--danger w-full" type="submit" data-submit-label="Deleting event…"><i class="ph ph-trash" aria-hidden="true"></i><span data-submit-text>Delete event</span></button></form><?php endif; ?>
+            <?php if ($approvalBlocksSubmission): ?>
+                <div class="form-alert form-alert--warning" role="status">
+                    <i class="ph ph-hourglass-medium" aria-hidden="true"></i>
+                    <span>
+                        <strong><?= $organizerApprovalStatus === 'pending' ? 'Organization approval pending' : 'Organization approval required' ?></strong><br>
+                        <?= $organizerApprovalStatus === 'pending'
+                            ? 'You can keep editing this draft. Submit for review becomes available after an administrator approves your organization profile.'
+                            : 'Your organization profile must be approved before this draft can be submitted for review.' ?>
+                    </span>
+                </div>
+            <?php endif; ?>
             <?php if ($status === 'rejected'): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>Save your requested changes before resubmitting this event.</span></p><?php endif; ?>
-            <?php if (!$canSubmit && !$canPublish && !$canCancel && !$canDelete && $status !== 'rejected'): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>No organizer actions are available for this status.</span></p><?php endif; ?>
+            <?php if (!$canSubmit && !$canPublish && !$canCancel && !$canDelete && $status !== 'rejected' && !$approvalBlocksSubmission): ?><p class="organizer-action-note"><i class="ph ph-info" aria-hidden="true"></i><span>No organizer actions are available for this status.</span></p><?php endif; ?>
         </div>
     </aside>
 </div>

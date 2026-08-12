@@ -190,6 +190,21 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($edit->body(), 'New gallery images replace the current gallery.'));
     }
 
+    public function testPendingOrganizerSeesApprovalGuidanceInsteadOfAnImpossibleSubmitAction(): void
+    {
+        $this->events->events[11]['organizer_approval_status'] = 'pending';
+
+        $body = $this->controller->show($this->routed('GET', '/organizer/events/11', '11'))->body();
+
+        $this->assertFalse(str_contains($body, 'action="/organizer/events/11/submit"'));
+        $this->assertFalse(str_contains($body, 'data-submit-label="Submitting for review…"'));
+        $this->assertTrue(str_contains($body, 'Organization approval pending'));
+        $this->assertTrue(str_contains(
+            $body,
+            'You can keep editing this draft. Submit for review becomes available after an administrator approves your organization profile.',
+        ));
+    }
+
     public function testEventHelpTextIdsMergeWithSimultaneousValidationErrors(): void
     {
         $this->session->flash('errors', [
@@ -540,6 +555,7 @@ final class OrganizerEventControllerTest extends TestCase
             'location_visibility' => 'registered',
             'arrival_notes' => 'Use the north entrance.',
             'waitlist_enabled' => 0,
+            'organizer_approval_status' => 'approved',
         ];
     }
 }

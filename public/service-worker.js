@@ -1,11 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'oems-public-static-20260812-form-separators';
+const CACHE_NAME = 'oems-public-static-20260812-profile-trust-state';
 const CACHE_PREFIX = 'oems-public-static-';
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = Object.freeze([
     OFFLINE_URL,
-    '/assets/css/app.css?v=20260812-form-separators',
+    '/assets/css/app.css?v=20260812-profile-trust-state',
     '/assets/js/theme.js?v=20260811-form-controls-fix',
     '/assets/js/app.js?v=20260812-form-system',
     '/assets/js/pwa.js?v=20260811-form-controls-fix',

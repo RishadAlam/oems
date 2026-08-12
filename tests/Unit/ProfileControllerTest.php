@@ -88,6 +88,47 @@ final class ProfileControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'data-submit-label="Saving profile…"'));
     }
 
+    public function testOrganizerIdentitySummaryDistinguishesApprovalFromAccountAndEmailState(): void
+    {
+        $this->profiles->profiles[7] = array_merge($this->profileFixture(), [
+            'role_name' => 'Organizer',
+            'role_slug' => 'organizer',
+            'organizer_approval_status' => 'pending',
+            'email_verified_at' => '2026-08-06 10:00:00',
+        ]);
+
+        $body = $this->controller->edit(Request::create('GET', '/profile'))->body();
+
+        $this->assertTrue(str_contains($body, '<dt>Account</dt>'));
+        $this->assertTrue(str_contains($body, '<dt>Email</dt>'));
+        $this->assertTrue(str_contains($body, '<dt>Organization approval</dt>'));
+        $this->assertTrue(str_contains($body, 'Pending'));
+        $this->assertTrue(str_contains(
+            $body,
+            'Your account is active and your email is verified. An administrator must still approve your organization before event drafts can be submitted for review.',
+        ));
+    }
+
+    public function testIdentitySummaryDoesNotClaimAnUnverifiedEmailIsVerified(): void
+    {
+        $this->profiles->profiles[7] = array_merge($this->profileFixture(), [
+            'role_name' => 'Organizer',
+            'role_slug' => 'organizer',
+            'organizer_approval_status' => 'pending',
+            'email_verified_at' => null,
+        ]);
+
+        $body = $this->controller->edit(Request::create('GET', '/profile'))->body();
+
+        $this->assertTrue(str_contains($body, '<dt>Email</dt>'));
+        $this->assertTrue(str_contains($body, 'Not verified'));
+        $this->assertFalse(str_contains($body, '<i class="ph ph-seal-check" aria-hidden="true"></i>Verified'));
+        $this->assertTrue(str_contains(
+            $body,
+            'Verify your email first. An administrator can approve your organization after verification; event submission stays unavailable until both steps are complete.',
+        ));
+    }
+
     public function testUpdateRejectsAMissingNameWithoutPersisting(): void
     {
         $input = $this->validInput();
@@ -158,6 +199,7 @@ final class ProfileControllerTest extends TestCase
             'email' => 'nusrat@example.test',
             'phone' => null,
             'status' => 'active',
+            'email_verified_at' => '2026-08-06 10:00:00',
             'role_name' => 'Participant',
             'role_slug' => 'participant',
             'bio' => 'Community event volunteer.',
