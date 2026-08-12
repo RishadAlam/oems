@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use OEMS\App\Services\AuthService;
+use OEMS\App\Middleware\HtmlErrorPageMiddleware;
 use OEMS\App\Middleware\MaintenanceMiddleware;
 use OEMS\App\Support\RememberCookie;
 use OEMS\Core\Auth;
@@ -38,7 +39,11 @@ try {
     }
 
     $response = $app['container']->get(MaintenanceMiddleware::class)
-        ->handle($request, static fn (Request $r): Response => $router->dispatch($r))
+        ->handle(
+            $request,
+            static fn (Request $r): Response => $app['container']->get(HtmlErrorPageMiddleware::class)
+                ->handle($r, static fn (Request $handledRequest): Response => $router->dispatch($handledRequest)),
+        )
         ->withSecurityHeaders();
 
     if (is_array($rememberResult)) {

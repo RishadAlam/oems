@@ -34,6 +34,7 @@ use OEMS\App\Contracts\BlogRepositoryInterface;
 use OEMS\App\Middleware\AuthMiddleware;
 use OEMS\App\Middleware\CsrfMiddleware;
 use OEMS\App\Middleware\GuestMiddleware;
+use OEMS\App\Middleware\HtmlErrorPageMiddleware;
 use OEMS\App\Middleware\RoleMiddleware;
 use OEMS\App\Middleware\MaintenanceMiddleware;
 use OEMS\App\Repositories\DashboardMetricsRepository;
@@ -682,6 +683,15 @@ $container->singleton(
         static fn (): MaintenanceService => $container->get(MaintenanceService::class),
         static fn (): Auth => $container->get(Auth::class),
         $container->get(View::class),
+    ),
+);
+$container->singleton(
+    HtmlErrorPageMiddleware::class,
+    static fn (Container $container): HtmlErrorPageMiddleware => new HtmlErrorPageMiddleware(
+        $container->get(View::class),
+        $container->get(Auth::class),
+        $container->get(Security::class),
+        $container->get(Config::class),
     ),
 );
 
