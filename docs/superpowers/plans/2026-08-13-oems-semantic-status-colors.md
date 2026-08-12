@@ -34,21 +34,21 @@
 - Consumes: shared status selectors and representative rendered admin records
 - Produces: a failing test for wrong semantic tokens, missing compact-badge styles, and color-proxy classes
 
-- [ ] **Step 1: Add a stylesheet contract test with hand-derived expected groups**
+- [x] **Step 1: Add a stylesheet contract test with hand-derived expected groups**
 
 Parse each status selector block from `resources/css/app.css` and assert these literal token pairs: informational uses `--info-soft` and `--info`; success uses `--success-soft` and `--success`; warning uses `--warning-soft` and `--warning`; danger uses `--error-soft` and `--error`; neutral uses `--surface-soft` and `--ink-muted`. Assert both `status-chip` and `status-badge` expose the same domain-state selectors.
 
-- [ ] **Step 2: Add representative render tests for true status names**
+- [x] **Step 2: Add representative render tests for true status names**
 
 Render active and suspended users, active and inactive categories, and published and draft CMS records. Assert their markup contains `status-chip--active`, `status-chip--suspended`, `status-chip--inactive`, `status-chip--published`, and `status-chip--draft` instead of approved, cancelled, or pending color proxies.
 
-- [ ] **Step 3: Run the focused test and observe the intended failure**
+- [x] **Step 3: Run the focused test and observe the intended failure**
 
 Run: `rtk php tests/run.php StatusUiTest`
 
 Expected: failure because several states have no mapping, published is currently green, compact badges have no shared source component, and representative views use proxy classes.
 
-- [ ] **Step 4: Commit the red regression contract**
+- [x] **Step 4: Commit the red regression contract**
 
 ```bash
 rtk git add tests/Unit/StatusUiTest.php
@@ -73,25 +73,25 @@ rtk git commit -m "test: define semantic status color contract"
 - Consumes: real domain statuses already present in PHP data
 - Produces: consistent informational, success, warning, danger, and neutral status components
 
-- [ ] **Step 1: Implement one neutral base for chips and compact badges**
+- [x] **Step 1: Implement one neutral base for chips and compact badges**
 
 Make `.status-chip` and `.status-badge` share alignment, pill geometry, compact typography, neutral background, and neutral text. Keep unknown statuses neutral by default.
 
-- [ ] **Step 2: Map every known state to its approved semantic tone**
+- [x] **Step 2: Map every known state to its approved semantic tone**
 
 Add explicit chip and badge selectors for the design specification groups: informational `active`, `published`, `valid`, `sent`; success `approved`, `confirmed`, `paid`, `completed`, `used`, `replied`, `subscribed`, `present`; warning `pending`, `waitlisted`, `queued`, `processing`, `new`, `read`; danger `rejected`, `failed`, `suspended`, `revoked`, `cancelled`; neutral `draft`, `inactive`, `archived`, `hidden`, `refunded`, `partially_refunded`, `absent`, `none`, `not_checked_in`, `unsubscribed`.
 
-- [ ] **Step 3: Replace view color proxies with true status classes**
+- [x] **Step 3: Replace view color proxies with true status classes**
 
 Render account, category, CMS, contact, newsletter, and coupon states with their actual state suffix. Give the verified-attendee badge the informational variant while keeping coupon-applied success and unavailable neutral.
 
-- [ ] **Step 4: Run the focused test and verify green**
+- [x] **Step 4: Run the focused test and verify green**
 
 Run: `rtk php tests/run.php StatusUiTest`
 
 Expected: all status contract and representative render tests pass.
 
-- [ ] **Step 5: Commit the source implementation**
+- [x] **Step 5: Commit the source implementation**
 
 Stage only the shared stylesheet, corrected views, and focused test. Commit: `fix: apply semantic status colors globally`.
 
@@ -112,22 +112,22 @@ Stage only the shared stylesheet, corrected views, and focused test. Commit: `fi
 - Consumes: source Tailwind stylesheet and static-cache manifest
 - Produces: minified production CSS delivered under a fresh cache key
 
-- [ ] **Step 1: Update the stylesheet cache version consistently**
+- [x] **Step 1: Update the stylesheet cache version consistently**
 
 Use `20260813-semantic-status-colors` in every layout, service-worker cache name, service-worker asset URL, and matching test expectation.
 
-- [ ] **Step 2: Rebuild production CSS**
+- [x] **Step 2: Rebuild production CSS**
 
 Run: `rtk npm run build:css`
 
 Expected: Tailwind completes successfully and writes `public/assets/css/app.css`.
 
-- [ ] **Step 3: Run focused and full verification**
+- [x] **Step 3: Run focused and full verification**
 
 Run: `rtk php tests/run.php StatusUiTest`, `rtk php tests/run.php PwaStaticPolicyTest`, `rtk php tests/run.php OrganizerVenueControllerTest`, `rtk node tests/js/pwa.test.mjs`, `rtk composer test`, `rtk node --test tests/js/*.test.mjs`, `rtk composer check:syntax`, and `rtk git diff --check`.
 
 Expected: every command exits successfully with no syntax, test, or whitespace failures.
 
-- [ ] **Step 4: Commit the built and versioned assets**
+- [x] **Step 4: Commit the built and versioned assets**
 
 Stage only the compiled stylesheet, layout cache references, service worker, and related tests. Commit: `build: publish semantic status styles`.
