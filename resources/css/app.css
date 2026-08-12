@@ -1455,35 +1455,95 @@
         @apply text-right;
     }
 
-    .status-chip {
-        @apply inline-flex rounded-full px-2.5 py-1 text-xs font-bold;
+    .status-chip,
+    .status-badge {
+        @apply inline-flex items-center rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-bold text-[var(--ink-muted)];
     }
 
-    .status-chip--draft,
-    .status-chip--completed,
-    .status-chip--cancelled {
-        @apply bg-[var(--surface-soft)] text-[var(--ink-muted)];
-    }
-
-    .status-chip--pending {
-        @apply bg-[var(--warning-soft)] text-[var(--warning)];
+    .status-chip--active,
+    .status-chip--published,
+    .status-chip--valid,
+    .status-chip--sent,
+    .status-badge--active,
+    .status-badge--published,
+    .status-badge--valid,
+    .status-badge--sent,
+    .status-badge--info {
+        @apply bg-[var(--info-soft)] text-[var(--info)];
     }
 
     .status-chip--approved,
-    .status-chip--published,
+    .status-chip--confirmed,
     .status-chip--paid,
-    .status-chip--valid,
-    .status-chip--used {
+    .status-chip--completed,
+    .status-chip--used,
+    .status-chip--replied,
+    .status-chip--subscribed,
+    .status-chip--present,
+    .status-badge--approved,
+    .status-badge--confirmed,
+    .status-badge--paid,
+    .status-badge--completed,
+    .status-badge--used,
+    .status-badge--replied,
+    .status-badge--subscribed,
+    .status-badge--present,
+    .status-badge--success {
         @apply bg-[var(--success-soft)] text-[var(--success)];
     }
 
+    .status-chip--pending,
+    .status-chip--waitlisted,
+    .status-chip--queued,
+    .status-chip--processing,
+    .status-chip--new,
+    .status-chip--read,
+    .status-badge--pending,
+    .status-badge--waitlisted,
+    .status-badge--queued,
+    .status-badge--processing,
+    .status-badge--new,
+    .status-badge--read,
+    .status-badge--warning {
+        @apply bg-[var(--warning-soft)] text-[var(--warning)];
+    }
+
     .status-chip--rejected,
-    .status-chip--failed {
+    .status-chip--failed,
+    .status-chip--suspended,
+    .status-chip--revoked,
+    .status-chip--cancelled,
+    .status-badge--rejected,
+    .status-badge--failed,
+    .status-badge--suspended,
+    .status-badge--revoked,
+    .status-badge--cancelled,
+    .status-badge--danger {
         @apply bg-[var(--error-soft)] text-[var(--error)];
     }
 
+    .status-chip--draft,
+    .status-chip--inactive,
+    .status-chip--archived,
+    .status-chip--hidden,
     .status-chip--refunded,
-    .status-chip--hidden {
+    .status-chip--partially_refunded,
+    .status-chip--absent,
+    .status-chip--none,
+    .status-chip--not_checked_in,
+    .status-chip--unsubscribed,
+    .status-badge--draft,
+    .status-badge--inactive,
+    .status-badge--archived,
+    .status-badge--hidden,
+    .status-badge--refunded,
+    .status-badge--partially_refunded,
+    .status-badge--absent,
+    .status-badge--none,
+    .status-badge--not_checked_in,
+    .status-badge--unsubscribed,
+    .status-badge--neutral,
+    .status-badge--muted {
         @apply bg-[var(--surface-soft)] text-[var(--ink-muted)];
     }
 

@@ -23,7 +23,7 @@
                         <td data-label="Category"><strong><?= e($category['name'] ?? 'Unnamed category') ?></strong><small><?= e($category['description'] ?? 'No description') ?></small></td>
                         <td data-label="Slug"><code><?= e($category['slug'] ?? '') ?></code></td>
                         <td data-label="Order"><?= e($category['sort_order'] ?? 0) ?></td>
-                        <td data-label="Status"><span class="status-chip <?= $isActive ? 'status-chip--approved' : 'status-chip--cancelled' ?>"><?= $isActive ? 'Active' : 'Inactive' ?></span></td>
+                        <td data-label="Status"><span class="status-chip <?= $isActive ? 'status-chip--active' : 'status-chip--inactive' ?>"><?= $isActive ? 'Active' : 'Inactive' ?></span></td>
                         <td class="organizer-table__action admin-table-actions">
                             <a class="button button--quiet button--compact" href="/admin/categories/<?= e($category['id']) ?>/edit"><i class="ph ph-pencil-simple" aria-hidden="true"></i><span>Edit</span></a>
                             <form action="/admin/categories/<?= e($category['id']) ?>/status" method="post" data-form-kind="action"<?= $isActive ? ' data-confirm="Deactivate this category? It will no longer be available for new event drafts."' : '' ?>>

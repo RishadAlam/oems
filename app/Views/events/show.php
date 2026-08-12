@@ -81,7 +81,7 @@
                         <?php foreach ($reviews as $review): ?>
                             <article class="rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-5 sm:p-6">
                                 <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div class="flex flex-wrap items-center gap-2"><strong><?= e($review['participant_name'] ?? 'Participant') ?></strong><?php if (!empty($review['verified_attendee'])): ?><span class="status-badge">Verified attendee</span><?php endif; ?></div>
+                                    <div class="flex flex-wrap items-center gap-2"><strong><?= e($review['participant_name'] ?? 'Participant') ?></strong><?php if (!empty($review['verified_attendee'])): ?><span class="status-badge status-badge--info">Verified attendee</span><?php endif; ?></div>
                                     <p class="text-sm font-bold text-[var(--accent)]" aria-label="<?= e($review['rating'] ?? 0) ?> out of 5 stars"><i class="ph ph-star-fill" aria-hidden="true"></i> <?= e($review['rating'] ?? 0) ?>/5</p>
                                 </header>
                                 <p class="mt-4 text-sm leading-7 text-[var(--ink-muted)]"><?= e($review['review'] ?? '') ?></p>

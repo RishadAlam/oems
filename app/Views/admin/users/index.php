@@ -52,7 +52,7 @@ $query = static function (int $targetPage) use ($search, $role, $status, $pagina
                         <td data-label="Account"><strong><?= e($user['name'] ?? 'Unnamed user') ?></strong><small><?= e($user['email'] ?? '') ?></small></td>
                         <td data-label="Role"><?= e($user['role_name'] ?? ucfirst((string) ($user['role_slug'] ?? 'member'))) ?></td>
                         <td data-label="Verification"><?= !empty($user['email_verified_at']) ? 'Email verified' : 'Email unverified' ?></td>
-                        <td data-label="Status"><span class="status-chip <?= $userStatus === 'active' ? 'status-chip--approved' : 'status-chip--cancelled' ?>"><?= e(ucfirst($userStatus)) ?></span></td>
+                        <td data-label="Status"><span class="status-chip status-chip--<?= e($userStatus) ?>"><?= e(ucfirst($userStatus)) ?></span></td>
                         <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/admin/users/<?= e($user['id']) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                     </tr>
                 <?php endforeach; ?>
