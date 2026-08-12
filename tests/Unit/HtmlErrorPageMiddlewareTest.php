@@ -91,6 +91,86 @@ final class HtmlErrorPageMiddlewareTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'aria-label="Workspace navigation"'));
     }
 
+    public function testExpiredBrowserFormUsesARecoverableSessionErrorPage(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $middleware = $this->middleware($session, new FakeUserRepository());
+
+        $response = $middleware->handle(
+            Request::create('POST', '/contact', headers: [
+                'Accept' => 'text/html',
+                'Host' => 'oems.test',
+                'Referer' => 'http://oems.test/contact',
+            ]),
+            static fn (): Response => Response::text('Page expired. Refresh the page and try again.', 419),
+        );
+
+        $this->assertSame(419, $response->status());
+        $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertTrue(str_contains($response->body(), '<title>Session expired | OEMS</title>'));
+        $this->assertTrue(str_contains($response->body(), '<h1>Your form session expired.</h1>'));
+        $this->assertTrue(str_contains($response->body(), 'Return to the previous page'));
+        $this->assertTrue(str_contains($response->body(), 'href="/contact"'));
+    }
+
+    public function testWrongBrowserMethodUsesARecoverablePageAndPreservesAllowedMethods(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+        $middleware = $this->middleware($session, new FakeUserRepository());
+
+        $response = $middleware->handle(
+            Request::create('POST', '/contact', headers: [
+                'Accept' => 'text/html',
+                'Host' => 'oems.test',
+                'Referer' => 'http://oems.test/contact',
+            ]),
+            static fn (): Response => Response::text('Method Not Allowed', 405, ['Allow' => 'GET']),
+        );
+
+        $this->assertSame(405, $response->status());
+        $this->assertSame('GET', $response->header('Allow'));
+        $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertTrue(str_contains($response->body(), '<title>Action unavailable | OEMS</title>'));
+        $this->assertTrue(str_contains($response->body(), '<h1>That action is not available here.</h1>'));
+        $this->assertTrue(str_contains($response->body(), 'href="/contact"'));
+    }
+
+    public function testUnhandledBrowserFailureUsesASafeFullLayoutErrorPage(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+
+        $response = $this->middleware($session, new FakeUserRepository())->serverError(
+            Request::create('GET', '/events', headers: ['Accept' => 'text/html']),
+        );
+
+        $this->assertSame(500, $response->status());
+        $this->assertSame('text/html; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertTrue(str_contains($response->body(), '<title>Something went wrong | OEMS</title>'));
+        $this->assertTrue(str_contains($response->body(), '<h1>We could not open this page.</h1>'));
+        $this->assertTrue(str_contains($response->body(), 'Return home'));
+        $this->assertFalse(str_contains($response->body(), 'Exception'));
+        $this->assertFalse(str_contains($response->body(), '<pre>'));
+    }
+
+    public function testUnhandledApiFailureRemainsStructuredAndGeneric(): void
+    {
+        $_SESSION = [];
+        $session = new Session(false);
+
+        $response = $this->middleware($session, new FakeUserRepository())->serverError(
+            Request::create('GET', '/api/v1/events', headers: ['Accept' => 'application/json']),
+        );
+        $payload = json_decode($response->body(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(500, $response->status());
+        $this->assertSame('application/json; charset=UTF-8', $response->header('Content-Type'));
+        $this->assertSame('server_error', $payload['error'] ?? null);
+        $this->assertFalse(str_contains(strtolower($response->body()), 'exception'));
+    }
+
     public function testStructuredAndNonHtmlNotFoundResponsesRemainMachineReadable(): void
     {
         $_SESSION = [];

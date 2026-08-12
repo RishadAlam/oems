@@ -31,28 +31,65 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
             return $response;
         }
 
+        return $this->renderError($request, $response->status(), $response);
+    }
+
+    public function serverError(Request $request): Response
+    {
+        $accept = strtolower((string) $request->header('Accept', ''));
+        if (str_starts_with($request->path(), '/api/') || str_contains($accept, 'application/json')) {
+            return Response::json([
+                'error' => 'server_error',
+                'message' => 'The request could not be completed.',
+            ], 500, ['Cache-Control' => 'no-store']);
+        }
+
+        return $this->renderError($request, 500);
+    }
+
+    private function renderError(Request $request, int $status, ?Response $original = null): Response
+    {
         $currentUser = $this->auth->user();
         $layout = $currentUser !== null && $this->isWorkspacePath($request->path())
             ? 'dashboard'
             : 'public';
-        $status = $response->status();
-        $html = $this->view->render($status === 403 ? 'errors/403' : 'errors/404', [
+        $template = match ($status) {
+            403 => 'errors/403',
+            405 => 'errors/405',
+            419 => 'errors/419',
+            500 => 'errors/500',
+            default => 'errors/404',
+        };
+        $pageTitle = match ($status) {
+            403 => 'Access denied',
+            405 => 'Action unavailable',
+            419 => 'Session expired',
+            500 => 'Something went wrong',
+            default => 'Page not found',
+        };
+        $html = $this->view->render($template, [
             'app' => $this->config->all(),
             'currentUser' => $currentUser,
             'csrfToken' => $this->security->csrfToken(),
             'errors' => [],
             'old' => [],
             'flash' => [],
-            'pageTitle' => $status === 403 ? 'Access denied' : 'Page not found',
+            'pageTitle' => $pageTitle,
             'robots' => 'noindex, nofollow',
+            'recoveryUrl' => $this->recoveryUrl($request, $currentUser),
         ], $layout);
 
-        return Response::html($html, $status, ['Cache-Control' => 'no-store']);
+        $headers = ['Cache-Control' => 'no-store'];
+        if ($status === 405 && $original?->header('Allow') !== null) {
+            $headers['Allow'] = (string) $original->header('Allow');
+        }
+
+        return Response::html($html, $status, $headers);
     }
 
     private function shouldRenderHtml(Request $request, Response $response): bool
     {
-        if (!in_array($response->status(), [403, 404], true)) {
+        if (!in_array($response->status(), [403, 404, 405, 419], true)) {
             return false;
         }
 
@@ -79,5 +116,34 @@ final readonly class HtmlErrorPageMiddleware implements Middleware
         }
 
         return false;
+    }
+
+    private function recoveryUrl(Request $request, ?array $currentUser): string
+    {
+        $fallback = $currentUser === null ? '/' : '/dashboard';
+        $referer = $request->header('Referer');
+
+        if (!is_string($referer) || $referer === '') {
+            return $fallback;
+        }
+
+        $parts = parse_url($referer);
+        if (!is_array($parts)) {
+            return $fallback;
+        }
+
+        $refererHost = strtolower((string) ($parts['host'] ?? ''));
+        $requestHost = strtolower((string) $request->header('Host', ''));
+        $requestHost = explode(':', $requestHost, 2)[0];
+        if ($refererHost !== '' && ($requestHost === '' || !hash_equals($requestHost, $refererHost))) {
+            return $fallback;
+        }
+
+        $path = (string) ($parts['path'] ?? '');
+        if ($path === '' || !str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            return $fallback;
+        }
+
+        return $path;
     }
 }

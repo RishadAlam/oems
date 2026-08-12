@@ -65,10 +65,15 @@ try {
         'path' => SensitiveDataRedactor::requestPath($request->path()),
     ]);
 
-    $body = (bool) $app['config']['debug']
-        ? '<h1>Application error</h1><pre>' . e($exception->getMessage()) . '</pre>'
-        : '<h1>Something went wrong</h1><p>Please try again shortly.</p>';
-    Response::html($body, 500)
-        ->withSecurityHeaders()
-        ->send();
+    try {
+        $errorResponse = $app['container']->get(HtmlErrorPageMiddleware::class)->serverError($request);
+    } catch (Throwable) {
+        $errorResponse = Response::html(
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Something went wrong | OEMS</title></head><body><main><h1>Something went wrong.</h1><p>Please try again shortly.</p><p><a href="/">Return home</a></p></main></body></html>',
+            500,
+            ['Cache-Control' => 'no-store'],
+        );
+    }
+
+    $errorResponse->withSecurityHeaders()->send();
 }
