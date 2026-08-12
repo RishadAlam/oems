@@ -160,17 +160,17 @@ final class StatusUiTest extends TestCase
             throw new RuntimeException('Unable to read the source stylesheet.');
         }
 
-        $profileDefault = $this->cssRule($css, '/\.profile-identity dd\s*\{([^{}]+)\}/', 'profile identity values');
+        $profileDefault = $this->cssRule($css, '/(?:^|\})\s*\.profile-identity dd\s*\{([^{}]+)\}/', 'profile identity values');
         $profileInfo = $this->cssRule($css, '/\.profile-identity__status--info\s*\{([^{}]+)\}/', 'profile informational state');
         $profileNeutral = $this->cssRule($css, '/\.profile-identity__status--neutral\s*\{([^{}]+)\}/', 'profile neutral state');
         $detailDefault = $this->cssRule($css, '/\.status-list dd\s*,\s*\.readiness-grid dd\s*\{([^{}]+)\}/', 'detail values');
 
-        $this->assertTrue(str_contains($profileDefault, 'var(--ink-muted)'));
-        $this->assertFalse(str_contains($profileDefault, 'var(--success)'));
-        $this->assertTrue(str_contains($profileInfo, 'var(--info)'));
-        $this->assertTrue(str_contains($profileNeutral, 'var(--ink-muted)'));
-        $this->assertTrue(str_contains($detailDefault, 'var(--ink)'));
-        $this->assertFalse(str_contains($detailDefault, 'var(--success)'));
+        $this->assertTrue(str_contains($profileDefault, 'var(--ink-muted)'), 'Profile values must default to neutral text.');
+        $this->assertFalse(str_contains($profileDefault, 'var(--success)'), 'Profile values must not default to success green.');
+        $this->assertTrue(str_contains($profileInfo, 'var(--info)'), 'Active account state must be informational.');
+        $this->assertTrue(str_contains($profileNeutral, 'var(--ink-muted)'), 'Inactive account state must be neutral.');
+        $this->assertTrue(str_contains($detailDefault, 'var(--ink)'), 'Detail values must use ordinary foreground text.');
+        $this->assertFalse(str_contains($detailDefault, 'var(--success)'), 'Detail values must not default to success green.');
     }
 
     private function statusRule(string $css, string $component, string $state): string

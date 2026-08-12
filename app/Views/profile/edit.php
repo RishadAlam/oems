@@ -27,7 +27,18 @@ $accountStatusLabel = match ($accountStatus) {
     'inactive' => 'Inactive',
     default => 'Unavailable',
 };
-$accountStatusTone = $accountStatus === 'active' ? 'success' : 'error';
+$accountStatusTone = match ($accountStatus) {
+    'active' => 'info',
+    'suspended' => 'error',
+    'inactive' => 'neutral',
+    default => 'neutral',
+};
+$accountStatusIcon = match ($accountStatus) {
+    'active' => 'ph-check-circle',
+    'suspended' => 'ph-prohibit',
+    'inactive' => 'ph-minus-circle',
+    default => 'ph-question',
+};
 $emailIsVerified = !empty($profile['email_verified_at']);
 $isOrganizer = ($profile['role_slug'] ?? null) === 'organizer';
 $organizerApprovalStatus = $isOrganizer ? (string) ($profile['organizer_approval_status'] ?? '') : '';
@@ -63,7 +74,7 @@ $organizerApprovalTone = match ($organizerApprovalStatus) {
         <div><h2><?= e($profile['name']) ?></h2><p><?= e($profile['email']) ?></p></div>
         <span class="role-badge"><?= e($profile['role_name']) ?></span>
         <dl>
-            <div><dt>Account</dt><dd class="profile-identity__status--<?= e($accountStatusTone) ?>"><i class="ph <?= $accountStatus === 'active' ? 'ph-check-circle' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= e($accountStatusLabel) ?></dd></div>
+            <div><dt>Account</dt><dd class="profile-identity__status--<?= e($accountStatusTone) ?>"><i class="ph <?= e($accountStatusIcon) ?>" aria-hidden="true"></i><?= e($accountStatusLabel) ?></dd></div>
             <div><dt>Email</dt><dd class="profile-identity__status--<?= $emailIsVerified ? 'success' : 'warning' ?>"><i class="ph <?= $emailIsVerified ? 'ph-seal-check' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= $emailIsVerified ? 'Verified' : 'Not verified' ?></dd></div>
             <?php if ($isOrganizer): ?>
                 <div><dt>Organization approval</dt><dd class="profile-identity__status--<?= e($organizerApprovalTone) ?>"><i class="ph <?= e($organizerApprovalIcon) ?>" aria-hidden="true"></i><?= e($organizerApprovalLabel) ?></dd></div>

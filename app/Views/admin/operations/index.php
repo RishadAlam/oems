@@ -12,7 +12,7 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
 
 <div class="mt-7 grid gap-6 xl:grid-cols-2">
     <section class="panel" aria-labelledby="readiness-title">
-        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Readiness</p><h2 id="readiness-title" class="mt-1 text-xl font-bold">Application checks</h2></div><span class="status-pill <?= $ready ? 'status-pill--published' : 'status-pill--rejected' ?>"><?= $ready ? 'Ready' : 'Unavailable' ?></span></div>
+        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Readiness</p><h2 id="readiness-title" class="mt-1 text-xl font-bold">Application checks</h2></div><span class="status-badge <?= $ready ? 'status-badge--success' : 'status-badge--danger' ?>"><?= $ready ? 'Ready' : 'Unavailable' ?></span></div>
         <dl class="mt-6 grid gap-3">
             <?php foreach (['database' => 'Database connection', 'schema' => 'Required schema', 'storage' => 'Private writable storage'] as $key => $label): ?>
                 <div class="flex min-h-11 items-center justify-between gap-4 border-b border-[var(--line)] py-2 last:border-0"><dt><?= e($label) ?></dt><dd class="font-semibold <?= !empty($checks[$key]) ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' ?>"><?= !empty($checks[$key]) ? 'Passing' : 'Needs attention' ?></dd></div>
@@ -22,7 +22,7 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
     </section>
 
     <section class="panel" aria-labelledby="maintenance-control-title">
-        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Maintenance</p><h2 id="maintenance-control-title" class="mt-1 text-xl font-bold">Traffic control</h2></div><span class="status-pill <?= $maintenanceEnabled ? 'status-pill--pending' : 'status-pill--published' ?>"><?= $maintenanceEnabled ? 'Active' : 'Inactive' ?></span></div>
+        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Maintenance</p><h2 id="maintenance-control-title" class="mt-1 text-xl font-bold">Traffic control</h2></div><span class="status-badge <?= $maintenanceEnabled ? 'status-badge--warning' : 'status-badge--neutral' ?>"><?= $maintenanceEnabled ? 'Active' : 'Inactive' ?></span></div>
         <p class="mt-4 text-[var(--ink-muted)]"><?= $maintenanceEnabled ? 'Public and non-administrator application routes return an accessible 503 response.' : 'All application routes are available according to their normal access rules.' ?></p>
         <form class="mt-6" action="/admin/operations/maintenance" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
