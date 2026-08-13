@@ -417,6 +417,137 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testInternalDashboardViewsUseOnePageHeadingStructure(): void
+    {
+        $viewPaths = ['app/Views/auth/change-password.php'];
+
+        foreach (['admin', 'dashboard', 'organizer', 'participant', 'profile'] as $directory) {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator(
+                    base_path('app/Views/' . $directory),
+                    \FilesystemIterator::SKIP_DOTS,
+                ),
+            );
+
+            foreach ($iterator as $file) {
+                if ($file instanceof \SplFileInfo && $file->isFile() && $file->getExtension() === 'php') {
+                    $viewPaths[] = 'app/Views/' . $directory . '/' . substr($file->getPathname(), strlen(base_path('app/Views/' . $directory)) + 1);
+                }
+            }
+        }
+
+        $violations = [];
+
+        foreach (array_unique($viewPaths) as $view) {
+            $source = file_get_contents(base_path($view));
+
+            if ($source === false) {
+                $violations[] = $view . ' could not be read.';
+                continue;
+            }
+
+            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source);
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($markup ?? '');
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+
+            if ($loaded === false) {
+                $violations[] = $view . ' must contain parseable page-heading markup.';
+                continue;
+            }
+
+            $xpath = new \DOMXPath($document);
+            $headings = $xpath->query('//h1');
+
+            if ($headings === false || $headings->length === 0) {
+                continue;
+            }
+
+            $roots = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-page-heading ")]');
+
+            if ($roots === false || $roots->length !== 1) {
+                $violations[] = $view . ' must render exactly one .dashboard-page-heading root.';
+                continue;
+            }
+
+            $rootHeadings = $xpath->query('.//h1', $roots->item(0));
+
+            if ($rootHeadings === false || $rootHeadings->length !== 1) {
+                $violations[] = $view . ' must render exactly one H1 inside .dashboard-page-heading.';
+            }
+        }
+
+        $applicationViews = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(base_path('app/Views'), \FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($applicationViews as $file) {
+            if (!$file instanceof \SplFileInfo || !$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $view = substr($file->getPathname(), strlen(base_path()) + 1);
+            $source = file_get_contents($file->getPathname());
+
+            if ($source === false) {
+                $violations[] = $view . ' could not be read.';
+            } elseif (str_contains($source, 'dashboard-page-header')) {
+                $violations[] = $view . ' must not retain the obsolete .dashboard-page-header token.';
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testDashboardPageHeadingPreservesTheResponsiveTypeAndLayoutContract(): void
+    {
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $violations = [];
+
+        foreach ([
+            '.dashboard-page-heading' => ['flex', 'flex-col', 'sm:flex-row', 'sm:items-end', 'sm:justify-between'],
+            '.dashboard-page-heading h1' => ['text-3xl', 'sm:text-4xl'],
+            '.dashboard-page-heading p:not(.dashboard-kicker)' => ['text-sm', 'leading-6', 'text-[var(--ink-muted)]'],
+        ] as $selector => $utilities) {
+            if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities)) {
+                $violations[] = 'source CSS must keep ' . $selector . ' scoped to: ' . implode(', ', $utilities) . '.';
+            }
+        }
+
+        if (!$this->cssRuleContainsTokens($compiledCss, '.dashboard-page-heading', ['display:flex', 'flex-direction:column'])) {
+            $violations[] = 'compiled CSS must preserve the base column .dashboard-page-heading layout.';
+        }
+
+        if (!$this->cssMediaRuleContainsTokens(
+            $compiledCss,
+            '40rem',
+            '.dashboard-page-heading',
+            ['flex-direction:row', 'justify-content:space-between', 'align-items:flex-end'],
+        )) {
+            $violations[] = 'compiled CSS must preserve the 40rem bottom-aligned space-between .dashboard-page-heading row.';
+        }
+
+        if (!$this->cssRuleContainsTokens($compiledCss, '.dashboard-page-heading h1', ['font-size:var(--text-3xl)'])) {
+            $violations[] = 'compiled CSS must preserve the base 30-pixel .dashboard-page-heading H1 size.';
+        }
+
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', '.dashboard-page-heading h1', ['font-size:var(--text-4xl)'])) {
+            $violations[] = 'compiled CSS must preserve the 40rem 36-pixel .dashboard-page-heading H1 size.';
+        }
+
+        foreach ([$sourceCss, $compiledCss] as $css) {
+            if ($this->cssHasSelector($css, '.dashboard-page-header')) {
+                $violations[] = 'source and compiled CSS must not retain the obsolete .dashboard-page-header selector.';
+                break;
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
     public function testTailwindBuildScansOnlyExplicitApplicationSources(): void
     {
         $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
