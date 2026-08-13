@@ -1,5 +1,6 @@
 <?php
-$approval = (string) ($organizer['approval_status'] ?? 'pending');
+$approval = (string) ($organizer['approval_status'] ?? '');
+$accountStatus = (string) ($organizer['user_status'] ?? '');
 $organizerIdentity = ($organizer['role_slug'] ?? null) === 'organizer';
 $accountActive = ($organizer['user_status'] ?? null) === 'active';
 $emailVerified = !empty($organizer['email_verified_at']);
@@ -24,8 +25,8 @@ $approvalDecisionAvailable = in_array($approval, ['pending', 'rejected'], true);
         <?php if (!empty($organizer['description'])): ?><p class="organizer-event-description"><?= nl2br(e($organizer['description'])) ?></p><?php endif; ?>
         <?php if (!empty($organizer['rejection_reason'])): ?><div class="form-alert" role="note"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><strong>Previous feedback:</strong> <?= e($organizer['rejection_reason']) ?></span></div><?php endif; ?>
         <dl class="organizer-detail-list">
-            <div><dt>Approval</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($approval, 'organizer_approval')) ?>"><?= e(ucfirst($approval)) ?></span></dd></div>
-            <div><dt>Account status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($organizer['user_status'] ?? 'inactive', 'account')) ?>"><?= e(ucfirst((string) ($organizer['user_status'] ?? 'inactive'))) ?></span></dd></div>
+            <div><dt>Approval</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($approval, 'organizer_approval')) ?>"><?= e(oems_status_label($approval)) ?></span></dd></div>
+            <div><dt>Account status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($accountStatus, 'account')) ?>"><?= e(oems_status_label($accountStatus)) ?></span></dd></div>
             <div><dt>Email verification</dt><dd><span class="status-chip <?= $emailVerified ? 'status-chip--success' : 'status-chip--warning' ?>"><?= $emailVerified ? 'Verified' : 'Not verified' ?></span></dd></div>
             <div><dt>Tax identifier</dt><dd><?= e($organizer['tax_identifier'] ?? 'Not provided') ?></dd></div>
             <div><dt>Active events</dt><dd><?= e((int) ($organizer['event_count'] ?? 0)) ?></dd></div>

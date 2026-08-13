@@ -35,11 +35,11 @@ $statusCopy = [
 <?php elseif ($reviews !== []): ?>
     <div class="mt-8 grid gap-5 lg:grid-cols-2">
         <?php foreach ($reviews as $review): ?>
-            <?php $status = (string) ($review['status'] ?? 'pending'); ?>
+            <?php $status = (string) ($review['status'] ?? ''); ?>
             <article class="dashboard-panel grid gap-5">
                 <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div><p class="event-card__category">Event review</p><h2 class="mt-2 text-lg font-semibold"><?= e($review['event_title'] ?? 'Event') ?></h2></div>
-                    <span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span>
+                    <span class="status-chip status-chip--<?= e(status_modifier($status, 'review')) ?>"><?= e(oems_status_label($status, $statusLabels)) ?></span>
                 </header>
                 <p class="text-sm leading-6 text-[var(--ink-muted)]"><?= e($review['review'] ?? '') ?></p>
                 <div class="flex items-center gap-2" aria-label="<?= e($review['rating'] ?? 0) ?> out of 5 stars"><i class="ph ph-star-fill text-[var(--warning)]" aria-hidden="true"></i><strong><?= e($review['rating'] ?? 0) ?>/5</strong></div>

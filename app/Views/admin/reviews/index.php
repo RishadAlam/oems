@@ -40,10 +40,10 @@
 <?php else: ?>
     <div class="queue-list">
         <?php foreach ($reviews as $review): ?>
-            <?php $reviewStatus = (string) ($review['status'] ?? 'pending'); ?>
+            <?php $reviewStatus = (string) ($review['status'] ?? ''); ?>
             <article class="queue-item dashboard-panel grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div>
-                    <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e($reviewStatus) ?>"><?= e($statusLabels[$reviewStatus] ?? ucfirst($reviewStatus)) ?></span><strong class="text-sm"><?= e($review['event_title'] ?? 'Event') ?></strong></div>
+                    <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e(status_modifier($reviewStatus, 'review')) ?>"><?= e(oems_status_label($reviewStatus, $statusLabels)) ?></span><strong class="text-sm"><?= e($review['event_title'] ?? 'Event') ?></strong></div>
                     <h2 class="mt-4 text-lg font-semibold"><?= e($review['participant_name'] ?? 'Participant') ?> rated <?= e($review['rating'] ?? 0) ?>/5</h2>
                     <p class="mt-3 max-w-3xl text-sm leading-7 text-[var(--ink-muted)]"><?= e($review['review'] ?? '') ?></p>
                 </div>

@@ -65,7 +65,7 @@ $statusLabels = [
         </div>
         <?php if ($approvalStatus !== 'approved'): ?>
             <div class="approval-overview__action">
-                <span class="status-chip status-chip--<?= e($approvalStatus === 'rejected' ? 'rejected' : 'pending') ?>"><?= e($approvalStatus === 'rejected' ? 'Needs changes' : 'Pending') ?></span>
+                <span class="status-chip status-chip--<?= e(status_modifier($approvalStatus, 'organizer_approval')) ?>"><?= e(oems_status_label($approvalStatus, ['rejected' => 'Needs changes', 'pending' => 'Pending'])) ?></span>
                 <a class="button button--quiet button--compact" href="/profile"><i class="ph ph-user-circle" aria-hidden="true"></i><span>Review profile</span></a>
             </div>
         <?php else: ?>
@@ -108,7 +108,7 @@ $statusLabels = [
                     <?php foreach ($events as $event): ?>
                         <?php
                         $eventId = (int) ($event['id'] ?? 0);
-                        $status = (string) ($event['status'] ?? 'draft');
+                        $status = (string) ($event['status'] ?? '');
                         $editNext = in_array($status, ['draft', 'rejected'], true);
                         $publicNext = $status === 'published' && !empty($event['slug']);
                         $nextUrl = $editNext
@@ -120,7 +120,7 @@ $statusLabels = [
                         ?>
                         <tr>
                             <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><?php if (!empty($event['start_date'])): ?><small><time datetime="<?= e(str_replace(' ', 'T', (string) $event['start_date'])) ?>"><?= e(date('M j, Y', strtotime((string) $event['start_date']))) ?></time></small><?php endif; ?></td>
-                            <td data-label="Status"><span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></td>
+                            <td data-label="Status"><span class="status-chip status-chip--<?= e(status_modifier($status, 'event')) ?>"><?= e(oems_status_label($status, $statusLabels)) ?></span></td>
                             <td class="organizer-table__action" data-label="Action"><a class="text-link" href="<?= e($nextUrl) ?>"><?= e($nextLabel) ?> <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                         </tr>
                     <?php endforeach; ?>

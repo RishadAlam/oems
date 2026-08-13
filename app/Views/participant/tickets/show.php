@@ -1,5 +1,5 @@
 <?php
-$status = (string) $ticket['ticket_status'];
+$status = (string) ($ticket['ticket_status'] ?? '');
 $statusCopy = match ($status) {
     'used' => 'This ticket has been checked in.',
     'cancelled' => 'This ticket is cancelled and cannot be used for entry.',
@@ -8,7 +8,8 @@ $statusCopy = match ($status) {
 $statusLabel = match ($status) {
     'used' => 'Checked in',
     'cancelled' => 'Cancelled',
-    default => 'Valid',
+    'valid' => 'Valid',
+    default => oems_status_label($status),
 };
 $canUseArtifacts = $status !== 'cancelled';
 $hasQr = $canUseArtifacts && !empty($ticket['has_qr_artifact']);
@@ -38,7 +39,7 @@ $hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
     <section class="dashboard-panel min-w-0" aria-labelledby="ticket-details-heading">
         <h2 id="ticket-details-heading" class="text-xl font-bold">Ticket details</h2>
         <dl class="status-list mt-5">
-            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($status) ?>" aria-label="Ticket status: <?= e($statusLabel) ?>"><?= e($statusLabel) ?></span></dd></div>
+            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($status, 'ticket')) ?>" aria-label="Ticket status: <?= e($statusLabel) ?>"><?= e($statusLabel) ?></span></dd></div>
             <div><dt>Event</dt><dd><a class="text-link" href="/events/<?= e($ticket['event_slug']) ?>"><?= e($ticket['event_title']) ?></a></dd></div>
             <div><dt>Schedule</dt><dd><?= e($ticket['event_start_display']) ?></dd></div>
             <div><dt>Registration</dt><dd><a class="text-link break-all" href="/participant/registrations/<?= e($ticket['registration_id']) ?>"><?= e($ticket['registration_number']) ?></a></dd></div>

@@ -53,7 +53,7 @@ $pendingOrganizers = is_array($pendingOrganizers ?? null) ? $pendingOrganizers :
                         <div><strong><?= e($organizationName) ?></strong><span><?= e($pendingOrganizer['contact_name'] ?? 'Unknown contact') ?> · <?= e($pendingOrganizer['created_at'] ?? 'Application date unavailable') ?></span></div>
                     </div>
                     <div class="approval-queue__action">
-                        <span class="status-badge status-badge--<?= $applicationReady ? 'info' : 'warning' ?>"><i class="ph <?= $applicationReady ? 'ph-check-circle' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= $applicationReady ? 'Ready to review' : 'Email not verified' ?></span>
+                        <span class="status-badge status-badge--<?= e(status_modifier($applicationReady ? 'info' : 'warning', 'tone')) ?>"><i class="ph <?= $applicationReady ? 'ph-check-circle' : 'ph-warning-circle' ?>" aria-hidden="true"></i><?= $applicationReady ? 'Ready to review' : 'Email not verified' ?></span>
                         <a class="button button--quiet button--compact" href="/admin/organizers/<?= e($pendingOrganizerId) ?>" aria-label="Review <?= e($organizationName) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                     </div>
                 </li>

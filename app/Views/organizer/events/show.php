@@ -1,5 +1,5 @@
 <?php
-$status = (string) ($event['status'] ?? 'draft');
+$status = (string) ($event['status'] ?? '');
 $statusLabels = ['draft' => 'Draft', 'pending' => 'Pending review', 'approved' => 'Approved', 'rejected' => 'Needs changes', 'published' => 'Published', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 $organizerApprovalStatus = (string) ($event['organizer_approval_status'] ?? '');
 $canEdit = in_array($status, ['draft', 'rejected'], true);
@@ -21,7 +21,7 @@ $canDelete = in_array($status, ['draft', 'rejected', 'cancelled'], true);
 
 <div class="organizer-detail-grid mt-8">
     <article class="dashboard-panel organizer-event-detail">
-        <div class="organizer-detail-lead"><span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span><span><?= e($event['category_name'] ?? 'Uncategorized') ?></span></div>
+        <div class="organizer-detail-lead"><span class="status-chip status-chip--<?= e(status_modifier($status, 'event')) ?>"><?= e(oems_status_label($status, $statusLabels)) ?></span><span><?= e($event['category_name'] ?? 'Uncategorized') ?></span></div>
         <?php if (!empty($event['banner'])): ?><figure class="admin-evidence-banner"><img src="<?= e($event['banner']) ?>" alt="Banner for <?= e($event['title']) ?>"></figure><?php endif; ?>
         <p class="organizer-event-description"><?= nl2br(e($event['description'] ?? '')) ?></p>
         <?php if ($status === 'rejected' && !empty($event['rejection_reason'])): ?><div class="form-alert" role="note"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><strong>Review note:</strong> <?= e($event['rejection_reason']) ?></span></div><?php endif; ?>

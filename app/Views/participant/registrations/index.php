@@ -9,9 +9,10 @@
 <?php else: ?>
     <div class="mt-8 grid gap-4">
         <?php foreach ($registrations as $registration): ?>
+            <?php $registrationStatus = (string) ($registration['registration_status'] ?? ''); ?>
             <article class="dashboard-panel flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0"><p class="text-sm text-[var(--ink-muted)]"><?= e($registration['registration_number']) ?></p><h2 class="mt-1 text-lg font-bold"><?= e($registration['event_title']) ?></h2><p class="mt-2 text-sm text-[var(--ink-muted)]"><?= e($registration['event_start_display']) ?> · <?= e($registration['amount_display']) ?></p></div>
-                <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e($registration['registration_status']) ?>"><?= e($statusLabels[$registration['registration_status']] ?? ucfirst($registration['registration_status'])) ?></span><a class="button button--quiet button--compact" href="/participant/registrations/<?= e($registration['id']) ?>">View registration</a></div>
+                <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e(status_modifier($registrationStatus, 'registration')) ?>"><?= e(oems_status_label($registrationStatus, $statusLabels)) ?></span><a class="button button--quiet button--compact" href="/participant/registrations/<?= e($registration['id']) ?>">View registration</a></div>
             </article>
         <?php endforeach; ?>
     </div>

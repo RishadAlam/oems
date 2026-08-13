@@ -1,6 +1,13 @@
 <?php
 $reportTypes = ['events' => 'Events', 'registrations' => 'Registrations', 'payments' => 'Payments', 'attendance' => 'Attendance', 'organizers' => 'Organizers'];
 $eventStatuses = ['' => 'All lifecycle states', 'draft' => 'Draft', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'published' => 'Published', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
+$statusDomains = [
+    'event_status' => 'event',
+    'registration_status' => 'registration',
+    'payment_status' => 'payment',
+    'attendance_status' => 'attendance',
+    'approval_status' => 'organizer_approval',
+];
 $query = http_build_query(array_filter([
     'type' => $reportType,
     'start' => $range['start'] ?? null,
@@ -24,5 +31,5 @@ $query = http_build_query(array_filter([
 </form></section>
 
 <section class="dashboard-panel organizer-list-panel mt-6" aria-labelledby="report-preview"><div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-table" aria-hidden="true"></i></span><div><h2 id="report-preview"><?= e($reportTypes[$reportType] ?? 'Report') ?> preview</h2><p>The preview shows the first 100 aggregate rows. CSV streams all matching rows; PDF and Excel XML are bounded to 200 rows.</p></div></div>
-<?php if ($rows === []): ?><div class="empty-state"><span class="empty-state__icon"><i class="ph ph-files" aria-hidden="true"></i></span><strong>No report rows</strong><p>Adjust the date range or filters to find operational activity.</p></div><?php else: ?><div class="organizer-table-wrap mt-6"><table class="operations-table organizer-table"><caption class="sr-only"><?= e($reportTypes[$reportType] ?? 'Operational') ?> report preview</caption><thead><tr><?php foreach ($columns as $label): ?><th><?= e($label) ?></th><?php endforeach; ?></tr></thead><tbody><?php foreach ($rows as $row): ?><tr><?php foreach ($columns as $key => $label): $value = $row[$key] ?? ''; ?><td data-label="<?= e($label) ?>"><?= e(is_scalar($value) ? (string) $value : '') ?></td><?php endforeach; ?></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
+<?php if ($rows === []): ?><div class="empty-state"><span class="empty-state__icon"><i class="ph ph-files" aria-hidden="true"></i></span><strong>No report rows</strong><p>Adjust the date range or filters to find operational activity.</p></div><?php else: ?><div class="organizer-table-wrap mt-6"><table class="operations-table organizer-table"><caption class="sr-only"><?= e($reportTypes[$reportType] ?? 'Operational') ?> report preview</caption><thead><tr><?php foreach ($columns as $label): ?><th><?= e($label) ?></th><?php endforeach; ?></tr></thead><tbody><?php foreach ($rows as $row): ?><tr><?php foreach ($columns as $key => $label): $value = is_scalar($row[$key] ?? null) ? (string) $row[$key] : ''; ?><td data-label="<?= e($label) ?>"><?php if (isset($statusDomains[$key])): ?><span class="status-chip status-chip--<?= e(status_modifier($value, $statusDomains[$key])) ?>"><?= e(oems_status_label($value, [], false)) ?></span><?php else: ?><?= e($value) ?><?php endif; ?></td><?php endforeach; ?></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
 </section>

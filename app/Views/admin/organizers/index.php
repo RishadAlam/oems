@@ -49,11 +49,11 @@ $query = static function (int $targetPage) use ($search, $approval, $pagination)
             <table class="organizer-table">
                 <caption class="sr-only">Administrator organizer directory</caption>
                 <thead><tr><th scope="col">Organization</th><th scope="col">Contact</th><th scope="col">Events</th><th scope="col">Approval</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
-                <tbody><?php foreach ($items as $organizer): ?><?php $state = (string) ($organizer['approval_status'] ?? 'pending'); ?><tr>
-                    <td data-label="Organization"><strong><?= e($organizer['organization_name'] ?? 'Unnamed organization') ?></strong><small>Account: <?= e(ucfirst((string) ($organizer['user_status'] ?? 'inactive'))) ?></small></td>
+                <tbody><?php foreach ($items as $organizer): ?><?php $state = (string) ($organizer['approval_status'] ?? ''); $accountStatus = (string) ($organizer['user_status'] ?? ''); ?><tr>
+                    <td data-label="Organization"><strong><?= e($organizer['organization_name'] ?? 'Unnamed organization') ?></strong><small>Account: <span class="status-chip status-chip--<?= e(status_modifier($accountStatus, 'account')) ?>"><?= e(oems_status_label($accountStatus)) ?></span></small></td>
                     <td data-label="Contact"><strong><?= e($organizer['name'] ?? 'Unknown contact') ?></strong><small><?= e($organizer['email'] ?? '') ?></small></td>
                     <td data-label="Events"><?= e((int) ($organizer['event_count'] ?? 0)) ?></td>
-                    <td data-label="Approval"><span class="status-chip status-chip--<?= e($state) ?>"><?= e(ucfirst($state)) ?></span></td>
+                    <td data-label="Approval"><span class="status-chip status-chip--<?= e(status_modifier($state, 'organizer_approval')) ?>"><?= e(oems_status_label($state)) ?></span></td>
                     <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/admin/organizers/<?= e($organizer['id']) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                 </tr><?php endforeach; ?></tbody>
             </table>

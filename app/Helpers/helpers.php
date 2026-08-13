@@ -15,16 +15,36 @@ if (!function_exists('status_modifier')) {
         static $allowed = [
             'account' => ['active', 'inactive', 'suspended'],
             'attendance' => ['not_checked_in', 'present', 'absent'],
+            'certificate' => ['valid', 'revoked'],
             'contact' => ['new', 'read', 'replied', 'archived'],
             'event' => ['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'],
+            'newsletter_campaign' => ['draft', 'queued', 'sent', 'failed'],
             'organizer_approval' => ['pending', 'approved', 'rejected'],
             'payment' => ['none', 'pending', 'paid', 'failed', 'refunded', 'partially_refunded', 'not_required'],
+            'publication' => ['draft', 'published'],
             'registration' => ['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'],
+            'review' => ['pending', 'published', 'hidden'],
             'ticket' => ['none', 'valid', 'used', 'cancelled'],
+            'tone' => ['info', 'success', 'warning', 'danger', 'neutral', 'muted'],
         ];
         $status = is_scalar($value) ? (string) $value : '';
 
         return in_array($status, $allowed[$domain] ?? [], true) ? $status : 'neutral';
+    }
+}
+
+if (!function_exists('oems_status_label')) {
+    function oems_status_label(mixed $value, array $labels = [], bool $humanize = true): string
+    {
+        $status = is_scalar($value) ? (string) $value : '';
+        if (trim($status) === '') {
+            return 'Unknown';
+        }
+        if (array_key_exists($status, $labels) && is_scalar($labels[$status])) {
+            return (string) $labels[$status];
+        }
+
+        return $humanize ? ucfirst(str_replace('_', ' ', $status)) : $status;
     }
 }
 

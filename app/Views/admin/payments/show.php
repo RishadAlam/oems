@@ -1,5 +1,6 @@
 <?php
-$status = (string) ($payment['payment_status'] ?? 'pending');
+$status = (string) ($payment['payment_status'] ?? '');
+$registrationStatus = (string) ($payment['registration_status'] ?? '');
 $statusLabels = ['pending' => 'Pending', 'paid' => 'Paid', 'failed' => 'Failed', 'refunded' => 'Refunded'];
 $queueQuery = http_build_query(array_filter($returnFilters, static fn (mixed $value): bool => $value !== '' && $value !== null), '', '&', PHP_QUERY_RFC3986);
 $preserved = array_filter($returnFilters, static fn (mixed $value): bool => $value !== '' && $value !== null);
@@ -11,18 +12,18 @@ $impact = match (true) {
 };
 ?>
 
-<div class="dashboard-page-heading organizer-page-heading"><div><p class="dashboard-kicker"><i class="ph ph-file-magnifying-glass" aria-hidden="true"></i><span>Settlement evidence</span></p><h1>Payment <?= e($payment['transaction_reference'] ?? ('#' . $payment['id'])) ?></h1><p>Submitted <?= e($paymentAge) ?>. Current status: <span class="status-chip status-chip--<?= e(status_modifier($status, 'payment')) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></p></div><a class="button button--quiet" href="/admin/payments<?= $queueQuery === '' ? '' : '?' . e($queueQuery) ?>"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>Back to payments</span></a></div>
+<div class="dashboard-page-heading organizer-page-heading"><div><p class="dashboard-kicker"><i class="ph ph-file-magnifying-glass" aria-hidden="true"></i><span>Settlement evidence</span></p><h1>Payment <?= e($payment['transaction_reference'] ?? ('#' . $payment['id'])) ?></h1><p>Submitted <?= e($paymentAge) ?>. Current status: <span class="status-chip status-chip--<?= e(status_modifier($status, 'payment')) ?>"><?= e(oems_status_label($status, $statusLabels)) ?></span></p></div><a class="button button--quiet" href="/admin/payments<?= $queueQuery === '' ? '' : '?' . e($queueQuery) ?>"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>Back to payments</span></a></div>
 
 <?php if (is_string($actionError ?? null) && $actionError !== ''): ?><div class="form-alert mt-6" role="alert"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><?= e($actionError) ?></span></div><?php endif; ?>
 
 <div class="admin-moderation-layout mt-8">
     <article class="dashboard-panel admin-evidence-panel" aria-labelledby="payment-evidence-heading">
         <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-receipt" aria-hidden="true"></i></span><div><h2 id="payment-evidence-heading">Payment evidence</h2><p>Check the participant, event, method, reference, and amount before acting.</p></div></div>
-        <div class="admin-evidence-summary"><span class="status-chip status-chip--<?= e(status_modifier($status, 'payment')) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span><span><?= e($payment['currency'] ?? 'BDT') ?> <?= e($payment['amount'] ?? '0.00') ?></span><span><?= e($payment['payment_method_name'] ?? 'Manual payment') ?></span></div>
+        <div class="admin-evidence-summary"><span class="status-chip status-chip--<?= e(status_modifier($status, 'payment')) ?>"><?= e(oems_status_label($status, $statusLabels)) ?></span><span><?= e($payment['currency'] ?? 'BDT') ?> <?= e($payment['amount'] ?? '0.00') ?></span><span><?= e($payment['payment_method_name'] ?? 'Manual payment') ?></span></div>
         <dl class="organizer-detail-list">
             <div><dt><i class="ph ph-user" aria-hidden="true"></i>Participant</dt><dd><?= e($payment['participant_name'] ?? 'Participant') ?><small><?= e($payment['participant_email'] ?? '') ?></small></dd></div>
             <div><dt><i class="ph ph-calendar-dots" aria-hidden="true"></i>Event</dt><dd><?= e($payment['event_title'] ?? 'Event') ?><small><?= e($payment['organizer_name'] ?? 'Organizer') ?></small></dd></div>
-            <div><dt><i class="ph ph-identification-card" aria-hidden="true"></i>Registration</dt><dd><?= e($payment['registration_number'] ?? '') ?><small><span class="status-chip status-chip--<?= e(status_modifier($payment['registration_status'] ?? 'unknown', 'registration')) ?>"><?= e(ucfirst((string) ($payment['registration_status'] ?? 'unknown'))) ?></span></small></dd></div>
+            <div><dt><i class="ph ph-identification-card" aria-hidden="true"></i>Registration</dt><dd><?= e($payment['registration_number'] ?? '') ?><small><span class="status-chip status-chip--<?= e(status_modifier($registrationStatus, 'registration')) ?>"><?= e(oems_status_label($registrationStatus)) ?></span></small></dd></div>
             <div><dt><i class="ph ph-hash" aria-hidden="true"></i>Reference</dt><dd><?= e($payment['transaction_reference'] ?? 'Not supplied') ?></dd></div>
             <div><dt><i class="ph ph-bank" aria-hidden="true"></i>Channel</dt><dd><?= e(ucwords(str_replace('_', ' ', (string) ($payment['payment_channel'] ?? 'Not supplied')))) ?></dd></div>
             <div><dt><i class="ph ph-clock" aria-hidden="true"></i>Submitted</dt><dd><time datetime="<?= e(str_replace(' ', 'T', (string) ($payment['created_at'] ?? ''))) ?>"><?= e($payment['created_at'] ?? '') ?></time><small><?= e($paymentAge) ?></small></dd></div>

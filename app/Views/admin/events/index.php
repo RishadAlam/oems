@@ -50,12 +50,12 @@ $statusLabels = [
                 <thead><tr><th scope="col">Event</th><th scope="col">Organizer</th><th scope="col">Schedule</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody>
                 <?php foreach ($events as $event): ?>
-                    <?php $eventStatus = (string) ($event['status'] ?? 'draft'); ?>
+                    <?php $eventStatus = (string) ($event['status'] ?? ''); ?>
                     <tr>
                         <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><small><?= e($event['category_name'] ?? 'Uncategorized') ?><?php if (!empty($event['venue_name'])): ?>, <?= e($event['venue_name']) ?><?php endif; ?></small></td>
                         <td data-label="Organizer"><?= e($event['organization_name'] ?? 'Unknown organizer') ?></td>
                         <td data-label="Schedule"><time datetime="<?= e(str_replace(' ', 'T', (string) ($event['start_date'] ?? ''))) ?>"><?= e(date('M j, Y, g:i A', strtotime((string) ($event['start_date'] ?? 'now')))) ?></time></td>
-                        <td data-label="Status"><span class="status-chip status-chip--<?= e($eventStatus) ?>"><?= e($statusLabels[$eventStatus] ?? ucfirst($eventStatus)) ?></span></td>
+                        <td data-label="Status"><span class="status-chip status-chip--<?= e(status_modifier($eventStatus, 'event')) ?>"><?= e(oems_status_label($eventStatus, $statusLabels)) ?></span></td>
                         <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/admin/events/<?= e($event['id']) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                     </tr>
                 <?php endforeach; ?>

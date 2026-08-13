@@ -54,12 +54,12 @@ $query = static function (int $targetPage) use ($search, $role, $status, $pagina
                 <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Verification</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
                 <tbody>
                 <?php foreach ($items as $user): ?>
-                    <?php $userStatus = (string) ($user['status'] ?? 'inactive'); ?>
+                    <?php $userStatus = (string) ($user['status'] ?? ''); ?>
                     <tr>
                         <td data-label="Account"><strong><?= e($user['name'] ?? 'Unnamed user') ?></strong><small><?= e($user['email'] ?? '') ?></small></td>
                         <td data-label="Role"><?= e($user['role_name'] ?? ucfirst((string) ($user['role_slug'] ?? 'member'))) ?></td>
-                        <td data-label="Verification"><?= !empty($user['email_verified_at']) ? 'Email verified' : 'Email unverified' ?></td>
-                        <td data-label="Status"><span class="status-chip status-chip--<?= e($userStatus) ?>"><?= e(ucfirst($userStatus)) ?></span></td>
+                        <td data-label="Verification"><span class="status-chip <?= !empty($user['email_verified_at']) ? 'status-chip--success' : 'status-chip--warning' ?>"><?= !empty($user['email_verified_at']) ? 'Email verified' : 'Email unverified' ?></span></td>
+                        <td data-label="Status"><span class="status-chip status-chip--<?= e(status_modifier($userStatus, 'account')) ?>"><?= e(oems_status_label($userStatus)) ?></span></td>
                         <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/admin/users/<?= e($user['id']) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
                     </tr>
                 <?php endforeach; ?>

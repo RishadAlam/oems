@@ -83,9 +83,28 @@ final class TransactionUiTest extends TestCase
 
         $this->assertTrue(str_contains($html, 'The event was cancelled.'));
         $this->assertTrue(str_contains($html, '<strong>Payment</strong><span>Event cancelled</span>'));
-        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd><span class="status-chip status-chip--failed">Event cancelled</span></dd>'));
+        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd><span class="status-chip status-chip--danger">Event cancelled</span></dd>'));
         $this->assertFalse(str_contains($html, 'payment reference was rejected'));
         $this->assertFalse(str_contains($html, '>Payment rejected</span>'));
+    }
+
+    public function testPaidPaymentOnCancelledEventUsesDangerForTheDisplayedCancellation(): void
+    {
+        $cancelled = $this->registration();
+        $cancelled['registration_status'] = 'cancelled';
+        $cancelled['event_status'] = 'cancelled';
+        $cancelled['cancellation_reason'] = 'Event cancelled';
+        $cancelled['payment_status'] = 'paid';
+        $cancelled['ticket']['ticket_status'] = 'cancelled';
+
+        $html = $this->render('participant/registrations/show', [
+            'registration' => $cancelled,
+            'errors' => [],
+        ]);
+
+        $this->assertSame('paid', $cancelled['payment_status'], 'The backend payment state remains paid.');
+        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd><span class="status-chip status-chip--danger">Event cancelled</span></dd>'));
+        $this->assertFalse(str_contains($html, 'status-chip--paid">Event cancelled</span>'));
     }
 
     public function testCancellationFieldAlwaysAssociatesItsHelpAndConditionalError(): void

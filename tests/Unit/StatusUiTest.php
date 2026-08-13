@@ -290,110 +290,165 @@ final class StatusUiTest extends TestCase
         ]);
     }
 
-    public function testTaskTwoDynamicStatusSurfacesKeepHostileUnknownStatesNeutralAndVisible(): void
+    public function testFinalReviewStatusTablesRenderSharedComponentsWithoutChangingTheirCopy(): void
     {
-        $hostile = 'unknown status-chip--danger status-badge--success <unsafe>';
-        $documents = [
-            'administrator analytics' => [$this->render('admin/analytics/index', [
-                'filterError' => null, 'range' => [], 'filters' => [], 'charts' => [],
-                'summary' => [
-                    'lifecycle' => [], 'registrations' => [], 'verified_payments' => [],
-                    'top_events' => [['event_id' => 1, 'event_status' => $hostile, 'registration_count' => 1]],
-                ],
-            ]), 1],
-            'administrator contact' => [$this->render('admin/contact/show', ['message' => [
-                'id' => 2, 'name' => 'Contact', 'email' => 'contact@example.test', 'subject' => 'Question',
-                'status' => $hostile, 'created_at' => '2026-08-13 10:00:00', 'message' => 'Hello',
-            ]]), 1],
-            'administrator event' => [$this->render('admin/events/show', ['event' => [
-                'id' => 3, 'title' => 'Event', 'status' => $hostile, 'description' => 'Description',
-                'start_date' => '2026-08-20 10:00:00', 'end_date' => '2026-08-20 12:00:00',
-                'registration_deadline' => '2026-08-19 10:00:00', 'capacity' => 100,
-                'available_seats' => 80, 'ticket_price' => '100.00', 'currency' => 'BDT',
-            ], 'gallery' => []]), 3],
-            'administrator organizer' => [$this->render('admin/organizers/show', ['organizer' => [
-                'id' => 4, 'organization_name' => 'Organization', 'name' => 'Organizer',
-                'email' => 'organizer@example.test', 'approval_status' => $hostile,
-                'user_status' => $hostile, 'email_verified_at' => null, 'role_slug' => 'organizer',
-            ]]), 2],
-            'administrator payment' => [$this->render('admin/payments/show', [
-                'payment' => [
-                    'id' => 5, 'payment_status' => $hostile, 'registration_status' => $hostile,
-                    'transaction_reference' => 'PAY-5', 'participant_name' => 'Participant',
-                    'participant_email' => 'participant@example.test', 'event_title' => 'Event',
-                    'organizer_name' => 'Organizer', 'currency' => 'BDT', 'amount' => '100.00',
-                    'payment_method_name' => 'Manual', 'payment_channel' => 'manual',
-                    'created_at' => '2026-08-13 10:00:00',
-                ],
-                'paymentAge' => 'today', 'returnFilters' => [], 'actionError' => null, 'confirmation' => null,
-            ]), 3],
-            'administrator user' => [$this->render('admin/users/show', ['managedUser' => [
-                'id' => 6, 'name' => 'User', 'email' => 'user@example.test', 'status' => $hostile,
-                'role_slug' => 'participant', 'email_verified_at' => null,
-            ]]), 1],
-            'participant dashboard' => [$this->render('dashboard/participant', [
-                'metrics' => [], 'workspace' => [
-                    'tickets' => [['id' => 7, 'event_title' => 'Ticket event', 'ticket_number' => 'OEMS-123', 'ticket_status' => $hostile]],
-                    'upcoming' => [['id' => 8, 'event_title' => 'Upcoming event', 'event_start_date' => 'Tomorrow', 'payment_status' => $hostile]],
-                ], 'unreadNotifications' => 0,
-            ]), 2],
-            'organizer participants' => [$this->render('organizer/participants/index', [
-                'event' => ['event_id' => 9, 'event_title' => 'Event'], 'filters' => [], 'total' => 1,
-                'page' => 1, 'lastPage' => 1, 'participants' => [[
-                    'id' => 10, 'participant_name' => 'Participant', 'participant_email' => 'participant@example.test',
-                    'registration_number' => 'REG-10', 'registration_status' => $hostile,
-                    'payment_status' => $hostile, 'ticket_number' => 'OEMS-10',
-                    'ticket_status' => $hostile, 'attendance_status' => $hostile, 'scanned_at' => null,
+        $organizerAnalytics = $this->render('organizer/analytics/index', [
+            'filterError' => null,
+            'range' => [],
+            'eventId' => null,
+            'charts' => [],
+            'summary' => [
+                'lifecycle' => ['draft' => 1, 'pending' => 1, 'approved' => 1, 'rejected' => 1, 'published' => 1, 'completed' => 1, 'cancelled' => 1],
+                'registrations' => ['pending' => 1, 'confirmed' => 1, 'cancelled' => 1, 'waitlisted' => 1, 'refunded' => 1],
+                'verified_payments' => [],
+            ],
+            'rows' => [],
+        ]);
+        $users = $this->render('admin/users/index', [
+            'result' => [
+                'items' => [[
+                    'id' => 20,
+                    'name' => 'Verified User',
+                    'email' => 'verified@example.test',
+                    'role_name' => 'Participant',
+                    'status' => 'active',
+                    'email_verified_at' => '2026-08-13 10:00:00',
                 ]],
-            ]), 4],
-            'participant favorites' => [$this->render('participant/favorites/index', [
-                'favorites' => [[
-                    'event_id' => 11, 'title' => 'Saved event', 'is_available' => false,
-                    'event_status' => $hostile, 'start_display' => 'Tomorrow', 'price_display' => 'BDT 100',
-                ]], 'pagination' => ['page' => 1, 'last_page' => 1],
-            ]), 1],
-            'participant registration' => [$this->render('participant/registrations/show', ['registration' => [
-                'id' => 12, 'registration_number' => 'REG-12', 'event_title' => 'Event',
-                'registration_status' => $hostile, 'payment_status' => $hostile, 'event_status' => 'published',
-                'registered_display' => 'Today', 'event_start_display' => 'Tomorrow', 'amount_display' => '100.00',
-                'currency' => 'BDT', 'ticket' => null, 'cancellation_state' => ['allowed' => false, 'reason' => null],
-                'can_cancel' => false,
-            ]]), 2],
+                'pagination' => ['total' => 1, 'page' => 1, 'last_page' => 1, 'per_page' => 10],
+            ],
+            'filters' => [],
+        ]);
+        $organizers = $this->render('admin/organizers/index', [
+            'result' => [
+                'items' => [[
+                    'id' => 21,
+                    'organization_name' => 'Active Organization',
+                    'name' => 'Organizer',
+                    'email' => 'organizer@example.test',
+                    'user_status' => 'active',
+                    'approval_status' => 'pending',
+                    'event_count' => 1,
+                ]],
+                'pagination' => ['total' => 1, 'page' => 1, 'last_page' => 1, 'per_page' => 10],
+            ],
+            'filters' => [],
+        ]);
+
+        foreach (['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'] as $state) {
+            $this->assertRenderedStatuses($organizerAnalytics, [[
+                '//*[@data-lifecycle-status="' . $state . '"]', $state, ucfirst($state),
+            ]]);
+        }
+        foreach (['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'] as $state) {
+            $this->assertRenderedStatuses($organizerAnalytics, [[
+                '//*[@data-registration-status="' . $state . '"]', $state, ucfirst($state),
+            ]]);
+        }
+        $this->assertRenderedStatuses($users, [[
+            '//td[@data-label = "Verification"]', 'success', 'Email verified',
+        ]]);
+        $this->assertRenderedStatuses($organizers, [[
+            '//td[@data-label = "Organization"]', 'active', 'Active',
+        ]]);
+
+        $reportCases = [
+            'events' => [
+                ['event_status' => 'Lifecycle status'],
+                ['event_status' => 'published'],
+                [['//td[@data-label = "Lifecycle status"]', 'published', 'published']],
+            ],
+            'registrations' => [
+                ['event_status' => 'Event status', 'registration_status' => 'Registration status'],
+                ['event_status' => 'completed', 'registration_status' => 'confirmed'],
+                [
+                    ['//td[@data-label = "Event status"]', 'completed', 'completed'],
+                    ['//td[@data-label = "Registration status"]', 'confirmed', 'confirmed'],
+                ],
+            ],
+            'payments' => [
+                ['event_status' => 'Event status', 'payment_status' => 'Payment status'],
+                ['event_status' => 'cancelled', 'payment_status' => 'paid'],
+                [
+                    ['//td[@data-label = "Event status"]', 'cancelled', 'cancelled'],
+                    ['//td[@data-label = "Payment status"]', 'paid', 'paid'],
+                ],
+            ],
+            'attendance' => [
+                ['event_status' => 'Event status', 'attendance_status' => 'Attendance status'],
+                ['event_status' => 'published', 'attendance_status' => 'present'],
+                [
+                    ['//td[@data-label = "Event status"]', 'published', 'published'],
+                    ['//td[@data-label = "Attendance status"]', 'present', 'present'],
+                ],
+            ],
+            'organizers' => [
+                ['approval_status' => 'Approval status'],
+                ['approval_status' => 'rejected'],
+                [['//td[@data-label = "Approval status"]', 'rejected', 'rejected']],
+            ],
         ];
 
-        foreach ($documents as $surface => [$html, $expectedCount]) {
-            $this->assertTrue(str_contains($html, 'status-chip--danger status-badge--success &lt;unsafe&gt;'), $surface . ' must preserve and escape visible status text.');
+        foreach ($reportCases as $reportType => [$columns, $row, $expected]) {
+            $report = $this->render('admin/reports/index', [
+                'reportType' => $reportType,
+                'range' => [],
+                'filters' => [],
+                'filterError' => null,
+                'columns' => $columns,
+                'rows' => [$row],
+            ]);
+            $this->assertRenderedStatuses($report, $expected);
+        }
+    }
+
+    public function testDynamicStatusSurfacesKeepHostileWhitespaceValuesNeutralAndVisible(): void
+    {
+        $hostile = "unknown\tstatus-chip--danger\nstatus-badge--success <unsafe>";
+
+        foreach ($this->dynamicStatusDocuments($hostile) as $surface => [$html, $expectedCount]) {
             $this->assertFalse(str_contains($html, '<unsafe>'), $surface . ' must not render hostile status markup.');
             $this->assertHostileStatusesAreNeutral($html, $expectedCount, $surface);
         }
     }
 
-    public function testTaskTwoDynamicStatusModifiersUseTheCentralDomainGuard(): void
+    public function testDynamicStatusSurfacesRenderMissingValuesAsNeutralUnknown(): void
     {
-        foreach ([
-            'app/Views/admin/analytics/index.php',
-            'app/Views/admin/contact/show.php',
-            'app/Views/admin/events/show.php',
-            'app/Views/admin/organizers/show.php',
-            'app/Views/admin/payments/show.php',
-            'app/Views/admin/users/show.php',
-            'app/Views/dashboard/participant.php',
-            'app/Views/organizer/participants/index.php',
-            'app/Views/participant/favorites/index.php',
-            'app/Views/participant/registrations/show.php',
-        ] as $path) {
-            $view = file_get_contents(base_path($path));
-            $this->assertTrue(is_string($view), 'Unable to read ' . $path . '.');
-            preg_match_all('/status-(?:chip|badge)--<\?=([^?]+)\?>/', (string) $view, $matches);
-            $this->assertTrue(($matches[1] ?? []) !== [], $path . ' must retain its dynamic status surface.');
+        foreach ($this->dynamicStatusDocuments('') as $surface => [$html, $expectedCount]) {
+            $this->assertUnknownStatusesAreNeutral($html, $expectedCount, $surface);
+        }
+    }
 
-            foreach ($matches[1] as $expression) {
-                $this->assertTrue(
-                    str_contains($expression, 'status_modifier('),
-                    $path . ' must guard every dynamic status modifier through status_modifier().',
-                );
+    public function testEveryDynamicStatusModifierInPhpViewsUsesTheCentralDomainGuard(): void
+    {
+        $root = base_path('app/Views');
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
+        $unguarded = [];
+        $dynamicCount = 0;
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $view = file_get_contents($file->getPathname());
+            $this->assertTrue(is_string($view), 'Unable to read ' . $file->getPathname() . '.');
+            preg_match_all('/status-(?:chip|badge)--<\?=(.*?)\?>/s', (string) $view, $matches);
+
+            foreach ($matches[1] ?? [] as $expression) {
+                $dynamicCount++;
+                if (!str_contains($expression, 'status_modifier(')) {
+                    $relative = ltrim(substr($file->getPathname(), strlen($root)), DIRECTORY_SEPARATOR);
+                    $unguarded[] = $relative . ': ' . trim(preg_replace('/\s+/', ' ', $expression) ?? $expression);
+                }
             }
         }
+
+        $this->assertTrue($dynamicCount > 0, 'The project-wide discovery must find dynamic status modifiers.');
+        $this->assertSame(
+            [],
+            $unguarded,
+            "Every dynamic status modifier must fail closed through status_modifier().\n" . implode("\n", $unguarded),
+        );
     }
 
     public function testSharedStatusQueriesRequireBaseClassesAndPermitBothFamilies(): void
@@ -435,6 +490,231 @@ final class StatusUiTest extends TestCase
         $this->assertTrue(str_contains($profileNeutral, 'var(--ink-muted)'), 'Inactive account state must be neutral.');
         $this->assertTrue(str_contains($detailDefault, 'var(--ink)'), 'Detail values must use ordinary foreground text.');
         $this->assertFalse(str_contains($detailDefault, 'var(--success)'), 'Detail values must not default to success green.');
+    }
+
+    private function dynamicStatusDocuments(string $status): array
+    {
+        $event = [
+            'id' => 3,
+            'title' => 'Event',
+            'slug' => 'event',
+            'status' => $status,
+            'organizer_approval_status' => 'approved',
+            'description' => 'Description',
+            'start_date' => '2026-08-20 10:00:00',
+            'end_date' => '2026-08-20 12:00:00',
+            'registration_deadline' => '2026-08-19 10:00:00',
+            'capacity' => 100,
+            'available_seats' => 80,
+            'ticket_price' => '100.00',
+            'currency' => 'BDT',
+            'deleted_at' => '2026-08-13 10:00:00',
+            'registration_count' => 0,
+            'restorable' => true,
+        ];
+        $pagination = ['total' => 1, 'page' => 1, 'last_page' => 1, 'per_page' => 10];
+
+        return [
+            'administrator analytics' => [$this->render('admin/analytics/index', [
+                'filterError' => null, 'range' => [], 'filters' => [], 'charts' => [],
+                'summary' => [
+                    'lifecycle' => [], 'registrations' => [], 'verified_payments' => [],
+                    'top_events' => [['event_id' => 1, 'event_status' => $status, 'registration_count' => 1]],
+                ],
+            ]), 1],
+            'administrator contact detail' => [$this->render('admin/contact/show', ['message' => [
+                'id' => 2, 'name' => 'Contact', 'email' => 'contact@example.test', 'subject' => 'Question',
+                'status' => $status, 'created_at' => '2026-08-13 10:00:00', 'message' => 'Hello',
+            ]]), 1],
+            'administrator event detail' => [$this->render('admin/events/show', [
+                'event' => $event,
+                'gallery' => [],
+            ]), 3],
+            'administrator organizer detail' => [$this->render('admin/organizers/show', ['organizer' => [
+                'id' => 4, 'organization_name' => 'Organization', 'name' => 'Organizer',
+                'email' => 'organizer@example.test', 'approval_status' => $status,
+                'user_status' => $status, 'email_verified_at' => null, 'role_slug' => 'organizer',
+            ]]), 2],
+            'administrator payment detail' => [$this->render('admin/payments/show', [
+                'payment' => [
+                    'id' => 5, 'payment_status' => $status, 'registration_status' => $status,
+                    'transaction_reference' => 'PAY-5', 'participant_name' => 'Participant',
+                    'participant_email' => 'participant@example.test', 'event_title' => 'Event',
+                    'organizer_name' => 'Organizer', 'currency' => 'BDT', 'amount' => '100.00',
+                    'payment_method_name' => 'Manual', 'payment_channel' => 'manual',
+                    'created_at' => '2026-08-13 10:00:00',
+                ],
+                'paymentAge' => 'today', 'returnFilters' => [], 'actionError' => null, 'confirmation' => null,
+            ]), 3],
+            'administrator user detail' => [$this->render('admin/users/show', ['managedUser' => [
+                'id' => 6, 'name' => 'User', 'email' => 'user@example.test', 'status' => $status,
+                'role_slug' => 'participant', 'email_verified_at' => null,
+            ]]), 1],
+            'participant dashboard' => [$this->render('dashboard/participant', [
+                'metrics' => [], 'workspace' => [
+                    'tickets' => [['id' => 7, 'event_title' => 'Ticket event', 'ticket_number' => 'OEMS-123', 'ticket_status' => $status]],
+                    'upcoming' => [['id' => 8, 'event_title' => 'Upcoming event', 'event_start_date' => 'Tomorrow', 'payment_status' => $status]],
+                ], 'unreadNotifications' => 0,
+            ]), 2],
+            'organizer participants' => [$this->render('organizer/participants/index', [
+                'event' => ['event_id' => 9, 'event_title' => 'Event'], 'filters' => [], 'total' => 1,
+                'page' => 1, 'lastPage' => 1, 'participants' => [[
+                    'id' => 10, 'participant_name' => 'Participant', 'participant_email' => 'participant@example.test',
+                    'registration_number' => 'REG-10', 'registration_status' => $status,
+                    'payment_status' => $status, 'ticket_number' => 'OEMS-10',
+                    'ticket_status' => $status, 'attendance_status' => $status, 'scanned_at' => null,
+                ]],
+            ]), 4],
+            'participant favorites' => [$this->render('participant/favorites/index', [
+                'favorites' => [[
+                    'event_id' => 11, 'title' => 'Saved event', 'is_available' => false,
+                    'event_status' => $status, 'start_display' => 'Tomorrow', 'price_display' => 'BDT 100',
+                ]], 'pagination' => ['page' => 1, 'last_page' => 1],
+            ]), 1],
+            'participant registration detail' => [$this->render('participant/registrations/show', ['registration' => [
+                'id' => 12, 'registration_number' => 'REG-12', 'event_title' => 'Event',
+                'registration_status' => $status, 'payment_status' => $status, 'event_status' => 'published',
+                'registered_display' => 'Today', 'event_start_display' => 'Tomorrow', 'amount_display' => '100.00',
+                'currency' => 'BDT', 'ticket' => null, 'cancellation_state' => ['allowed' => false, 'reason' => null],
+                'can_cancel' => false,
+            ]]), 2],
+            'organizer dashboard' => [$this->render('dashboard/organizer', [
+                'events' => [$event],
+            ]), 1],
+            'participant reviews' => [$this->render('participant/reviews/index', [
+                'eligibleEvents' => [],
+                'reviews' => [[
+                    'id' => 13, 'event_id' => 3, 'event_title' => 'Event', 'status' => $status,
+                    'review' => 'Review', 'rating' => 5,
+                ]],
+            ]), 1],
+            'administrator reviews' => [$this->render('admin/reviews/index', [
+                'reviews' => [[
+                    'id' => 14, 'event_title' => 'Event', 'participant_name' => 'Participant',
+                    'status' => $status, 'review' => 'Review', 'rating' => 5,
+                ]],
+                'status' => null,
+            ]), 1],
+            'organizer analytics' => [$this->render('organizer/analytics/index', [
+                'filterError' => null, 'range' => [], 'eventId' => null, 'charts' => [],
+                'summary' => ['lifecycle' => [], 'registrations' => [], 'verified_payments' => []],
+                'rows' => [[
+                    'event_id' => 3, 'event_title' => 'Event', 'event_status' => $status,
+                    'registration_counts' => [], 'verified_payments' => [],
+                ]],
+            ]), 1],
+            'participant registration list' => [$this->render('participant/registrations/index', [
+                'registrations' => [[
+                    'id' => 15, 'registration_number' => 'REG-15', 'event_title' => 'Event',
+                    'event_start_display' => 'Tomorrow', 'amount_display' => 'BDT 100',
+                    'registration_status' => $status,
+                ]],
+            ]), 1],
+            'organizer event detail' => [$this->render('organizer/events/show', [
+                'event' => $event,
+                'gallery' => [],
+            ]), 1],
+            'organizer event trash' => [$this->render('organizer/events/trash', ['events' => [$event]]), 1],
+            'organizer event list' => [$this->render('organizer/events/index', [
+                'events' => [$event], 'statuses' => [], 'status' => null,
+            ]), 1],
+            'participant certificates' => [$this->render('participant/certificates/index', [
+                'certificates' => [[
+                    'id' => 16, 'certificate_number' => 'CERT-16', 'event_title' => 'Event',
+                    'completion_display' => 'Today', 'issued_display' => 'Today', 'status' => $status,
+                ]],
+            ]), 1],
+            'participant ticket detail' => [$this->render('participant/tickets/show', ['ticket' => [
+                'id' => 17, 'ticket_number' => 'TICKET-17', 'ticket_status' => $status,
+                'event_title' => 'Event', 'event_slug' => 'event', 'event_start_display' => 'Tomorrow',
+                'registration_id' => 15, 'registration_number' => 'REG-15', 'issued_display' => 'Today',
+            ]]), 1],
+            'participant ticket list' => [$this->render('participant/tickets/index', [
+                'tickets' => [[
+                    'id' => 17, 'ticket_number' => 'TICKET-17', 'ticket_status' => $status,
+                    'event_title' => 'Event', 'event_start_display' => 'Tomorrow',
+                ]],
+            ]), 1],
+            'administrator event trash' => [$this->render('admin/events/trash', ['events' => [$event]]), 1],
+            'administrator payment list' => [$this->render('admin/payments/index', [
+                'payments' => [[
+                    'id' => 18, 'participant_name' => 'Participant', 'event_title' => 'Event',
+                    'payment_status' => $status,
+                ]],
+                'filters' => [], 'perPage' => 10, 'statuses' => [], 'total' => 1,
+                'page' => 1, 'lastPage' => 1,
+            ]), 1],
+            'administrator contact list' => [$this->render('admin/contact/index', [
+                'filters' => ['search' => '', 'status' => ''],
+                'messages' => [[
+                    'id' => 19, 'name' => 'Contact', 'email' => 'contact@example.test',
+                    'subject' => 'Question', 'status' => $status, 'created_at' => 'Today',
+                ]],
+            ]), 1],
+            'administrator blog' => [$this->render('admin/blog/index', [
+                'filters' => [],
+                'posts' => [[
+                    'id' => 20, 'title' => 'Post', 'slug' => 'post', 'status' => $status,
+                    'updated_at' => '2026-08-13 10:00:00',
+                ]],
+                'pagination' => ['page' => 1, 'last_page' => 1],
+            ]), 1],
+            'administrator newsletter' => [$this->render('admin/newsletter/index', [
+                'campaigns' => [[
+                    'id' => 21, 'subject' => 'Campaign', 'message' => 'Message', 'status' => $status,
+                    'queued_count' => 0, 'recipient_count' => 0, 'created_at' => 'Today',
+                ]],
+            ]), 1],
+            'administrator event list' => [$this->render('admin/events/index', [
+                'events' => [$event], 'statuses' => [], 'status' => null,
+            ]), 1],
+            'administrator organizer list' => [$this->render('admin/organizers/index', [
+                'result' => [
+                    'items' => [[
+                        'id' => 22, 'organization_name' => 'Organization', 'name' => 'Organizer',
+                        'email' => 'organizer@example.test', 'user_status' => $status,
+                        'approval_status' => $status, 'event_count' => 1,
+                    ]],
+                    'pagination' => $pagination,
+                ],
+                'filters' => [],
+            ]), 2],
+            'administrator user list' => [$this->render('admin/users/index', [
+                'result' => [
+                    'items' => [[
+                        'id' => 23, 'name' => 'User', 'email' => 'user@example.test',
+                        'role_name' => 'Participant', 'status' => $status, 'email_verified_at' => null,
+                    ]],
+                    'pagination' => $pagination,
+                ],
+                'filters' => [],
+            ]), 1],
+            'event report' => [$this->render('admin/reports/index', [
+                'reportType' => 'events', 'range' => [], 'filters' => [], 'filterError' => null,
+                'columns' => ['event_status' => 'Lifecycle status'],
+                'rows' => [['event_status' => $status]],
+            ]), 1],
+            'registration report' => [$this->render('admin/reports/index', [
+                'reportType' => 'registrations', 'range' => [], 'filters' => [], 'filterError' => null,
+                'columns' => ['event_status' => 'Event status', 'registration_status' => 'Registration status'],
+                'rows' => [['event_status' => $status, 'registration_status' => $status]],
+            ]), 2],
+            'payment report' => [$this->render('admin/reports/index', [
+                'reportType' => 'payments', 'range' => [], 'filters' => [], 'filterError' => null,
+                'columns' => ['event_status' => 'Event status', 'payment_status' => 'Payment status'],
+                'rows' => [['event_status' => $status, 'payment_status' => $status]],
+            ]), 2],
+            'attendance report' => [$this->render('admin/reports/index', [
+                'reportType' => 'attendance', 'range' => [], 'filters' => [], 'filterError' => null,
+                'columns' => ['event_status' => 'Event status', 'attendance_status' => 'Attendance status'],
+                'rows' => [['event_status' => $status, 'attendance_status' => $status]],
+            ]), 2],
+            'organizer report' => [$this->render('admin/reports/index', [
+                'reportType' => 'organizers', 'range' => [], 'filters' => [], 'filterError' => null,
+                'columns' => ['approval_status' => 'Approval status'],
+                'rows' => [['approval_status' => $status]],
+            ]), 1],
+        ];
     }
 
     private function assertRenderedStatuses(string $html, array $expected): void
@@ -483,6 +763,37 @@ final class StatusUiTest extends TestCase
             $this->assertTrue(
                 in_array(($modifiers[0] ?? [])[0] ?? '', ['status-chip--neutral', 'status-badge--neutral'], true),
                 $surface . ' hostile state must use the neutral modifier.',
+            );
+        }
+    }
+
+    private function assertUnknownStatusesAreNeutral(string $html, int $expectedCount, string $surface): void
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, $surface . ' must render parseable HTML.');
+        $xpath = new \DOMXPath($document);
+        $matches = $xpath->query(
+            '//*[normalize-space(.) = "Unknown" and ('
+            . 'contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+            . ' or contains(concat(" ", normalize-space(@class), " "), " status-badge "))]',
+        );
+
+        $this->assertSame($expectedCount, $matches === false ? 0 : $matches->length, $surface . ' missing status count.');
+        if ($matches === false) {
+            return;
+        }
+
+        foreach ($matches as $match) {
+            preg_match_all('/\bstatus-(?:chip|badge)--[^\s]+/', (string) $match->attributes?->getNamedItem('class')?->nodeValue, $modifiers);
+            $this->assertSame(1, count($modifiers[0] ?? []), $surface . ' must emit exactly one missing-value modifier.');
+            $this->assertTrue(
+                in_array(($modifiers[0] ?? [])[0] ?? '', ['status-chip--neutral', 'status-badge--neutral'], true),
+                $surface . ' missing state must use the neutral modifier.',
             );
         }
     }

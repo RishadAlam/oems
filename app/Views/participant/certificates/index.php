@@ -8,9 +8,10 @@
 <?php else: ?>
     <div class="mt-8 grid gap-4">
         <?php foreach ($certificates as $certificate): ?>
+            <?php $certificateStatus = (string) ($certificate['status'] ?? ''); ?>
             <article class="dashboard-panel flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0"><p class="text-sm font-semibold text-[var(--accent)]"><?= e($certificate['certificate_number']) ?></p><h2 class="mt-1 text-lg font-bold"><?= e($certificate['event_title']) ?></h2><p class="mt-2 text-sm text-[var(--ink-muted)]">Completed <?= e($certificate['completion_display']) ?> · Issued <?= e($certificate['issued_display']) ?></p></div>
-                <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e($certificate['status']) ?>"><?= e($certificate['status'] === 'valid' ? 'Valid' : 'Revoked') ?></span><?php if ($certificate['status'] === 'valid'): ?><a class="button button--primary button--compact" href="/participant/certificates/<?= e($certificate['id']) ?>/pdf"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download PDF</span></a><?php endif; ?></div>
+                <div class="flex flex-wrap items-center gap-3"><span class="status-chip status-chip--<?= e(status_modifier($certificateStatus, 'certificate')) ?>"><?= e(oems_status_label($certificateStatus, ['valid' => 'Valid', 'revoked' => 'Revoked'])) ?></span><?php if ($certificateStatus === 'valid'): ?><a class="button button--primary button--compact" href="/participant/certificates/<?= e($certificate['id']) ?>/pdf"><i class="ph ph-download-simple" aria-hidden="true"></i><span>Download PDF</span></a><?php endif; ?></div>
             </article>
         <?php endforeach; ?>
     </div>

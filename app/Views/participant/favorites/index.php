@@ -28,7 +28,7 @@
                 <dl class="favorite-history__details">
                     <div><dt>Date</dt><dd><?= e($favorite['start_display']) ?></dd></div>
                     <div><dt>Price</dt><dd><?= e($favorite['price_display']) ?></dd></div>
-                    <?php if (empty($favorite['is_available'])): ?><?php $eventStatus = (string) ($favorite['event_status'] ?? 'unavailable'); ?><div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($eventStatus, 'event')) ?>"><?= e(ucfirst($eventStatus)) ?></span></dd></div><?php endif; ?>
+                    <?php if (empty($favorite['is_available'])): ?><?php $eventStatus = (string) ($favorite['event_status'] ?? ''); ?><div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($eventStatus, 'event')) ?>"><?= e(oems_status_label($eventStatus)) ?></span></dd></div><?php endif; ?>
                 </dl>
                 <div class="favorite-history__actions">
                     <?php if (!empty($favorite['is_available'])): ?><a class="text-link" href="/events/<?= e($favorite['slug']) ?>"><span>View event</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a><?php endif; ?>

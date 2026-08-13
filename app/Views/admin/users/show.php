@@ -1,5 +1,5 @@
 <?php
-$status = (string) ($managedUser['status'] ?? 'inactive');
+$status = (string) ($managedUser['status'] ?? '');
 $role = (string) ($managedUser['role_slug'] ?? '');
 $canSuspend = in_array($role, ['participant', 'organizer'], true) && $status === 'active';
 $canDeactivate = $canSuspend;
@@ -21,7 +21,7 @@ $canReactivate = in_array($role, ['participant', 'organizer'], true)
         <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-user-list" aria-hidden="true"></i></span><div><h2 id="account-evidence-heading">Account evidence</h2><p>Review account and access history before taking action.</p></div></div>
         <dl class="organizer-detail-list">
             <div><dt>Role</dt><dd><?= e($managedUser['role_name'] ?? ucfirst($role)) ?></dd></div>
-            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($status, 'account')) ?>"><?= e(ucfirst($status)) ?></span></dd></div>
+            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($status, 'account')) ?>"><?= e(oems_status_label($status)) ?></span></dd></div>
             <div><dt>Email verification</dt><dd><span class="status-chip <?= !empty($managedUser['email_verified_at']) ? 'status-chip--success' : 'status-chip--warning' ?>"><?= !empty($managedUser['email_verified_at']) ? 'Verified' : 'Not verified' ?></span></dd></div>
             <div><dt>Active remembered sessions</dt><dd><?= e((int) ($managedUser['session_count'] ?? 0)) ?></dd></div>
             <div><dt>Registrations</dt><dd><?= e((int) ($managedUser['registration_count'] ?? 0)) ?></dd></div>
