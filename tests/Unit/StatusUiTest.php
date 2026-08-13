@@ -153,12 +153,12 @@ final class StatusUiTest extends TestCase
             'maintenanceEnabled' => true,
         ]);
 
-        $this->assertSame(1, $this->statusCount($available, 'status-badge--info', 'Ready'));
-        $this->assertSame(3, $this->statusCount($available, 'status-badge--success', 'Passing'));
-        $this->assertSame(1, $this->statusCount($restricted, 'status-badge--danger', 'Unavailable'));
-        $this->assertSame(3, $this->statusCount($restricted, 'status-badge--danger', 'Needs attention'));
-        $this->assertSame(1, $this->statusCount($available, 'status-badge--neutral', 'Inactive'));
-        $this->assertSame(1, $this->statusCount($restricted, 'status-badge--warning', 'Active'));
+        $this->assertSame(1, $this->statusCount($available, 'status-badge', 'info', 'Ready'));
+        $this->assertSame(3, $this->statusCount($available, 'status-badge', 'success', 'Passing'));
+        $this->assertSame(1, $this->statusCount($restricted, 'status-badge', 'danger', 'Unavailable'));
+        $this->assertSame(3, $this->statusCount($restricted, 'status-badge', 'danger', 'Needs attention'));
+        $this->assertSame(1, $this->statusCount($available, 'status-badge', 'neutral', 'Inactive'));
+        $this->assertSame(1, $this->statusCount($restricted, 'status-badge', 'warning', 'Active'));
         foreach ([$available, $restricted] as $document) {
             $this->assertFalse(str_contains($document, 'text-emerald-'));
             $this->assertFalse(str_contains($document, 'text-red-'));
@@ -249,15 +249,65 @@ final class StatusUiTest extends TestCase
             'upcoming' => [['id' => 6, 'event_title' => 'Registered Event', 'event_start_date' => 'Tomorrow', 'payment_status' => 'paid']],
         ], 'unreadNotifications' => 0]);
 
-        $this->assertRenderedStatuses($organizer, [['status-chip--pending', 'Pending'], ['status-chip--active', 'Active'], ['status-badge--success', 'Verified']]);
-        $this->assertRenderedStatuses($user, [['status-chip--suspended', 'Suspended'], ['status-badge--success', 'Verified']]);
-        $this->assertRenderedStatuses($contact, [['status-badge--read', 'Read']]);
-        $this->assertRenderedStatuses($payment, [['status-chip--paid', 'Paid'], ['status-chip--confirmed', 'Confirmed']]);
-        $this->assertRenderedStatuses($analytics, [['status-chip--draft', 'Draft'], ['status-chip--pending', 'Pending', 2], ['status-chip--approved', 'Approved'], ['status-chip--rejected', 'Rejected'], ['status-chip--published', 'Published'], ['status-chip--completed', 'Completed'], ['status-chip--cancelled', 'Cancelled', 2], ['status-chip--waitlisted', 'Waitlisted'], ['status-chip--refunded', 'Refunded']]);
-        $this->assertRenderedStatuses($favorites, [['status-badge--muted', 'Unavailable'], ['status-chip--cancelled', 'Cancelled']]);
-        $this->assertRenderedStatuses($registration, [['status-chip--confirmed', 'Confirmed'], ['status-badge--paid', 'Paid'], ['status-chip--valid', 'Valid']]);
-        $this->assertRenderedStatuses($waitlist, [['status-chip--pending', 'Waitlisted']]);
-        $this->assertRenderedStatuses($dashboard, [['status-chip--valid', 'Valid'], ['status-chip--paid', 'Paid']]);
+        $details = '//dl[contains(concat(" ", normalize-space(@class), " "), " organizer-detail-list ")]/div';
+        $this->assertRenderedStatuses($organizer, [
+            [$details . '[dt[normalize-space(.) = "Approval"]]', 'pending', 'Pending'],
+            [$details . '[dt[normalize-space(.) = "Account status"]]', 'active', 'Active'],
+            [$details . '[dt[normalize-space(.) = "Email verification"]]', 'success', 'Verified'],
+        ]);
+        $this->assertRenderedStatuses($user, [
+            [$details . '[dt[normalize-space(.) = "Status"]]', 'suspended', 'Suspended'],
+            [$details . '[dt[normalize-space(.) = "Email verification"]]', 'success', 'Verified'],
+        ]);
+        $this->assertRenderedStatuses($contact, [['//dl/div[dt[normalize-space(.) = "Status"]]', 'read', 'Read']]);
+        $this->assertRenderedStatuses($payment, [
+            ['//div[contains(concat(" ", normalize-space(@class), " "), " dashboard-page-heading ")]', 'paid', 'Paid'],
+            ['//div[contains(concat(" ", normalize-space(@class), " "), " admin-evidence-summary ")]', 'paid', 'Paid'],
+            [$details . '[dt[normalize-space(.) = "Registration"]]', 'confirmed', 'Confirmed'],
+        ]);
+        foreach (['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'] as $state) {
+            $this->assertRenderedStatuses($analytics, [[
+                '//*[@data-lifecycle-status="' . $state . '"]', $state, ucfirst($state),
+            ]]);
+        }
+        foreach (['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'] as $state) {
+            $this->assertRenderedStatuses($analytics, [[
+                '//*[@data-registration-status="' . $state . '"]', $state, ucfirst($state),
+            ]]);
+        }
+        $this->assertRenderedStatuses($favorites, [
+            ['//article[contains(concat(" ", normalize-space(@class), " "), " favorite-history ")]', 'muted', 'Unavailable'],
+            ['//dl[contains(concat(" ", normalize-space(@class), " "), " favorite-history__details ")]/div[dt[normalize-space(.) = "Status"]]', 'cancelled', 'Cancelled'],
+        ]);
+        $this->assertRenderedStatuses($registration, [
+            ['//section[@aria-labelledby = "registration-status-heading"]', 'confirmed', 'Confirmed'],
+            ['//section[@aria-labelledby = "payment-status-heading"]', 'paid', 'Paid'],
+        ]);
+        $this->assertRenderedStatuses($waitlist, [['//article[@aria-labelledby = "waitlist-event-7"]', 'waitlisted', 'Waitlisted']]);
+        $this->assertRenderedStatuses($dashboard, [
+            ['//section[.//h2[normalize-space(.) = "Recent tickets"]]', 'valid', 'Valid'],
+            ['//section[.//h2[normalize-space(.) = "Upcoming registrations"]]', 'paid', 'Paid'],
+        ]);
+    }
+
+    public function testSharedStatusQueriesRequireBaseClassesAndPermitBothFamilies(): void
+    {
+        $modifierOnly = '<section id="status-surface"><span class="status-chip--read">Read</span></section>';
+        $chip = '<section id="status-surface"><span class="status-chip status-chip--read">Read</span></section>';
+        $badge = '<section id="status-surface"><span class="status-badge status-badge--read">Read</span></section>';
+
+        $this->assertSame(0, $this->sharedStatusCount($modifierOnly, '//*[@id = "status-surface"]', 'read', 'Read'));
+        $this->assertSame(1, $this->sharedStatusCount($chip, '//*[@id = "status-surface"]', 'read', 'Read'));
+        $this->assertSame(1, $this->sharedStatusCount($badge, '//*[@id = "status-surface"]', 'read', 'Read'));
+    }
+
+    public function testStatusRuleLookupRequiresAnExactSelectorBoundary(): void
+    {
+        $css = '.status-chip--read-legacy { color: var(--warning); } .status-chip--read { color: var(--info); }';
+
+        $this->assertSame(null, $this->findStatusRule('.status-chip--read-legacy { color: var(--warning); }', 'status-chip', 'read'));
+        $this->assertSame(null, $this->findStatusRule('/* .status-chip--read */ .other { color: var(--warning); }', 'status-chip', 'read'));
+        $this->assertSame(' color: var(--info); ', $this->findStatusRule($css, 'status-chip', 'read'));
     }
 
     public function testDetailRowsStayNeutralUntilAStatusComponentAddsMeaning(): void
@@ -290,19 +340,37 @@ final class StatusUiTest extends TestCase
         libxml_use_internal_errors($previousErrors);
 
         $this->assertTrue($loaded, 'Status-bearing view must render parseable HTML.');
-        foreach ($expected as $expectedStatus) {
-            [$class, $label] = $expectedStatus;
-            $count = $expectedStatus[2] ?? 1;
+        foreach ($expected as [$location, $state, $label]) {
 
             $this->assertSame(
-                $count,
-                $this->statusCount($html, $class, $label),
-                sprintf('Expected %d %s component(s) for visible status %s.', $count, $class, $label),
+                1,
+                $this->sharedStatusCount($html, $location, $state, $label),
+                sprintf('Expected one shared status component for %s at %s.', $label, $location),
             );
         }
     }
 
-    private function statusCount(string $html, string $class, string $label): int
+    private function sharedStatusCount(string $html, string $location, string $state, string $label): int
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, 'Status-bearing view must render parseable HTML.');
+        $xpath = new \DOMXPath($document);
+        $matches = $xpath->query($location . '//*[('
+            . '(contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+            . ' and contains(concat(" ", normalize-space(@class), " "), " status-chip--' . $state . ' "))'
+            . ' or (contains(concat(" ", normalize-space(@class), " "), " status-badge ")'
+            . ' and contains(concat(" ", normalize-space(@class), " "), " status-badge--' . $state . ' "))'
+            . ') and normalize-space(.) = "' . $label . '"]');
+
+        return $matches === false ? 0 : $matches->length;
+    }
+
+    private function statusCount(string $html, string $component, string $state, string $label): int
     {
         $document = new \DOMDocument();
         $previousErrors = libxml_use_internal_errors(true);
@@ -313,7 +381,8 @@ final class StatusUiTest extends TestCase
         $this->assertTrue($loaded, 'Status-bearing view must render parseable HTML.');
         $xpath = new \DOMXPath($document);
         $matches = $xpath->query(
-            '//*[contains(concat(" ", normalize-space(@class), " "), " ' . $class . ' ")'
+            '//*[contains(concat(" ", normalize-space(@class), " "), " ' . $component . ' ")'
+            . ' and contains(concat(" ", normalize-space(@class), " "), " ' . $component . '--' . $state . ' ")'
             . ' and normalize-space(.) = "' . $label . '"]',
         );
 
@@ -376,12 +445,19 @@ final class StatusUiTest extends TestCase
 
     private function statusRule(string $css, string $component, string $state): string
     {
+        $rule = $this->findStatusRule($css, $component, $state);
+        $this->assertNotSame(null, $rule, sprintf('Missing semantic rule for %s--%s.', $component, $state));
+
+        return (string) $rule;
+    }
+
+    private function findStatusRule(string $css, string $component, string $state): ?string
+    {
+        $css = preg_replace('/\/\*.*?\*\//s', '', $css) ?? $css;
         $selector = preg_quote('.' . $component . '--' . $state, '/');
-        $matched = preg_match('/[^{}]*' . $selector . '[^{}]*\{([^{}]+)\}/', $css, $matches);
+        $matched = preg_match('/[^{}]*' . $selector . '(?=[\\s,:.{])[^{}]*\{([^{}]+)\}/', $css, $matches);
 
-        $this->assertSame(1, $matched, sprintf('Missing semantic rule for %s--%s.', $component, $state));
-
-        return (string) ($matches[1] ?? '');
+        return $matched === 1 ? (string) $matches[1] : null;
     }
 
     private function cssRule(string $css, string $pattern, string $label): string

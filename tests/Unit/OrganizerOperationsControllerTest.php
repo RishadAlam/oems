@@ -145,12 +145,12 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertFalse(str_contains($response->body(), 'gateway_response'));
         $this->assertTrue(str_contains($response->body(), 'data-form-kind="filter"'));
         foreach ([
-            ['status-chip--confirmed', 'Confirmed'],
-            ['status-chip--paid', 'Paid'],
-            ['status-chip--valid', 'Valid'],
-            ['status-chip--not_checked_in', 'Not checked in'],
-        ] as [$class, $label]) {
-            $this->assertSame(1, $this->statusCount($response->body(), $class, $label));
+            ['confirmed', 'Confirmed'],
+            ['paid', 'Paid'],
+            ['valid', 'Valid'],
+            ['not_checked_in', 'Not checked in'],
+        ] as [$state, $label]) {
+            $this->assertSame(1, $this->statusCount($response->body(), $state, $label));
         }
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/99/participants', '99'))->status());
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
@@ -200,6 +200,15 @@ final class OrganizerOperationsControllerTest extends TestCase
             $this->assertSame(1, $identifiers === false ? 0 : $identifiers->length);
             $this->assertSame($identifier, trim((string) $identifiers?->item(0)?->textContent));
         }
+    }
+
+    public function testParticipantStatusQueryRejectsModifierOnlyMarkup(): void
+    {
+        $modifierOnly = '<section><span class="status-chip--confirmed">Confirmed</span></section>';
+        $component = '<section><span class="status-chip status-chip--confirmed">Confirmed</span></section>';
+
+        $this->assertSame(0, $this->statusCount($modifierOnly, 'confirmed', 'Confirmed'));
+        $this->assertSame(1, $this->statusCount($component, 'confirmed', 'Confirmed'));
     }
 
     public function testParticipantSearchNormalizesWhitespaceAndRejectsOverlengthForUiAndCsv(): void
@@ -410,7 +419,7 @@ final class OrganizerOperationsControllerTest extends TestCase
             ->withRouteParameters(['id' => $id]);
     }
 
-    private function statusCount(string $html, string $class, string $label): int
+    private function statusCount(string $html, string $state, string $label): int
     {
         $document = new \DOMDocument();
         $previousErrors = libxml_use_internal_errors(true);
@@ -421,7 +430,8 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertTrue($loaded, 'The participant workspace must render valid parseable HTML.');
         $xpath = new \DOMXPath($document);
         $matches = $xpath->query(
-            '//*[contains(concat(" ", normalize-space(@class), " "), " ' . $class . ' ")'
+            '//*[contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+            . ' and contains(concat(" ", normalize-space(@class), " "), " status-chip--' . $state . ' ")'
             . ' and normalize-space(.) = "' . $label . '"]',
         );
 
