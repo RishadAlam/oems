@@ -418,6 +418,38 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testSingleFieldToolbarsUseTheCompactAtomicLayoutContract(): void
+    {
+        foreach ([
+            'app/Views/admin/events/index.php',
+            'app/Views/admin/reviews/index.php',
+            'app/Views/organizer/events/index.php',
+        ] as $view) {
+            $source = (string) file_get_contents(base_path($view));
+
+            $this->assertTrue(
+                str_contains($source, 'filter-toolbar__form filter-toolbar__form--compact'),
+                $view . ' must use the compact single-field toolbar form.',
+            );
+        }
+
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        foreach ([
+            '.filter-toolbar__form' => ['xl:w-max', 'xl:flex-none', 'xl:flex-nowrap', 'xl:items-end'],
+            '.filter-toolbar__field' => ['xl:w-40', 'xl:flex-none'],
+            '.filter-toolbar__field--search' => ['xl:w-64', 'xl:flex-none'],
+            '.filter-toolbar__form--compact' => ['sm:w-max', 'sm:flex-none', 'sm:grid-cols-[12rem_auto]', 'sm:items-end'],
+            '.filter-toolbar__form--compact .filter-toolbar__actions' => ['sm:col-span-1', 'sm:w-auto'],
+            '.filter-toolbar__form--compact .filter-toolbar__actions .button' => ['sm:w-auto'],
+        ] as $selector => $utilities) {
+            $this->assertTrue(
+                $this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities),
+                $selector . ' must preserve the compact atomic toolbar contract.',
+            );
+        }
+    }
+
     public function testSectionedFormsRenderOnlyOneDividerBeforeActions(): void
     {
         $css = (string) file_get_contents(base_path('public/assets/css/app.css'));
