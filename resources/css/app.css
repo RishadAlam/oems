@@ -1590,11 +1590,11 @@
     }
 
     .filter-toolbar {
-        @apply flex w-full min-w-0 flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between;
+        @apply flex w-full min-w-0 flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between;
     }
 
     .filter-toolbar__summary {
-        @apply min-w-0 text-sm text-[var(--ink-muted)] sm:self-center;
+        @apply min-w-0 text-sm text-[var(--ink-muted)];
     }
 
     .filter-toolbar__summary strong {
@@ -1602,15 +1602,15 @@
     }
 
     .filter-toolbar__form {
-        @apply grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:max-w-full lg:flex lg:flex-wrap lg:items-end lg:justify-end;
+        @apply grid w-full min-w-0 grid-cols-1 gap-3 sm:ml-auto sm:grid-cols-2 xl:w-max xl:max-w-full xl:flex xl:flex-none xl:flex-nowrap xl:items-end xl:justify-end;
     }
 
     .filter-toolbar__field {
-        @apply grid min-w-0 content-start gap-2 lg:min-w-40 lg:flex-[0_1_12rem];
+        @apply grid min-w-0 content-start gap-2 xl:w-40 xl:flex-none;
     }
 
     .filter-toolbar__field--search {
-        @apply sm:col-span-2 lg:min-w-72 lg:flex-[1_1_18rem];
+        @apply sm:col-span-2 xl:w-64 xl:flex-none;
     }
 
     .filter-toolbar__field label {
@@ -1623,11 +1623,27 @@
     }
 
     .filter-toolbar__actions {
-        @apply flex w-full min-w-0 items-end sm:col-span-2 lg:w-auto lg:flex-none;
+        @apply flex w-full min-w-0 items-end sm:col-span-2 xl:w-auto xl:flex-none;
     }
 
     .filter-toolbar__actions .button {
-        @apply min-h-12 w-full lg:w-auto;
+        @apply min-h-12 w-full xl:w-auto;
+    }
+
+    .filter-toolbar__form--compact {
+        @apply sm:w-max sm:flex-none sm:grid-cols-[12rem_auto] sm:items-end;
+    }
+
+    .filter-toolbar__form--compact .filter-toolbar__field {
+        @apply sm:w-48;
+    }
+
+    .filter-toolbar__form--compact .filter-toolbar__actions {
+        @apply sm:col-span-1 sm:w-auto;
+    }
+
+    .filter-toolbar__form--compact .filter-toolbar__actions .button {
+        @apply sm:w-auto;
     }
 
     .organizer-list-panel {

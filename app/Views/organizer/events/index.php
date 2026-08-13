@@ -21,7 +21,7 @@ $statusLabels = [
 
 <div class="filter-toolbar mt-8">
     <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e($summary['total'] ?? count($events)) ?></strong> <?= (int) ($summary['total'] ?? count($events)) === 1 ? 'event' : 'events' ?></p>
-    <form class="filter-toolbar__form" action="/organizer/events" method="get" role="search" aria-label="Filter events" data-form-kind="filter">
+    <form class="filter-toolbar__form filter-toolbar__form--compact" action="/organizer/events" method="get" role="search" aria-label="Filter events" data-form-kind="filter">
         <div class="filter-toolbar__field">
             <label for="event-status">Filter by status</label>
             <select id="event-status" name="status" data-auto-submit>

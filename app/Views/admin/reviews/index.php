@@ -10,7 +10,7 @@
 
 <div class="filter-toolbar mt-8">
     <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e(count($reviews)) ?></strong> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</p>
-    <form class="filter-toolbar__form" action="/admin/reviews" method="get" role="search" aria-label="Filter reviews" data-form-kind="filter">
+    <form class="filter-toolbar__form filter-toolbar__form--compact" action="/admin/reviews" method="get" role="search" aria-label="Filter reviews" data-form-kind="filter">
         <div class="filter-toolbar__field">
             <label for="review-status">Status</label>
             <select id="review-status" name="status">

@@ -254,8 +254,7 @@ final class UiLayoutTest extends TestCase
         $violations = [];
 
         $sourceRules = [
-            '.filter-toolbar__summary' => ['sm:self-center'],
-            '.filter-toolbar__form' => ['grid', 'w-full', 'grid-cols-1', 'sm:grid-cols-2', 'lg:flex', 'lg:flex-wrap', 'lg:items-end'],
+            '.filter-toolbar__form' => ['grid', 'w-full', 'grid-cols-1', 'sm:grid-cols-2', 'xl:w-max', 'xl:flex', 'xl:flex-none', 'xl:flex-nowrap', 'xl:items-end'],
             '.filter-toolbar__field' => ['grid', 'content-start'],
             '.filter-toolbar__actions' => ['flex', 'w-full'],
         ];
@@ -353,7 +352,7 @@ final class UiLayoutTest extends TestCase
         }
 
         foreach ([
-            '.filter-toolbar__summary' => ['align-self:center'],
+            '.filter-toolbar' => ['align-items:center'],
             '.filter-toolbar__form' => ['grid-template-columns:repeat(2,minmax(0,1fr))'],
         ] as $selector => $declarations) {
             if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations)) {
@@ -361,8 +360,8 @@ final class UiLayoutTest extends TestCase
             }
         }
 
-        if (!$this->cssMediaRuleContainsTokens($compiledCss, '64rem', '.filter-toolbar__form', ['display:flex', 'flex-wrap:wrap', 'align-items:flex-end'])) {
-            $violations[] = 'compiled CSS must keep lower-edge alignment scoped to the 64rem .filter-toolbar__form rule.';
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '80rem', '.filter-toolbar__form', ['display:flex', 'flex-wrap:nowrap', 'align-items:flex-end', 'width:max-content', 'flex:none'])) {
+            $violations[] = 'compiled CSS must keep the atomic lower-edge alignment scoped to the 80rem .filter-toolbar__form rule.';
         }
 
         if ($this->cssHasSelector($compiledCss, '.organizer-toolbar')) {
@@ -440,6 +439,7 @@ final class UiLayoutTest extends TestCase
             '.filter-toolbar__field' => ['xl:w-40', 'xl:flex-none'],
             '.filter-toolbar__field--search' => ['xl:w-64', 'xl:flex-none'],
             '.filter-toolbar__form--compact' => ['sm:w-max', 'sm:flex-none', 'sm:grid-cols-[12rem_auto]', 'sm:items-end'],
+            '.filter-toolbar__form--compact .filter-toolbar__field' => ['sm:w-48'],
             '.filter-toolbar__form--compact .filter-toolbar__actions' => ['sm:col-span-1', 'sm:w-auto'],
             '.filter-toolbar__form--compact .filter-toolbar__actions .button' => ['sm:w-auto'],
         ] as $selector => $utilities) {

@@ -20,7 +20,7 @@ $statusLabels = [
 
 <div class="filter-toolbar mt-8">
     <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e(count($events)) ?></strong> <?= count($events) === 1 ? 'event' : 'events' ?> in this queue</p>
-    <form class="filter-toolbar__form" action="/admin/events" method="get" role="search" aria-label="Filter events" data-form-kind="filter">
+    <form class="filter-toolbar__form filter-toolbar__form--compact" action="/admin/events" method="get" role="search" aria-label="Filter events" data-form-kind="filter">
         <div class="filter-toolbar__field">
             <label for="status">Status</label>
             <select id="status" name="status">
