@@ -25,7 +25,14 @@ $query = static function (int $targetPage) use ($search, $approval, $pagination)
 </div>
 
 <div class="filter-toolbar mt-8">
-    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e($total) ?></strong> matching <?= $total === 1 ? 'organizer' : 'organizers' ?></p>
+    <p class="result-summary filter-toolbar__summary" role="status" aria-live="polite" aria-atomic="true">
+        <strong class="result-summary__count" aria-hidden="true"><?= e($total) ?></strong>
+        <span class="result-summary__copy" aria-hidden="true">
+            <span class="result-summary__context">Matching</span>
+            <span class="result-summary__subject">Organizers</span>
+        </span>
+        <span class="sr-only"><?= e($total) ?> matching <?= $total === 1 ? 'organizer' : 'organizers' ?></span>
+    </p>
     <form class="filter-toolbar__form" action="/admin/organizers" method="get" role="search" aria-label="Filter organizers" data-form-kind="filter">
         <div class="filter-toolbar__field filter-toolbar__field--search"><label for="organizer-search">Search</label><input id="organizer-search" name="search" type="search" maxlength="100" value="<?= e($search) ?>" placeholder="Organization, contact, or email"></div>
         <div class="filter-toolbar__field"><label for="approval-status">Approval</label><select id="approval-status" name="approval_status"><option value="">All states</option><?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $value => $label): ?><option value="<?= e($value) ?>"<?= $approval === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>

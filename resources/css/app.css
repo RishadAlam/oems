@@ -1233,6 +1233,14 @@
         @apply flex items-start gap-3;
     }
 
+    .dashboard-panel__heading--with-summary {
+        @apply flex-col gap-4 sm:flex-row sm:items-center sm:justify-between;
+    }
+
+    .dashboard-panel__heading-main {
+        @apply flex min-w-0 items-start gap-3;
+    }
+
     .dashboard-panel__icon {
         @apply grid size-10 shrink-0 place-items-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
     }
@@ -1598,15 +1606,31 @@
     }
 
     .filter-toolbar {
-        @apply flex w-full min-w-0 flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between;
+        @apply flex w-full min-w-0 flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between;
+    }
+
+    .result-summary {
+        @apply flex min-h-12 w-full min-w-0 items-center gap-3 sm:w-auto;
+    }
+
+    .result-summary__count {
+        @apply grid min-h-11 min-w-11 shrink-0 place-items-center rounded-[12px] bg-[var(--accent-soft)] px-2.5 text-lg font-bold tabular-nums text-[var(--accent)];
+    }
+
+    .result-summary__copy {
+        @apply grid min-w-0 gap-0.5;
+    }
+
+    .result-summary__context {
+        @apply text-xs font-bold text-[var(--ink-muted)];
+    }
+
+    .result-summary__subject {
+        @apply text-sm font-semibold leading-5 text-[var(--ink)];
     }
 
     .filter-toolbar__summary {
-        @apply min-w-0 text-sm text-[var(--ink-muted)];
-    }
-
-    .filter-toolbar__summary strong {
-        @apply text-lg font-semibold tabular-nums text-[var(--ink)];
+        @apply sm:flex-none;
     }
 
     .filter-toolbar__form {

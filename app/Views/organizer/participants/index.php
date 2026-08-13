@@ -29,7 +29,17 @@ $query = static fn (array $changes = []): string => http_build_query(array_filte
 </section>
 
 <section class="dashboard-panel mt-6" aria-labelledby="participant-table-heading">
-    <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-identification-card" aria-hidden="true"></i></span><div><h2 id="participant-table-heading">Participant records</h2><p><?= e($total) ?> matching registration<?= $total === 1 ? '' : 's' ?>.</p></div></div>
+    <div class="dashboard-panel__heading dashboard-panel__heading--with-summary">
+        <div class="dashboard-panel__heading-main">
+            <span class="dashboard-panel__icon"><i class="ph ph-identification-card" aria-hidden="true"></i></span>
+            <div><h2 id="participant-table-heading">Participant records</h2><p>Review registration, payment, ticket, and attendance states.</p></div>
+        </div>
+        <p class="result-summary" role="status" aria-live="polite" aria-atomic="true">
+            <strong class="result-summary__count" aria-hidden="true"><?= e($total) ?></strong>
+            <span class="result-summary__copy" aria-hidden="true"><span class="result-summary__context">Matching</span><span class="result-summary__subject">Registrations</span></span>
+            <span class="sr-only"><?= e($total) ?> matching registration<?= $total === 1 ? '' : 's' ?></span>
+        </p>
+    </div>
     <?php if ($participants === []): ?>
         <div class="empty-state mt-6"><span class="empty-state__icon"><i class="ph ph-user-list" aria-hidden="true"></i></span><strong>No participants found</strong><p>Adjust the filters or check again after registrations arrive.</p></div>
     <?php else: ?>

@@ -21,7 +21,17 @@ $query = static fn (array $changes = []): string => http_build_query(array_filte
 </section>
 
 <section class="dashboard-panel organizer-list-panel mt-6" aria-labelledby="payment-list-heading">
-    <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-list-magnifying-glass" aria-hidden="true"></i></span><div><h2 id="payment-list-heading">Payment records</h2><p><?= e($total) ?> matching payment<?= $total === 1 ? '' : 's' ?>.</p></div></div>
+    <div class="dashboard-panel__heading dashboard-panel__heading--with-summary">
+        <div class="dashboard-panel__heading-main">
+            <span class="dashboard-panel__icon"><i class="ph ph-list-magnifying-glass" aria-hidden="true"></i></span>
+            <div><h2 id="payment-list-heading">Payment records</h2><p>Review the filtered settlement records below.</p></div>
+        </div>
+        <p class="result-summary" role="status" aria-live="polite" aria-atomic="true">
+            <strong class="result-summary__count" aria-hidden="true"><?= e($total) ?></strong>
+            <span class="result-summary__copy" aria-hidden="true"><span class="result-summary__context">Matching</span><span class="result-summary__subject">Payments</span></span>
+            <span class="sr-only"><?= e($total) ?> matching payment<?= $total === 1 ? '' : 's' ?></span>
+        </p>
+    </div>
     <?php if ($payments === []): ?>
         <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-check-circle" aria-hidden="true"></i></span><strong>No payments found</strong><p><?= ($filters['status'] ?? 'pending') === 'pending' ? 'There are no payments awaiting review.' : 'Adjust the filters to review another part of payment history.' ?></p></div>
     <?php else: ?>

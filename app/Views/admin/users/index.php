@@ -27,7 +27,14 @@ $query = static function (int $targetPage) use ($search, $role, $status, $pagina
 </div>
 
 <div class="filter-toolbar mt-8">
-    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e($total) ?></strong> matching <?= $total === 1 ? 'user' : 'users' ?></p>
+    <p class="result-summary filter-toolbar__summary" role="status" aria-live="polite" aria-atomic="true">
+        <strong class="result-summary__count" aria-hidden="true"><?= e($total) ?></strong>
+        <span class="result-summary__copy" aria-hidden="true">
+            <span class="result-summary__context">Matching</span>
+            <span class="result-summary__subject">Users</span>
+        </span>
+        <span class="sr-only"><?= e($total) ?> matching <?= $total === 1 ? 'user' : 'users' ?></span>
+    </p>
     <form class="filter-toolbar__form" action="/admin/users" method="get" role="search" aria-label="Filter users" data-form-kind="filter">
         <div class="filter-toolbar__field filter-toolbar__field--search"><label for="user-search">Search</label><input id="user-search" name="search" type="search" maxlength="100" value="<?= e($search) ?>" placeholder="Name or email"></div>
         <div class="filter-toolbar__field"><label for="user-role">Role</label><select id="user-role" name="role"><option value="">All roles</option><option value="participant"<?= $role === 'participant' ? ' selected' : '' ?>>Participant</option><option value="organizer"<?= $role === 'organizer' ? ' selected' : '' ?>>Organizer</option><option value="super-admin"<?= $role === 'super-admin' ? ' selected' : '' ?>>Super administrator</option></select></div>

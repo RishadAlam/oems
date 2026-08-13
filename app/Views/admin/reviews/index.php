@@ -9,7 +9,14 @@
 </section>
 
 <div class="filter-toolbar mt-8">
-    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e(count($reviews)) ?></strong> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</p>
+    <p class="result-summary filter-toolbar__summary" role="status" aria-live="polite" aria-atomic="true">
+        <strong class="result-summary__count" aria-hidden="true"><?= e(count($reviews)) ?></strong>
+        <span class="result-summary__copy" aria-hidden="true">
+            <span class="result-summary__context">In queue</span>
+            <span class="result-summary__subject">Reviews</span>
+        </span>
+        <span class="sr-only"><?= e(count($reviews)) ?> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</span>
+    </p>
     <form class="filter-toolbar__form filter-toolbar__form--compact" action="/admin/reviews" method="get" role="search" aria-label="Filter reviews" data-form-kind="filter">
         <div class="filter-toolbar__field">
             <label for="review-status">Status</label>
