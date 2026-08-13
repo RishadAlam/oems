@@ -491,6 +491,15 @@ final class UiLayoutTest extends TestCase
             if (count($rules) !== 1 || $actualUtilities !== $expectedUtilities) {
                 $violations[] = 'source CSS must define exactly one ' . $selector . ' rule with no decorative or non-OEMS utilities.';
             }
+
+            foreach ($rules as $rule) {
+                $rawDeclarations = preg_replace('/@apply\s+[^;]+;/', '', $rule) ?? $rule;
+                $rawDeclarations = preg_replace('/\/\*.*?\*\//s', '', $rawDeclarations) ?? $rawDeclarations;
+
+                if (trim($rawDeclarations) !== '') {
+                    $violations[] = 'source CSS must not add raw declarations or non-approved color tokens to ' . $selector . '.';
+                }
+            }
         }
 
         foreach ([
@@ -518,6 +527,16 @@ final class UiLayoutTest extends TestCase
             $violations[] = 'CSS must not retain the legacy .filter-toolbar__summary strong selector.';
         }
 
+        $approvedCompiledColorDeclarations = [
+            '.result-summary' => [],
+            '.result-summary__count' => ['background-color:var(--accent-soft)', 'color:var(--accent)'],
+            '.result-summary__copy' => [],
+            '.result-summary__context' => ['color:var(--ink-muted)'],
+            '.result-summary__subject' => ['color:var(--ink)'],
+            '.dashboard-panel__heading--with-summary' => [],
+            '.dashboard-panel__heading-main' => [],
+        ];
+
         foreach (['source' => $sourceCss, 'compiled' => $compiledCss] as $artifact => $css) {
             foreach (array_keys($sourceRules) as $selector) {
                 foreach ($this->cssExactSelectorRuleBodies($css, $selector) as $rule) {
@@ -526,6 +545,24 @@ final class UiLayoutTest extends TestCase
                         || preg_match('/#[0-9a-f]{3,8}\b/i', $rule) === 1
                     ) {
                         $violations[] = $artifact . ' CSS must not add shadows, motion, positioning, or non-token literal colors to ' . $selector . '.';
+                    }
+
+                    if (
+                        $artifact === 'compiled'
+                        && preg_match('/\b(?:rgb|hsl|hwb|lab|lch|oklab|oklch|color|color-mix)\(/i', $rule) === 1
+                    ) {
+                        $violations[] = 'compiled CSS must not add functional, named, or foreign color forms to ' . $selector . '.';
+                    }
+
+                    preg_match_all('/(?:^|;)(color|background(?:-color)?|border(?:-color)?|outline(?:-color)?|fill|stroke):([^;]+)/', $rule, $colorMatches, PREG_SET_ORDER);
+                    $actualColorDeclarations = [];
+
+                    foreach ($colorMatches as $colorMatch) {
+                        $actualColorDeclarations[] = trim($colorMatch[1]) . ':' . trim($colorMatch[2]);
+                    }
+
+                    if ($artifact === 'compiled' && $actualColorDeclarations !== $approvedCompiledColorDeclarations[$selector]) {
+                        $violations[] = 'compiled CSS must use only the approved OEMS color declarations for ' . $selector . '.';
                     }
 
                     if (
