@@ -1158,6 +1158,38 @@ final class UiLayoutTest extends TestCase
         }
     }
 
+    public function testVerificationRecoveryUsesSharedResponsiveSemanticComponents(): void
+    {
+        $view = new View(base_path('app/Views'));
+        $shared = [
+            'app' => ['name' => 'OEMS'],
+            'siteSettings' => [],
+            'currentUser' => null,
+            'csrfToken' => 'safe-token',
+            'flash' => [],
+            'errors' => [],
+            'old' => [],
+        ];
+        $login = $view->render('auth/login', $shared + ['pageTitle' => 'Sign in'], 'auth');
+        $recovery = $view->render('auth/resend-verification', $shared + [
+            'pageTitle' => 'Resend verification email',
+        ], 'auth');
+        $source = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiled = (string) file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue(str_contains($login, 'href="/verify-email/resend"'));
+        $this->assertTrue(str_contains($login, '>Resend verification email<'));
+        $this->assertTrue(str_contains($recovery, 'data-submit-label="Sending verification email…"'));
+        $this->assertTrue(str_contains($recovery, 'aria-describedby="verification-email-help"'));
+        $this->assertTrue(str_contains($source, '.email-verification-notice {'));
+        $this->assertTrue(str_contains($source, '.email-verification-notice__action {'));
+        $this->assertTrue(str_contains($source, 'bg-[var(--warning-soft)]'));
+        $this->assertTrue(str_contains($compiled, '.email-verification-notice{'));
+        $this->assertTrue(str_contains($compiled, '.email-verification-notice__action{'));
+        $this->assertFalse(str_contains($source, 'dark:text-'));
+        $this->assertFalse(str_contains($source, 'dark:bg-'));
+    }
+
     public function testPasswordVisibilityControlStartsHiddenWithAccurateState(): void
     {
         $view = new View(base_path('app/Views'));
