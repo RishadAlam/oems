@@ -23,16 +23,10 @@ final class LocationAccessibilityStylesTest extends TestCase
         ] as $selector) {
             $pattern = '/'.preg_quote($selector, '/').'\s*\{(?<rules>[^}]*)\}/';
             $matched = preg_match($pattern, $stylesheet, $matches);
+            $rules = (string) ($matches['rules'] ?? '');
 
             $this->assertSame(1, $matched, sprintf('Expected %s in the source stylesheet.', $selector));
-            $this->assertFalse(
-                str_contains((string) ($matches['rules'] ?? ''), 'focus-visible:outline-2'),
-                sprintf('%s must not reduce the global 3px focus outline.', $selector),
-            );
-            $this->assertFalse(
-                str_contains((string) ($matches['rules'] ?? ''), 'focus-visible:outline-offset-2'),
-                sprintf('%s must not reduce the global 3px focus offset.', $selector),
-            );
+            $this->assertRetainsGlobalFocusIndicator($selector, $rules);
         }
     }
 
@@ -61,13 +55,21 @@ final class LocationAccessibilityStylesTest extends TestCase
             str_contains($rules, 'min-h-11'),
             '.event-view-control must retain the 44px minimum target size.',
         );
+        $this->assertRetainsGlobalFocusIndicator('.event-view-control', $rules);
+    }
+
+    private function assertRetainsGlobalFocusIndicator(string $selector, string $rules): void
+    {
         $this->assertFalse(
-            str_contains($rules, 'focus-visible:outline-2'),
-            '.event-view-control must not reduce the global 3px focus outline.',
+            preg_match('/(?:^|[;\n])\s*outline(?:-width|-offset)?\s*:/', $rules) === 1,
+            sprintf('%s must not override the global 3px focus width or offset.', $selector),
         );
         $this->assertFalse(
-            str_contains($rules, 'focus-visible:outline-offset-2'),
-            '.event-view-control must not reduce the global 3px focus offset.',
+            preg_match(
+                '/focus-visible:outline(?!(?:-\[var\(--accent\)\])(?=[\s;]|$))(?:-[^\s;]+)?/',
+                $rules,
+            ) === 1,
+            sprintf('%s must not apply a focus-visible outline width or offset utility.', $selector),
         );
     }
 }
