@@ -256,6 +256,34 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'href="/register?role=organizer" class="button button--quiet"'));
     }
 
+    public function testHomeBannersRenderAsFullWidthPublicAnnouncements(): void
+    {
+        $html = $this->renderHome([
+            'homeBanners' => [[
+                'id' => 7,
+                'title' => 'August community series',
+                'subtitle' => 'Three practical sessions for local organizers.',
+                'image_path' => '/uploads/banners/community-series.webp',
+                'link_url' => '/events?category=community',
+                'starts_at' => null,
+                'ends_at' => null,
+                'sort_order' => 10,
+            ]],
+        ]);
+
+        $this->assertTrue(str_contains($html, 'class="home-announcements"'));
+        $this->assertTrue(str_contains($html, 'class="home-announcement"'));
+        $this->assertTrue(str_contains($html, 'class="home-announcement__media"'));
+        $this->assertTrue(str_contains($html, 'class="home-announcement__body"'));
+        $this->assertTrue(str_contains($html, 'alt="Promotion: August community series"'));
+        $this->assertTrue(str_contains($html, '<h2>August community series</h2>'));
+        $this->assertTrue(str_contains($html, 'Three practical sessions for local organizers.'));
+        $this->assertTrue(str_contains($html, 'href="/events?category=community"'));
+        $this->assertTrue(str_contains($html, 'Find your next standout event.'));
+        $this->assertFalse(str_contains($html, 'class="dashboard-panel overflow-hidden p-0"'));
+        $this->assertFalse(str_contains($html, 'lg:grid-cols-2'));
+    }
+
     public function testRegistrationRoleChoicesAreNativeAndSelfDescribing(): void
     {
         $view = new View(base_path('app/Views'));
@@ -347,11 +375,11 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'Return home'));
     }
 
-    private function renderHome(): string
+    private function renderHome(array $overrides = []): string
     {
         $view = new View(base_path('app/Views'));
 
-        return $view->render('home/index', [
+        $data = [
             'app' => ['name' => 'OEMS'],
             'currentUser' => null,
             'flash' => [],
@@ -370,7 +398,9 @@ final class UiLayoutTest extends TestCase
                     'alt' => 'A collaborative design workshop around a studio table',
                 ],
             ],
-        ], 'public');
+        ];
+
+        return $view->render('home/index', array_replace($data, $overrides), 'public');
     }
 
     private function inlineExecutableScripts(string $html): array
