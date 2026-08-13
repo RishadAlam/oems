@@ -8,7 +8,7 @@ $canCancel = in_array($status, ['approved', 'published'], true);
     <div>
         <p class="dashboard-kicker"><i class="ph ph-shield-check" aria-hidden="true"></i><span>Moderation evidence</span></p>
         <h1><?= e($event['title']) ?></h1>
-        <p>Current status: <span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></p>
+        <p>Current status: <span class="status-chip status-chip--<?= e(status_modifier($status, 'event')) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></p>
     </div>
     <a class="button button--quiet" href="/admin/events"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>Back to queue</span></a>
 </div>
@@ -17,7 +17,7 @@ $canCancel = in_array($status, ['approved', 'published'], true);
     <article class="dashboard-panel admin-evidence-panel" aria-labelledby="event-evidence-heading">
         <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-file-magnifying-glass" aria-hidden="true"></i></span><div><h2 id="event-evidence-heading">Event evidence</h2><p>Verify the submitted record before using a moderation action.</p></div></div>
         <?php if (!empty($event['banner'])): ?><figure class="admin-evidence-banner"><img src="<?= e($event['banner']) ?>" alt="Banner submitted for <?= e($event['title']) ?>"></figure><?php endif; ?>
-        <div class="admin-evidence-summary"><span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span><span><?= e($event['category_name'] ?? 'Uncategorized') ?></span><span><?= e($event['organization_name'] ?? 'Unknown organizer') ?></span></div>
+        <div class="admin-evidence-summary"><span class="status-chip status-chip--<?= e(status_modifier($status, 'event')) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span><span><?= e($event['category_name'] ?? 'Uncategorized') ?></span><span><?= e($event['organization_name'] ?? 'Unknown organizer') ?></span></div>
         <p class="organizer-event-description"><?= nl2br(e($event['description'] ?? '')) ?></p>
         <?php if (!empty($event['rejection_reason'])): ?><div class="form-alert" role="note"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><strong>Previous rejection reason:</strong> <?= e($event['rejection_reason']) ?></span></div><?php endif; ?>
         <dl class="organizer-detail-list">
@@ -45,7 +45,7 @@ $canCancel = in_array($status, ['approved', 'published'], true);
 
     <aside class="dashboard-panel organizer-actions-panel" aria-labelledby="moderation-actions-heading">
         <div class="dashboard-panel__heading"><span class="dashboard-panel__icon"><i class="ph ph-gavel" aria-hidden="true"></i></span><div><h2 id="moderation-actions-heading">Moderation actions</h2><p>Each action checks the current state again before saving.</p></div></div>
-        <p class="admin-current-state">Current status: <span class="status-chip status-chip--<?= e($status) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></p>
+        <p class="admin-current-state">Current status: <span class="status-chip status-chip--<?= e(status_modifier($status, 'event')) ?>"><?= e($statusLabels[$status] ?? ucfirst($status)) ?></span></p>
         <div class="organizer-action-stack">
             <?php if ($status === 'pending'): ?>
                 <form action="/admin/events/<?= e($event['id']) ?>/approve" method="post" data-form-kind="action"><input type="hidden" name="_token" value="<?= e($csrfToken) ?>"><button class="button button--primary w-full" type="submit" data-submit-label="Approving event…"><i class="ph ph-check-circle" aria-hidden="true"></i><span data-submit-text>Approve event</span></button></form>

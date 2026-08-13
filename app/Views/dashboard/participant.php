@@ -32,7 +32,7 @@ $unreadNotifications = (int) ($unreadNotifications ?? 0);
             <div class="grid gap-3">
                 <?php foreach ($recentTickets as $item): ?>
                     <?php $ticketStatus = (string) ($item['ticket_status'] ?? 'valid'); ?>
-                    <a class="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="/participant/tickets/<?= e((int) ($item['id'] ?? 0)) ?>"><span><strong class="block"><?= e($item['event_title'] ?? '') ?></strong><small class="text-[var(--ink-muted)]"><?= e($item['ticket_number'] ?? '') ?></small></span><span class="status-badge status-badge--<?= e($ticketStatus) ?>"><?= e(ucfirst(str_replace('_', ' ', $ticketStatus))) ?></span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                    <a class="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="/participant/tickets/<?= e((int) ($item['id'] ?? 0)) ?>"><span class="min-w-0 flex-1"><strong class="block break-words"><?= e($item['event_title'] ?? '') ?></strong><small class="break-all text-[var(--ink-muted)]"><?= e($item['ticket_number'] ?? '') ?></small></span><span class="status-badge status-badge--<?= e(status_modifier($ticketStatus, 'ticket')) ?> shrink-0"><?= e(ucfirst(str_replace('_', ' ', $ticketStatus))) ?></span><i class="ph ph-arrow-right shrink-0" aria-hidden="true"></i></a>
                 <?php endforeach; ?>
             </div>
             <a class="button button--quiet button--compact mt-5" href="/participant/tickets"><span>View tickets</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
@@ -84,7 +84,7 @@ $unreadNotifications = (int) ($unreadNotifications ?? 0);
             <div class="grid gap-3">
                 <?php foreach ($upcoming as $item): ?>
                     <?php $paymentStatus = (string) ($item['payment_status'] ?? 'not_required'); ?>
-                    <a class="flex items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="/participant/registrations/<?= e((int) $item['id']) ?>"><span><strong class="block"><?= e($item['event_title'] ?? '') ?></strong><small class="text-[var(--ink-muted)]"><?= e($item['event_start_date'] ?? '') ?></small></span><span class="status-badge status-badge--<?= e($paymentStatus) ?>"><?= e(ucfirst(str_replace('_', ' ', $paymentStatus))) ?></span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                    <a class="flex flex-wrap items-center justify-between gap-4 rounded-[18px] border border-[var(--line)] p-4 transition hover:border-[var(--accent)]" href="/participant/registrations/<?= e((int) $item['id']) ?>"><span class="min-w-0 flex-1"><strong class="block break-words"><?= e($item['event_title'] ?? '') ?></strong><small class="break-words text-[var(--ink-muted)]"><?= e($item['event_start_date'] ?? '') ?></small></span><span class="status-badge status-badge--<?= e(status_modifier($paymentStatus, 'payment')) ?> shrink-0"><?= e(ucfirst(str_replace('_', ' ', $paymentStatus))) ?></span><i class="ph ph-arrow-right shrink-0" aria-hidden="true"></i></a>
                 <?php endforeach; ?>
             </div>
             <a class="button button--quiet button--compact mt-5" href="/participant/registrations"><span>View registrations</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>

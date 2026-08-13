@@ -9,6 +9,25 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('status_modifier')) {
+    function status_modifier(mixed $value, string $domain): string
+    {
+        static $allowed = [
+            'account' => ['active', 'inactive', 'suspended'],
+            'attendance' => ['not_checked_in', 'present', 'absent'],
+            'contact' => ['new', 'read', 'replied', 'archived'],
+            'event' => ['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'],
+            'organizer_approval' => ['pending', 'approved', 'rejected'],
+            'payment' => ['none', 'pending', 'paid', 'failed', 'refunded', 'partially_refunded', 'not_required'],
+            'registration' => ['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'],
+            'ticket' => ['none', 'valid', 'used', 'cancelled'],
+        ];
+        $status = is_scalar($value) ? (string) $value : '';
+
+        return in_array($status, $allowed[$domain] ?? [], true) ? $status : 'neutral';
+    }
+}
+
 if (!function_exists('base_path')) {
     function base_path(string $path = ''): string
     {

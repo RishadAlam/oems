@@ -70,7 +70,7 @@ $paymentDetailLabel = $eventCancelled
     <section class="dashboard-panel" aria-labelledby="registration-status-heading">
         <h2 id="registration-status-heading" class="text-xl font-bold">Registration and event</h2>
         <dl class="status-list mt-5">
-            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($registrationStatus) ?>"><?= e(ucfirst($registrationStatus)) ?></span></dd></div>
+            <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($registrationStatus, 'registration')) ?>"><?= e(ucfirst($registrationStatus)) ?></span></dd></div>
             <div><dt>Registered</dt><dd><?= e($registration['registered_display']) ?></dd></div>
             <div><dt>Starts</dt><dd><?= e($registration['event_start_display']) ?></dd></div>
             <div><dt>Venue</dt><dd><?= e($registration['venue_display'] ?? 'Venue to be announced') ?></dd></div>
@@ -93,7 +93,7 @@ $paymentDetailLabel = $eventCancelled
         <dl class="status-list mt-5">
             <?php if (!empty($registration['coupon_applied'])): ?><div><dt>Original price</dt><dd><?= e($registration['base_amount_display']) ?> <?= e($registration['currency']) ?></dd></div><div><dt>Discount</dt><dd><?= e($registration['discount_amount_display']) ?> <?= e($registration['currency']) ?> <span class="status-badge status-badge--success">Coupon applied</span></dd></div><?php endif; ?>
             <div><dt>Total</dt><dd><?= e($registration['amount_display']) ?> <?= e($registration['currency']) ?></dd></div>
-            <div><dt>Payment</dt><dd><span class="status-chip status-chip--<?= e($paymentStatus) ?>"><?= e($paymentDetailLabel) ?></span></dd></div>
+            <div><dt>Payment</dt><dd><span class="status-chip status-chip--<?= e(status_modifier($paymentStatus, 'payment')) ?>"><?= e($paymentDetailLabel) ?></span></dd></div>
             <div><dt>Ticket</dt><dd><?php if (is_array($registration['ticket'])): ?><a class="text-link" href="/participant/tickets/<?= e($registration['ticket']['id']) ?>">View ticket <?= e($registration['ticket']['ticket_number']) ?></a><?php else: ?>Not issued<?php endif; ?></dd></div>
         </dl>
     </section>

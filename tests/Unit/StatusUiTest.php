@@ -290,6 +290,112 @@ final class StatusUiTest extends TestCase
         ]);
     }
 
+    public function testTaskTwoDynamicStatusSurfacesKeepHostileUnknownStatesNeutralAndVisible(): void
+    {
+        $hostile = 'unknown status-chip--danger status-badge--success <unsafe>';
+        $documents = [
+            'administrator analytics' => [$this->render('admin/analytics/index', [
+                'filterError' => null, 'range' => [], 'filters' => [], 'charts' => [],
+                'summary' => [
+                    'lifecycle' => [], 'registrations' => [], 'verified_payments' => [],
+                    'top_events' => [['event_id' => 1, 'event_status' => $hostile, 'registration_count' => 1]],
+                ],
+            ]), 1],
+            'administrator contact' => [$this->render('admin/contact/show', ['message' => [
+                'id' => 2, 'name' => 'Contact', 'email' => 'contact@example.test', 'subject' => 'Question',
+                'status' => $hostile, 'created_at' => '2026-08-13 10:00:00', 'message' => 'Hello',
+            ]]), 1],
+            'administrator event' => [$this->render('admin/events/show', ['event' => [
+                'id' => 3, 'title' => 'Event', 'status' => $hostile, 'description' => 'Description',
+                'start_date' => '2026-08-20 10:00:00', 'end_date' => '2026-08-20 12:00:00',
+                'registration_deadline' => '2026-08-19 10:00:00', 'capacity' => 100,
+                'available_seats' => 80, 'ticket_price' => '100.00', 'currency' => 'BDT',
+            ], 'gallery' => []]), 3],
+            'administrator organizer' => [$this->render('admin/organizers/show', ['organizer' => [
+                'id' => 4, 'organization_name' => 'Organization', 'name' => 'Organizer',
+                'email' => 'organizer@example.test', 'approval_status' => $hostile,
+                'user_status' => $hostile, 'email_verified_at' => null, 'role_slug' => 'organizer',
+            ]]), 2],
+            'administrator payment' => [$this->render('admin/payments/show', [
+                'payment' => [
+                    'id' => 5, 'payment_status' => $hostile, 'registration_status' => $hostile,
+                    'transaction_reference' => 'PAY-5', 'participant_name' => 'Participant',
+                    'participant_email' => 'participant@example.test', 'event_title' => 'Event',
+                    'organizer_name' => 'Organizer', 'currency' => 'BDT', 'amount' => '100.00',
+                    'payment_method_name' => 'Manual', 'payment_channel' => 'manual',
+                    'created_at' => '2026-08-13 10:00:00',
+                ],
+                'paymentAge' => 'today', 'returnFilters' => [], 'actionError' => null, 'confirmation' => null,
+            ]), 3],
+            'administrator user' => [$this->render('admin/users/show', ['managedUser' => [
+                'id' => 6, 'name' => 'User', 'email' => 'user@example.test', 'status' => $hostile,
+                'role_slug' => 'participant', 'email_verified_at' => null,
+            ]]), 1],
+            'participant dashboard' => [$this->render('dashboard/participant', [
+                'metrics' => [], 'workspace' => [
+                    'tickets' => [['id' => 7, 'event_title' => 'Ticket event', 'ticket_number' => 'OEMS-123', 'ticket_status' => $hostile]],
+                    'upcoming' => [['id' => 8, 'event_title' => 'Upcoming event', 'event_start_date' => 'Tomorrow', 'payment_status' => $hostile]],
+                ], 'unreadNotifications' => 0,
+            ]), 2],
+            'organizer participants' => [$this->render('organizer/participants/index', [
+                'event' => ['event_id' => 9, 'event_title' => 'Event'], 'filters' => [], 'total' => 1,
+                'page' => 1, 'lastPage' => 1, 'participants' => [[
+                    'id' => 10, 'participant_name' => 'Participant', 'participant_email' => 'participant@example.test',
+                    'registration_number' => 'REG-10', 'registration_status' => $hostile,
+                    'payment_status' => $hostile, 'ticket_number' => 'OEMS-10',
+                    'ticket_status' => $hostile, 'attendance_status' => $hostile, 'scanned_at' => null,
+                ]],
+            ]), 4],
+            'participant favorites' => [$this->render('participant/favorites/index', [
+                'favorites' => [[
+                    'event_id' => 11, 'title' => 'Saved event', 'is_available' => false,
+                    'event_status' => $hostile, 'start_display' => 'Tomorrow', 'price_display' => 'BDT 100',
+                ]], 'pagination' => ['page' => 1, 'last_page' => 1],
+            ]), 1],
+            'participant registration' => [$this->render('participant/registrations/show', ['registration' => [
+                'id' => 12, 'registration_number' => 'REG-12', 'event_title' => 'Event',
+                'registration_status' => $hostile, 'payment_status' => $hostile, 'event_status' => 'published',
+                'registered_display' => 'Today', 'event_start_display' => 'Tomorrow', 'amount_display' => '100.00',
+                'currency' => 'BDT', 'ticket' => null, 'cancellation_state' => ['allowed' => false, 'reason' => null],
+                'can_cancel' => false,
+            ]]), 2],
+        ];
+
+        foreach ($documents as $surface => [$html, $expectedCount]) {
+            $this->assertTrue(str_contains($html, 'status-chip--danger status-badge--success &lt;unsafe&gt;'), $surface . ' must preserve and escape visible status text.');
+            $this->assertFalse(str_contains($html, '<unsafe>'), $surface . ' must not render hostile status markup.');
+            $this->assertHostileStatusesAreNeutral($html, $expectedCount, $surface);
+        }
+    }
+
+    public function testTaskTwoDynamicStatusModifiersUseTheCentralDomainGuard(): void
+    {
+        foreach ([
+            'app/Views/admin/analytics/index.php',
+            'app/Views/admin/contact/show.php',
+            'app/Views/admin/events/show.php',
+            'app/Views/admin/organizers/show.php',
+            'app/Views/admin/payments/show.php',
+            'app/Views/admin/users/show.php',
+            'app/Views/dashboard/participant.php',
+            'app/Views/organizer/participants/index.php',
+            'app/Views/participant/favorites/index.php',
+            'app/Views/participant/registrations/show.php',
+        ] as $path) {
+            $view = file_get_contents(base_path($path));
+            $this->assertTrue(is_string($view), 'Unable to read ' . $path . '.');
+            preg_match_all('/status-(?:chip|badge)--<\?=([^?]+)\?>/', (string) $view, $matches);
+            $this->assertTrue(($matches[1] ?? []) !== [], $path . ' must retain its dynamic status surface.');
+
+            foreach ($matches[1] as $expression) {
+                $this->assertTrue(
+                    str_contains($expression, 'status_modifier('),
+                    $path . ' must guard every dynamic status modifier through status_modifier().',
+                );
+            }
+        }
+    }
+
     public function testSharedStatusQueriesRequireBaseClassesAndPermitBothFamilies(): void
     {
         $modifierOnly = '<section id="status-surface"><span class="status-chip--read">Read</span></section>';
@@ -346,6 +452,37 @@ final class StatusUiTest extends TestCase
                 1,
                 $this->sharedStatusCount($html, $location, $state, $label),
                 sprintf('Expected one shared status component for %s at %s.', $label, $location),
+            );
+        }
+    }
+
+    private function assertHostileStatusesAreNeutral(string $html, int $expectedCount, string $surface): void
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, $surface . ' must render parseable HTML.');
+        $xpath = new \DOMXPath($document);
+        $matches = $xpath->query(
+            '//*[contains(normalize-space(.), "status-chip--danger status-badge--success <unsafe>")'
+            . ' and (contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+            . ' or contains(concat(" ", normalize-space(@class), " "), " status-badge "))]',
+        );
+
+        $this->assertSame($expectedCount, $matches === false ? 0 : $matches->length, $surface . ' hostile status count.');
+        if ($matches === false) {
+            return;
+        }
+
+        foreach ($matches as $match) {
+            preg_match_all('/\bstatus-(?:chip|badge)--[^\s]+/', (string) $match->attributes?->getNamedItem('class')?->nodeValue, $modifiers);
+            $this->assertSame(1, count($modifiers[0] ?? []), $surface . ' must emit exactly one guarded modifier.');
+            $this->assertTrue(
+                in_array(($modifiers[0] ?? [])[0] ?? '', ['status-chip--neutral', 'status-badge--neutral'], true),
+                $surface . ' hostile state must use the neutral modifier.',
             );
         }
     }

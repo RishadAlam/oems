@@ -342,6 +342,34 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($participant, 'href="/participant/notifications"'));
     }
 
+    public function testParticipantDashboardKeepsGeneratedLengthTicketIdentifiersShrinkSafe(): void
+    {
+        $ticketNumber = 'OEMS-' . str_repeat('a', 32);
+        $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant', [
+            'workspace' => ['tickets' => [[
+                'id' => 29,
+                'ticket_number' => $ticketNumber,
+                'ticket_status' => 'valid',
+                'event_title' => 'A realistically long participant event title for a narrow mobile panel',
+            ]]],
+        ]);
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($participant);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded);
+        $xpath = new \DOMXPath($document);
+        $link = $xpath->query('//section[.//h2[normalize-space(.) = "Recent tickets"]]//a[.//small[normalize-space(.) = "' . $ticketNumber . '"]]')?->item(0);
+        $this->assertTrue($link instanceof \DOMElement);
+        $this->assertTrue(str_contains(' ' . $link->getAttribute('class') . ' ', ' flex-wrap '));
+        $leading = $xpath->query('./span[1][contains(concat(" ", normalize-space(@class), " "), " min-w-0 ")]', $link);
+        $identifier = $xpath->query('.//small[contains(concat(" ", normalize-space(@class), " "), " break-all ") and normalize-space(.) = "' . $ticketNumber . '"]', $link);
+        $this->assertSame(1, $leading === false ? 0 : $leading->length);
+        $this->assertSame(1, $identifier === false ? 0 : $identifier->length);
+    }
+
     public function testParticipantDashboardFallsBackFromAnUnsafeStoredNotificationAction(): void
     {
         $participant = $this->renderRoleDashboard('dashboard/participant', 'Participant', [

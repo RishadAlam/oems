@@ -151,6 +151,33 @@ final class AnalyticsControllerTest extends TestCase
         $this->assertTrue(str_contains($invalid->body(), 'role="alert"'));
     }
 
+    public function testAdminTopEventLifecycleKeepsRepositoryWordingVerbatim(): void
+    {
+        [$controller, $repository] = $this->adminController();
+        $repository->adminSummary['top_events'] = [[
+            'event_id' => 7,
+            'event_status' => 'published',
+            'registration_count' => 8,
+        ]];
+
+        $response = $controller->index(Request::create('GET', '/admin/analytics'));
+
+        $this->assertSame(200, $response->status());
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($response->body());
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded);
+        $xpath = new \DOMXPath($document);
+        $lifecycles = $xpath->query('//section[@aria-labelledby = "top-events"]//td[@data-label = "Lifecycle"]/span['
+            . 'contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+            . ' and contains(concat(" ", normalize-space(@class), " "), " status-chip--published ")]');
+        $this->assertSame(1, $lifecycles === false ? 0 : $lifecycles->length);
+        $this->assertSame('published', trim((string) $lifecycles?->item(0)?->textContent));
+    }
+
     public function testAnalyticsRoutesRequireTheirRoleAndRejectWrongMethods(): void
     {
         $this->assertSame(200, $this->router('organizer')->dispatch(Request::create('GET', '/organizer/analytics'))->status());
