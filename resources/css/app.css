@@ -1999,6 +1999,54 @@
         @apply text-[var(--ink)];
     }
 
+    .approval-readiness-panel {
+        @apply rounded-[14px] border p-4;
+    }
+
+    .approval-readiness-panel--ready {
+        @apply border-[color-mix(in_srgb,var(--info)_35%,var(--line))] bg-[var(--info-soft)];
+    }
+
+    .approval-readiness-panel--blocked {
+        @apply border-[color-mix(in_srgb,var(--warning)_35%,var(--line))] bg-[var(--warning-soft)];
+    }
+
+    .approval-readiness-panel__heading {
+        @apply flex items-start gap-3;
+    }
+
+    .approval-readiness-panel__heading > .ph {
+        @apply mt-0.5 shrink-0 text-xl;
+    }
+
+    .approval-readiness-panel--ready .approval-readiness-panel__heading > .ph {
+        @apply text-[var(--info)];
+    }
+
+    .approval-readiness-panel--blocked .approval-readiness-panel__heading > .ph {
+        @apply text-[var(--warning)];
+    }
+
+    .approval-readiness-panel__heading h3 {
+        @apply text-sm font-extrabold text-[var(--ink)];
+    }
+
+    .approval-readiness-panel__heading p {
+        @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .approval-readiness-list--stacked {
+        @apply grid;
+    }
+
+    .approval-readiness-list--stacked li {
+        @apply flex w-full justify-between rounded-[10px] bg-[var(--surface-raised)] px-3;
+    }
+
+    .approval-readiness-list--stacked li > span {
+        @apply inline-flex items-center gap-2;
+    }
+
     .approval-queue {
         @apply divide-y divide-[var(--line)] overflow-hidden rounded-[14px] border border-[var(--line)];
     }

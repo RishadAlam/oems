@@ -153,6 +153,7 @@ final class AdminPeopleControllerTest extends TestCase
         $this->assertTrue(str_contains($index->body(), 'data-label="Organization"'));
         $this->assertTrue(str_contains($index->body(), 'Page 1 of 1'));
         $this->assertSame(200, $show->status());
+        $this->assertTrue(str_contains($show->body(), 'Ready to approve'));
         $this->assertTrue(str_contains($show->body(), 'Approve organizer'));
         $this->assertTrue(str_contains($show->body(), 'Reject organizer'));
         $this->assertTrue(str_contains($show->body(), 'maxlength="500"'));
@@ -163,6 +164,25 @@ final class AdminPeopleControllerTest extends TestCase
         $this->people->organizers[20]['approval_status'] = 'approved';
         $ineligibleForApproval = $this->organizersController->show($this->routed('GET', '/admin/organizers/20', '20'));
         $this->assertTrue(str_contains($ineligibleForApproval->body(), 'Reject organizer'));
+    }
+
+    public function testPendingUnverifiedOrganizerShowsApprovalBlockersAndDisabledAction(): void
+    {
+        $this->people->organizers[20]['approval_status'] = 'pending';
+        $this->people->organizers[20]['user_status'] = 'active';
+        $this->people->organizers[20]['email_verified_at'] = null;
+
+        $response = $this->organizersController->show($this->routed('GET', '/admin/organizers/20', '20'));
+        $body = $response->body();
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($body, 'Approval blocked'));
+        $this->assertTrue(str_contains($body, 'Email address verified'));
+        $this->assertTrue(str_contains($body, 'Not completed'));
+        $this->assertTrue(str_contains($body, 'aria-describedby="organizer-approval-readiness"'));
+        $this->assertTrue(str_contains($body, 'type="button" disabled'));
+        $this->assertFalse(str_contains($body, 'action="/admin/organizers/20/approve"'));
+        $this->assertTrue(str_contains($body, 'Reject organizer'));
     }
 
     public function testEmptyListsHaveClearRecoveryCopy(): void
