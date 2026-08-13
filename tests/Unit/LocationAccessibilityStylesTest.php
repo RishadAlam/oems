@@ -59,6 +59,36 @@ final class LocationAccessibilityStylesTest extends TestCase
         $this->assertAllEventViewRulesRetainGlobalFocusIndicator($stylesheet, '.event-view-control');
     }
 
+    public function testMobileEventViewControlKeepsTheLabelAndSwitchWithinTheToolbar(): void
+    {
+        $stylesheet = file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(is_string($stylesheet));
+        $mobileStart = strpos($stylesheet, '@media (max-width: 767px)');
+        $this->assertNotSame(false, $mobileStart);
+        $mobileStyles = substr($stylesheet, (int) $mobileStart);
+
+        $controlMatched = preg_match(
+            '/(?:^|})\s*'.preg_quote('.event-view-control', '/').'\s*\{(?<rules>[^}]*)\}/',
+            $mobileStyles,
+            $controlMatches,
+        );
+        $this->assertSame(1, $controlMatched, 'Expected a dedicated mobile .event-view-control rule.');
+        $this->assertTrue(str_contains((string) ($controlMatches['rules'] ?? ''), 'w-full'));
+
+        $switchMatched = preg_match(
+            '/(?:^|})\s*'.preg_quote('.event-view-switch', '/').'\s*\{(?<rules>[^}]*)\}/',
+            $mobileStyles,
+            $switchMatches,
+        );
+        $switchRules = (string) ($switchMatches['rules'] ?? '');
+
+        $this->assertSame(1, $switchMatched, 'Expected a dedicated mobile .event-view-switch rule.');
+        $this->assertTrue(str_contains($switchRules, 'min-w-0'));
+        $this->assertTrue(str_contains($switchRules, 'flex-1'));
+        $this->assertTrue(str_contains($switchRules, 'w-auto'));
+    }
+
     private function assertAllEventViewRulesRetainGlobalFocusIndicator(string $stylesheet, string $selector): void
     {
         $matchingRules = $this->sourceRuleBlocksContaining($stylesheet, $selector);

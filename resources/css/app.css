@@ -2569,13 +2569,20 @@
     .event-location-controls,
     .event-location-controls__preference,
     .event-location-controls__preference form,
-    .event-location-controls__preference .button,
-    .event-view-switch {
+    .event-location-controls__preference .button {
         width: 100%;
     }
 
     .event-location-controls__preference {
         align-items: stretch;
+    }
+
+    .event-view-control {
+        @apply w-full;
+    }
+
+    .event-view-switch {
+        @apply min-w-0 w-auto flex-1;
     }
 
     .event-map {
