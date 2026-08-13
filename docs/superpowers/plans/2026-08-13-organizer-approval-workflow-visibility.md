@@ -83,7 +83,7 @@ rtk git commit -m "feat: expose organizer approval dashboard data"
 
 - [ ] **Step 1: Write failing dashboard tests**
 
-Assert that an unverified pending organizer sees `Organization approval pending`, `Email verification required`, and `/email/verify`. Assert that the admin dashboard shows the pending organizer metric, `Organizer approval queue`, `/admin/organizers?approval_status=pending`, and a direct evidence link such as `/admin/organizers/20`.
+Assert that an unverified pending organizer sees `Organization approval pending`, `Email verification required`, and the valid `/profile` recovery link. Assert that the admin dashboard shows the pending organizer metric, `Organizer approval queue`, `/admin/organizers?approval_status=pending`, and a direct evidence link such as `/admin/organizers/20`.
 
 - [ ] **Step 2: Run the focused layout tests and confirm RED**
 
@@ -113,7 +113,7 @@ Add a compact organizer status card with pending, approved, and rejected copy an
 
 Add `approval-overview`, `approval-readiness-list`, and `approval-queue` component classes using existing CSS variables. Build with:
 
-`rtk npm run build`
+`rtk npm run build:css`
 
 Expected: `public/assets/css/app.css` contains the new compiled selectors.
 
@@ -162,7 +162,7 @@ Derive role, account, and email requirement booleans once in the view. Render th
 Run:
 
 ```bash
-rtk npm run build
+rtk npm run build:css
 rtk composer test -- tests/Unit/AdminPeopleControllerTest.php
 ```
 
@@ -190,7 +190,7 @@ Run:
 ```bash
 rtk composer validate --strict
 rtk composer test
-rtk npm run build
+rtk npm run build:css
 rtk git diff --check
 ```
 
