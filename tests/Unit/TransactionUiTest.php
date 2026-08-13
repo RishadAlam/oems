@@ -83,7 +83,7 @@ final class TransactionUiTest extends TestCase
 
         $this->assertTrue(str_contains($html, 'The event was cancelled.'));
         $this->assertTrue(str_contains($html, '<strong>Payment</strong><span>Event cancelled</span>'));
-        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd>Event cancelled</dd>'));
+        $this->assertTrue(str_contains($html, '<dt>Payment</dt><dd><span class="status-chip status-chip--failed">Event cancelled</span></dd>'));
         $this->assertFalse(str_contains($html, 'payment reference was rejected'));
         $this->assertFalse(str_contains($html, '>Payment rejected</span>'));
     }
