@@ -46,4 +46,28 @@ final class LocationAccessibilityStylesTest extends TestCase
         $this->assertTrue(str_contains($stylesheet, '@media (min-width: 1024px)'));
         $this->assertTrue(str_contains($stylesheet, '.event-view-control'));
     }
+
+    public function testEventViewControlRetainsTheFortyFourPixelTargetAndGlobalFocusIndicator(): void
+    {
+        $stylesheet = file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(is_string($stylesheet));
+        $pattern = '/'.preg_quote('.event-view-control', '/').'\s*\{(?<rules>[^}]*)\}/';
+        $matched = preg_match($pattern, $stylesheet, $matches);
+        $rules = (string) ($matches['rules'] ?? '');
+
+        $this->assertSame(1, $matched, 'Expected .event-view-control in the source stylesheet.');
+        $this->assertTrue(
+            str_contains($rules, 'min-h-11'),
+            '.event-view-control must retain the 44px minimum target size.',
+        );
+        $this->assertFalse(
+            str_contains($rules, 'focus-visible:outline-2'),
+            '.event-view-control must not reduce the global 3px focus outline.',
+        );
+        $this->assertFalse(
+            str_contains($rules, 'focus-visible:outline-offset-2'),
+            '.event-view-control must not reduce the global 3px focus offset.',
+        );
+    }
 }
