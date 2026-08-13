@@ -82,10 +82,20 @@ final class AdminEventControllerTest extends TestCase
             '/admin/events?status=approved',
             query: ['status' => 'approved'],
         ));
+        $published = $this->controller->index(Request::create(
+            'GET',
+            '/admin/events?status=published',
+            query: ['status' => 'published'],
+        ));
         $unknown = $this->controller->index(Request::create(
             'GET',
             '/admin/events?status[]=pending',
             query: ['status' => ['pending']],
+        ));
+        $empty = $this->controller->index(Request::create(
+            'GET',
+            '/admin/events?status=completed',
+            query: ['status' => 'completed'],
         ));
 
         $this->assertSame(200, $pending->status());
@@ -97,6 +107,10 @@ final class AdminEventControllerTest extends TestCase
         $this->assertTrue(str_contains($unknown->body(), 'Pending Accessibility Forum'));
         $this->assertFalse(str_contains($unknown->body(), 'Approved Product Summit'));
         $this->assertTrue(str_contains($pending->body(), 'class="organizer-table__action" data-label="Action"'));
+        $this->assertTrue(str_contains($pending->body(), '<span class="sr-only">2 events in this queue</span>'));
+        $this->assertTrue(str_contains($approved->body(), '<span class="sr-only">2 events in this queue</span>'));
+        $this->assertTrue(str_contains($published->body(), '<span class="sr-only">1 event in this queue</span>'));
+        $this->assertTrue(str_contains($empty->body(), '<span class="sr-only">0 events in this queue</span>'));
     }
 
     public function testShowPresentsEventEvidenceBeforeSeparateExplicitActions(): void

@@ -153,6 +153,7 @@ final class AdminPeopleControllerTest extends TestCase
         $this->assertSame(200, $index->status());
         $this->assertTrue(str_contains($index->body(), '&lt;b&gt;Community Events&lt;/b&gt;'));
         $this->assertTrue(str_contains($index->body(), 'data-label="Organization"'));
+        $this->assertTrue(str_contains($index->body(), '<span class="sr-only">1 matching organizer</span>'));
         $this->assertTrue(str_contains($index->body(), 'Page 1 of 1'));
         $this->assertSame(200, $show->status());
         $this->assertTrue(str_contains($show->body(), 'Ready to approve'));
@@ -197,6 +198,8 @@ final class AdminPeopleControllerTest extends TestCase
 
         $this->assertTrue(str_contains($users->body(), 'No users match these filters'));
         $this->assertTrue(str_contains($organizers->body(), 'No organizers match these filters'));
+        $this->assertTrue(str_contains($users->body(), '<span class="sr-only">0 matching users</span>'));
+        $this->assertTrue(str_contains($organizers->body(), '<span class="sr-only">0 matching organizers</span>'));
     }
 
     public function testMalformedDirectoryFiltersFailClosedInsteadOfShowingAllPeople(): void

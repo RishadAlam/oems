@@ -10,6 +10,8 @@ use RuntimeException;
 
 final class FakeEventRepository implements EventRepositoryInterface
 {
+    public int $organizerSummaryCalls = 0;
+
     public array $events = [];
 
     public array $galleries = [];
@@ -99,6 +101,8 @@ final class FakeEventRepository implements EventRepositoryInterface
 
     public function organizerSummary(int $userId): array
     {
+        $this->organizerSummaryCalls++;
+
         return ['total' => count($this->forOrganizerUser($userId, null))];
     }
 

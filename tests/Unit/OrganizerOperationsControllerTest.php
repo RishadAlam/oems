@@ -146,6 +146,21 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'data-form-kind="filter"'));
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/99/participants', '99'))->status());
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
+
+        $empty = $this->participants->index($this->routed(
+            'GET',
+            '/organizer/events/10/participants',
+            '10',
+            query: ['registration_status' => 'cancelled'],
+        ));
+        $this->assertTrue(str_contains($empty->body(), '<span class="sr-only">0 matching registrations</span>'));
+
+        $this->registrations->registrations[102] = array_merge($this->registrations->registrations[101], [
+            'id' => 102,
+            'registration_number' => 'REG-102',
+        ]);
+        $plural = $this->participants->index($this->routed('GET', '/organizer/events/10/participants', '10'));
+        $this->assertTrue(str_contains($plural->body(), '<span class="sr-only">2 matching registrations</span>'));
     }
 
     public function testParticipantWorkspaceMakesLongOperationalIdentifiersShrinkSafe(): void

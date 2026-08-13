@@ -115,6 +115,11 @@ final class AdminPaymentControllerTest extends TestCase
             '/admin/payments?status[]=paid',
             query: ['status' => ['paid']],
         ));
+        $empty = $this->controller->index(Request::create(
+            'GET',
+            '/admin/payments?status=refunded',
+            query: ['status' => 'refunded'],
+        ));
 
         $this->assertSame(200, $pending->status());
         $this->assertTrue(str_contains($pending->body(), 'REF-PENDING-OLD'));
@@ -126,6 +131,8 @@ final class AdminPaymentControllerTest extends TestCase
         $this->assertTrue(str_contains($paid->body(), 'REF-SETTLED'));
         $this->assertFalse(str_contains($paid->body(), 'REF-PENDING-OLD'));
         $this->assertTrue(str_contains($paid->body(), 'Page 1 of 1'));
+        $this->assertTrue(str_contains($paid->body(), '<span class="sr-only">1 matching payment</span>'));
+        $this->assertTrue(str_contains($empty->body(), '<span class="sr-only">0 matching payments</span>'));
         $this->assertTrue(str_contains($unknown->body(), 'REF-PENDING-OLD'));
     }
 

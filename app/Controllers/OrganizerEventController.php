@@ -77,7 +77,6 @@ final class OrganizerEventController extends Controller
         return $this->render('organizer/events/index', [
             'pageTitle' => 'Events',
             'events' => $this->events->forOrganizerUser($userId, $status),
-            'summary' => $this->events->organizerSummary($userId),
             'status' => $status,
             'statuses' => self::STATUSES,
         ], 'dashboard');

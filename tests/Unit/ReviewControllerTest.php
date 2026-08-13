@@ -248,6 +248,16 @@ final class ReviewControllerTest extends TestCase
         $this->reviews->reviews[15]['status'] = 'pending';
         $controller = $this->adminController();
         $body = $controller->index(Request::create('GET', '/admin/reviews', ['status' => 'pending OR 1=1']))->body();
+        $emptyBody = $controller->index(Request::create(
+            'GET',
+            '/admin/reviews?status=hidden',
+            query: ['status' => 'hidden'],
+        ))->body();
+        $this->reviews->reviews[16] = array_merge($this->reviews->reviews[15], [
+            'id' => 16,
+            'review' => 'A second pending participant review.',
+        ]);
+        $pluralBody = $controller->index(Request::create('GET', '/admin/reviews'))->body();
 
         $this->assertTrue(str_contains($body, '&lt;script&gt;Thoughtful participant review&lt;/script&gt;'));
         $this->assertFalse(str_contains($body, '<script>Thoughtful participant review</script>'));
@@ -255,6 +265,9 @@ final class ReviewControllerTest extends TestCase
         $this->assertTrue(str_contains($body, 'action="/admin/reviews/15/hide"'));
         $this->assertTrue(str_contains($body, 'name="_token"'));
         $this->assertTrue(str_contains($body, '<option value="pending">Pending</option>'));
+        $this->assertTrue(str_contains($body, '<span class="sr-only">1 review in this queue</span>'));
+        $this->assertTrue(str_contains($emptyBody, '<span class="sr-only">0 reviews in this queue</span>'));
+        $this->assertTrue(str_contains($pluralBody, '<span class="sr-only">2 reviews in this queue</span>'));
 
         $published = $controller->publish($this->idRequest('POST', '/admin/reviews/15/publish', 15));
         $this->assertSame('/admin/reviews', $published->header('Location'));

@@ -279,6 +279,14 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertTrue(str_contains($unknown->body(), 'Approved Forum'));
     }
 
+    public function testIndexDoesNotQueryTheDashboardOrganizerSummary(): void
+    {
+        $response = $this->controller->index(Request::create('GET', '/organizer/events'));
+
+        $this->assertSame(200, $response->status());
+        $this->assertSame(0, $this->events->organizerSummaryCalls);
+    }
+
     public function testInvalidCreateFlashesOnlyWhitelistedScalarOldInput(): void
     {
         $input = $this->validInput();

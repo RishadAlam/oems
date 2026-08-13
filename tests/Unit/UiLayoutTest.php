@@ -294,13 +294,13 @@ final class UiLayoutTest extends TestCase
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
     {
         $views = [
-            'app/Views/admin/users/index.php',
-            'app/Views/admin/organizers/index.php',
-            'app/Views/admin/events/index.php',
-            'app/Views/admin/reviews/index.php',
-            'app/Views/organizer/events/index.php',
-            'app/Views/admin/payments/index.php',
-            'app/Views/organizer/participants/index.php',
+            'app/Views/admin/users/index.php' => ['Matching', 'Users'],
+            'app/Views/admin/organizers/index.php' => ['Matching', 'Organizers'],
+            'app/Views/admin/events/index.php' => ['In queue', 'Events'],
+            'app/Views/admin/reviews/index.php' => ['In queue', 'Reviews'],
+            'app/Views/organizer/events/index.php' => ['Matching', 'Events'],
+            'app/Views/admin/payments/index.php' => ['Matching', 'Payments'],
+            'app/Views/organizer/participants/index.php' => ['Matching', 'Registrations'],
         ];
         $panelViews = [
             'app/Views/admin/payments/index.php',
@@ -308,7 +308,7 @@ final class UiLayoutTest extends TestCase
         ];
         $violations = [];
 
-        foreach ($views as $view) {
+        foreach ($views as $view => [$expectedContext, $expectedSubject]) {
             $source = file_get_contents(base_path($view));
 
             if ($source === false) {
@@ -317,6 +317,14 @@ final class UiLayoutTest extends TestCase
             }
 
             $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source);
+            foreach ($this->resultSummaryMarkupViolations(
+                $markup ?? '',
+                $view,
+                $expectedContext,
+                $expectedSubject,
+            ) as $violation) {
+                $violations[] = $violation;
+            }
             $document = new \DOMDocument();
             $previousErrors = libxml_use_internal_errors(true);
             $loaded = $document->loadHTML($markup ?? '');
@@ -329,82 +337,10 @@ final class UiLayoutTest extends TestCase
             }
 
             $xpath = new \DOMXPath($document);
-            $summaries = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and @role = "status" and @aria-live = "polite" and @aria-atomic = "true"]');
+            $summaries = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " result-summary ")]');
 
             if ($summaries === false || $summaries->length !== 1 || !$summaries->item(0) instanceof \DOMElement) {
-                $violations[] = $view . ' must render exactly one atomic polite .result-summary status.';
                 continue;
-            }
-
-            $summary = $summaries->item(0);
-            $requiredChildren = [
-                '.result-summary__count' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__count ")]',
-                '.result-summary__copy' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]',
-                '.sr-only' => './*[contains(concat(" ", normalize-space(@class), " "), " sr-only ")]',
-                '.result-summary__context' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__context ")]',
-                '.result-summary__subject' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__subject ")]',
-            ];
-
-            foreach ($requiredChildren as $class => $query) {
-                $children = $xpath->query($query, $summary);
-
-                if ($children === false || $children->length !== 1) {
-                    $violations[] = $view . ' must provide exactly one ' . $class . ' in its result summary.';
-                }
-            }
-
-            $counts = $xpath->query($requiredChildren['.result-summary__count'], $summary);
-            $copies = $xpath->query($requiredChildren['.result-summary__copy'], $summary);
-            $screenReaderPhrases = $xpath->query($requiredChildren['.sr-only'], $summary);
-            $visibleChildren = $xpath->query('./*', $summary);
-            $icons = $xpath->query('.//i | .//*[contains(concat(" ", normalize-space(@class), " "), " ph ")]', $summary);
-            $nestedCards = $xpath->query('.//article | .//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel ")] | .//*[contains(concat(" ", normalize-space(@class), " "), " card ")]', $summary);
-
-            if ($visibleChildren === false || $visibleChildren->length !== 3) {
-                $violations[] = $view . ' must keep result-summary to its count, visible copy, and screen-reader phrase only.';
-            }
-
-            if ($icons !== false && $icons->length !== 0) {
-                $violations[] = $view . ' must not add an icon to its result summary.';
-            }
-
-            if ($nestedCards !== false && $nestedCards->length !== 0) {
-                $violations[] = $view . ' must not nest a card inside its result summary.';
-            }
-
-            foreach (['.result-summary__count' => $counts, '.result-summary__copy' => $copies] as $class => $children) {
-                if (
-                    $children instanceof \DOMNodeList
-                    && $children->length === 1
-                    && $children->item(0) instanceof \DOMElement
-                    && $children->item(0)->getAttribute('aria-hidden') !== 'true'
-                ) {
-                    $violations[] = $view . ' must hide visible ' . $class . ' content from assistive technology.';
-                }
-            }
-
-            if ($counts instanceof \DOMNodeList && $counts->length === 1) {
-                $countChildren = $xpath->query('./*', $counts->item(0));
-
-                if ($countChildren === false || $countChildren->length !== 0) {
-                    $violations[] = $view . ' must not nest presentation content inside .result-summary__count.';
-                }
-            }
-
-            if ($copies instanceof \DOMNodeList && $copies->length === 1) {
-                $copyChildren = $xpath->query('./*', $copies->item(0));
-
-                if ($copyChildren === false || $copyChildren->length !== 2) {
-                    $violations[] = $view . ' must keep visible result copy to its context and subject only.';
-                }
-            }
-
-            if ($screenReaderPhrases instanceof \DOMNodeList && $screenReaderPhrases->length === 1) {
-                $screenReaderChildren = $xpath->query('./*', $screenReaderPhrases->item(0));
-
-                if ($screenReaderChildren === false || $screenReaderChildren->length !== 0) {
-                    $violations[] = $view . ' must keep its screen-reader result phrase as plain text.';
-                }
             }
 
             if (in_array($view, $panelViews, true)) {
@@ -454,7 +390,7 @@ final class UiLayoutTest extends TestCase
             $view = substr($file->getPathname(), strlen(base_path()) + 1);
             $source = file_get_contents($file->getPathname());
 
-            if ($source !== false && $this->htmlSourceHasClassToken($source, 'result-summary') && !in_array($view, $views, true)) {
+            if ($source !== false && $this->htmlSourceHasClassToken($source, 'result-summary') && !array_key_exists($view, $views)) {
                 $violations[] = $view . ' must not use .result-summary outside the seven permitted filtered-result surfaces.';
             }
         }
@@ -464,6 +400,36 @@ final class UiLayoutTest extends TestCase
         $this->assertFalse($this->htmlSourceHasClassToken('<link href="/assets/css/app.css?v=20260813-result-summary-v1">', 'result-summary'));
 
         $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testResultSummaryMarkupContractRejectsMalformedMutations(): void
+    {
+        $valid = <<<'HTML'
+            <p class="result-summary" role="status" aria-live="polite" aria-atomic="true">
+                <strong class="result-summary__count" aria-hidden="true">1</strong>
+                <span class="result-summary__copy" aria-hidden="true">
+                    <span class="result-summary__context">Matching</span>
+                    <span class="result-summary__subject">Users</span>
+                </span>
+                <span class="sr-only">1 matching user</span>
+            </p>
+            HTML;
+
+        $fixtures = [
+            'duplicate malformed summary' => $valid . '<p class="result-summary">Unannounced duplicate</p>',
+            'hidden screen-reader phrase' => str_replace('class="sr-only"', 'class="sr-only" aria-hidden="true"', $valid),
+            'empty screen-reader phrase' => str_replace('>1 matching user</span>', '> </span>', $valid),
+            'nested screen-reader phrase' => str_replace('>1 matching user</span>', '><strong>1 matching user</strong></span>', $valid),
+            'wrong visible label' => str_replace('>Users</span>', '>Accounts</span>', $valid),
+        ];
+
+        foreach ($fixtures as $label => $markup) {
+            $this->assertNotSame(
+                [],
+                $this->resultSummaryMarkupViolations($markup, $label, 'Matching', 'Users'),
+                $label . ' must fail the shared result-summary contract.',
+            );
+        }
     }
 
     public function testResultSummaryUsesOneSharedResponsiveVisualContract(): void
@@ -1370,6 +1336,124 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-map-trifold" aria-hidden="true"'));
         $this->assertTrue(str_contains($html, 'href="/"'));
         $this->assertTrue(str_contains($html, 'Return home'));
+    }
+
+    private function resultSummaryMarkupViolations(
+        string $markup,
+        string $label,
+        string $expectedContext,
+        string $expectedSubject,
+    ): array {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($markup);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        if ($loaded === false) {
+            return [$label . ' must contain parseable result-summary markup.'];
+        }
+
+        $xpath = new \DOMXPath($document);
+        $summaries = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " result-summary ")]');
+
+        if ($summaries === false || $summaries->length !== 1 || !$summaries->item(0) instanceof \DOMElement) {
+            return [$label . ' must render exactly one .result-summary.'];
+        }
+
+        $summary = $summaries->item(0);
+        $violations = [];
+        foreach (['role' => 'status', 'aria-live' => 'polite', 'aria-atomic' => 'true'] as $attribute => $expected) {
+            if ($summary->getAttribute($attribute) !== $expected) {
+                $violations[] = $label . ' result summary must set ' . $attribute . '="' . $expected . '".';
+            }
+        }
+
+        $queries = [
+            '.result-summary__count' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__count ")]',
+            '.result-summary__copy' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]',
+            '.sr-only' => './*[contains(concat(" ", normalize-space(@class), " "), " sr-only ")]',
+            '.result-summary__context' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__context ")]',
+            '.result-summary__subject' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__subject ")]',
+        ];
+        $children = [];
+
+        foreach ($queries as $class => $query) {
+            $children[$class] = $xpath->query($query, $summary);
+            if ($children[$class] === false || $children[$class]->length !== 1) {
+                $violations[] = $label . ' must provide exactly one ' . $class . ' in its result summary.';
+            }
+        }
+
+        $directChildren = $xpath->query('./*', $summary);
+        if ($directChildren === false || $directChildren->length !== 3) {
+            $violations[] = $label . ' must keep result-summary to its count, visible copy, and screen-reader phrase only.';
+        }
+
+        $counts = $children['.result-summary__count'];
+        $copies = $children['.result-summary__copy'];
+        foreach (['.result-summary__count' => $counts, '.result-summary__copy' => $copies] as $class => $nodes) {
+            if (
+                $nodes instanceof \DOMNodeList
+                && $nodes->length === 1
+                && $nodes->item(0) instanceof \DOMElement
+                && $nodes->item(0)->getAttribute('aria-hidden') !== 'true'
+            ) {
+                $violations[] = $label . ' must hide visible ' . $class . ' content from assistive technology.';
+            }
+        }
+
+        if ($counts instanceof \DOMNodeList && $counts->length === 1) {
+            $countChildren = $xpath->query('./*', $counts->item(0));
+            if ($countChildren === false || $countChildren->length !== 0) {
+                $violations[] = $label . ' must not nest presentation content inside .result-summary__count.';
+            }
+        }
+
+        if ($copies instanceof \DOMNodeList && $copies->length === 1) {
+            $copyChildren = $xpath->query('./*', $copies->item(0));
+            if ($copyChildren === false || $copyChildren->length !== 2) {
+                $violations[] = $label . ' must keep visible result copy to its context and subject only.';
+            }
+        }
+
+        foreach (['.result-summary__context' => $expectedContext, '.result-summary__subject' => $expectedSubject] as $class => $expected) {
+            $nodes = $children[$class];
+            if (
+                $nodes instanceof \DOMNodeList
+                && $nodes->length === 1
+                && trim((string) $nodes->item(0)?->textContent) !== $expected
+            ) {
+                $violations[] = $label . ' must use "' . $expected . '" for ' . $class . '.';
+            }
+        }
+
+        $screenReaderPhrases = $children['.sr-only'];
+        if ($screenReaderPhrases instanceof \DOMNodeList && $screenReaderPhrases->length === 1) {
+            $screenReaderPhrase = $screenReaderPhrases->item(0);
+            $screenReaderChildren = $xpath->query('./*', $screenReaderPhrase);
+            if ($screenReaderChildren === false || $screenReaderChildren->length !== 0) {
+                $violations[] = $label . ' must keep its screen-reader result phrase as plain text.';
+            }
+            if ($screenReaderPhrase instanceof \DOMElement && $screenReaderPhrase->hasAttribute('aria-hidden')) {
+                $violations[] = $label . ' must not hide its screen-reader result phrase from assistive technology.';
+            }
+            if (trim((string) $screenReaderPhrase?->textContent) === '') {
+                $violations[] = $label . ' must expose nonempty accessible result text.';
+            }
+        }
+
+        $icons = $xpath->query('.//i | .//*[contains(concat(" ", normalize-space(@class), " "), " ph ")]', $summary);
+        if ($icons !== false && $icons->length !== 0) {
+            $violations[] = $label . ' must not add an icon to its result summary.';
+        }
+
+        $nestedCards = $xpath->query('.//article | .//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel ")] | .//*[contains(concat(" ", normalize-space(@class), " "), " card ")]', $summary);
+        if ($nestedCards !== false && $nestedCards->length !== 0) {
+            $violations[] = $label . ' must not nest a card inside its result summary.';
+        }
+
+        return $violations;
     }
 
     private function cssRuleContainsTokens(string $css, string $selector, array $tokens): bool
