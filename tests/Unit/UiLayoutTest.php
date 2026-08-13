@@ -536,6 +536,15 @@ final class UiLayoutTest extends TestCase
             '.dashboard-panel__heading--with-summary' => [],
             '.dashboard-panel__heading-main' => [],
         ];
+        $approvedCompiledCustomProperties = [
+            '.result-summary' => [],
+            '.result-summary__count' => ['--tw-font-weight:var(--font-weight-bold)'],
+            '.result-summary__copy' => [],
+            '.result-summary__context' => ['--tw-font-weight:var(--font-weight-bold)'],
+            '.result-summary__subject' => ['--tw-font-weight:var(--font-weight-semibold)', '--tw-leading:calc(var(--spacing) * 5)'],
+            '.dashboard-panel__heading--with-summary' => [],
+            '.dashboard-panel__heading-main' => [],
+        ];
 
         foreach (['source' => $sourceCss, 'compiled' => $compiledCss] as $artifact => $css) {
             foreach (array_keys($sourceRules) as $selector) {
@@ -554,15 +563,15 @@ final class UiLayoutTest extends TestCase
                         $violations[] = 'compiled CSS must not add functional, named, or foreign color forms to ' . $selector . '.';
                     }
 
-                    preg_match_all('/(?:^|;)(color|background(?:-color)?|border(?:-color)?|outline(?:-color)?|fill|stroke):([^;]+)/', $rule, $colorMatches, PREG_SET_ORDER);
-                    $actualColorDeclarations = [];
-
-                    foreach ($colorMatches as $colorMatch) {
-                        $actualColorDeclarations[] = trim($colorMatch[1]) . ':' . trim($colorMatch[2]);
-                    }
-
-                    if ($artifact === 'compiled' && $actualColorDeclarations !== $approvedCompiledColorDeclarations[$selector]) {
-                        $violations[] = 'compiled CSS must use only the approved OEMS color declarations for ' . $selector . '.';
+                    if (
+                        $artifact === 'compiled'
+                        && !$this->cssRuleHasOnlyApprovedColorAndCustomDeclarations(
+                            $rule,
+                            $approvedCompiledColorDeclarations[$selector],
+                            $approvedCompiledCustomProperties[$selector],
+                        )
+                    ) {
+                        $violations[] = 'compiled CSS must use only approved OEMS color declarations and generated Tailwind custom properties for ' . $selector . '.';
                     }
 
                     if (
@@ -588,6 +597,30 @@ final class UiLayoutTest extends TestCase
                 }
             }
         }
+
+        foreach ([
+            ['caret-color:red', [], []],
+            ['text-decoration-color:var(--foreign)', [], []],
+            ['--foreign:var(--accent)', [], []],
+        ] as [$fixtureRule, $approvedColors, $approvedCustomProperties]) {
+            $this->assertFalse(
+                $this->cssRuleHasOnlyApprovedColorAndCustomDeclarations(
+                    $fixtureRule,
+                    $approvedColors,
+                    $approvedCustomProperties,
+                ),
+                'The compiled result-summary contract must reject ' . $fixtureRule . '.',
+            );
+        }
+
+        $this->assertTrue(
+            $this->cssRuleHasOnlyApprovedColorAndCustomDeclarations(
+                'background-color:var(--accent-soft);color:var(--accent);--tw-font-weight:var(--font-weight-bold)',
+                $approvedCompiledColorDeclarations['.result-summary__count'],
+                $approvedCompiledCustomProperties['.result-summary__count'],
+            ),
+            'The compiled result-summary contract must allow its approved count tile declarations.',
+        );
 
         $this->assertSame([], $violations, implode("\n", $violations));
     }
@@ -1622,6 +1655,54 @@ final class UiLayoutTest extends TestCase
         }
 
         return $flowDeclarations === $expectedDeclarations;
+    }
+
+    private function cssRuleHasOnlyApprovedColorAndCustomDeclarations(
+        string $rule,
+        array $approvedColorDeclarations,
+        array $approvedCustomProperties,
+    ): bool {
+        $colorDeclarations = [];
+        $customProperties = [];
+
+        foreach ($this->cssDeclarations($rule) as [$property, $value]) {
+            if ($property === 'color' || str_ends_with($property, '-color')) {
+                $colorDeclarations[] = $property . ':' . $value;
+            }
+
+            if (str_starts_with($property, '--')) {
+                $customProperties[] = $property . ':' . $value;
+            }
+        }
+
+        sort($colorDeclarations);
+        sort($customProperties);
+        sort($approvedColorDeclarations);
+        sort($approvedCustomProperties);
+
+        return $colorDeclarations === $approvedColorDeclarations && $customProperties === $approvedCustomProperties;
+    }
+
+    private function cssDeclarations(string $rule): array
+    {
+        $declarations = [];
+
+        foreach (explode(';', $rule) as $declaration) {
+            $parts = explode(':', $declaration, 2);
+
+            if (count($parts) !== 2) {
+                continue;
+            }
+
+            $property = strtolower(trim($parts[0]));
+            $value = trim($parts[1]);
+
+            if ($property !== '' && $value !== '') {
+                $declarations[] = [$property, $value];
+            }
+        }
+
+        return $declarations;
     }
 
     private function cssMediaRuleContainsTokens(string $css, string $breakpoint, string $selector, array $tokens): bool
