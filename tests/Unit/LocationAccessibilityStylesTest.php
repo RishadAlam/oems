@@ -19,7 +19,6 @@ final class LocationAccessibilityStylesTest extends TestCase
         foreach ([
             '.venue-search-result',
             '.venue-coordinate-details summary',
-            '.event-view-switch button',
         ] as $selector) {
             $pattern = '/'.preg_quote($selector, '/').'\s*\{(?<rules>[^}]*)\}/';
             $matched = preg_match($pattern, $stylesheet, $matches);
@@ -28,6 +27,8 @@ final class LocationAccessibilityStylesTest extends TestCase
             $this->assertSame(1, $matched, sprintf('Expected %s in the source stylesheet.', $selector));
             $this->assertRetainsGlobalFocusIndicator($selector, $rules);
         }
+
+        $this->assertAllEventViewRulesRetainGlobalFocusIndicator($stylesheet, '.event-view-switch button');
     }
 
     public function testDiscoveryMapStylesScopeTheResponsiveViewContract(): void
@@ -55,7 +56,31 @@ final class LocationAccessibilityStylesTest extends TestCase
             str_contains($rules, 'min-h-11'),
             '.event-view-control must retain the 44px minimum target size.',
         );
-        $this->assertRetainsGlobalFocusIndicator('.event-view-control', $rules);
+        $this->assertAllEventViewRulesRetainGlobalFocusIndicator($stylesheet, '.event-view-control');
+    }
+
+    private function assertAllEventViewRulesRetainGlobalFocusIndicator(string $stylesheet, string $selector): void
+    {
+        $matchingRules = $this->sourceRuleBlocksContaining($stylesheet, $selector);
+
+        $this->assertFalse($matchingRules === [], sprintf('Expected source rules containing %s.', $selector));
+        foreach ($matchingRules as $matchingRule) {
+            $this->assertRetainsGlobalFocusIndicator($matchingRule['selector'], $matchingRule['rules']);
+        }
+    }
+
+    /** @return list<array{selector: string, rules: string}> */
+    private function sourceRuleBlocksContaining(string $stylesheet, string $selector): array
+    {
+        preg_match_all('/(?<selector>[^{}]+)\{(?<rules>[^{}]*)\}/', $stylesheet, $matches, PREG_SET_ORDER);
+
+        return array_values(array_filter(array_map(
+            static fn (array $match): array => [
+                'selector' => trim((string) ($match['selector'] ?? '')),
+                'rules' => (string) ($match['rules'] ?? ''),
+            ],
+            $matches,
+        ), static fn (array $match): bool => str_contains($match['selector'], $selector)));
     }
 
     private function assertRetainsGlobalFocusIndicator(string $selector, string $rules): void
@@ -70,6 +95,10 @@ final class LocationAccessibilityStylesTest extends TestCase
                 $rules,
             ) === 1,
             sprintf('%s must not apply a focus-visible outline width or offset utility.', $selector),
+        );
+        $this->assertFalse(
+            preg_match('/focus-visible:\[outline(?:-width|-offset)?:[^\]]*\]/', $rules) === 1,
+            sprintf('%s must not apply an arbitrary focus-visible outline width or offset property.', $selector),
         );
     }
 }
