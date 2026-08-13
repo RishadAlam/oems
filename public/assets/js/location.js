@@ -23,6 +23,7 @@
     let handleTileLoad = null;
     let handleTileError = null;
     let mapReady = false;
+    let mapAvailabilityMessage = '';
     let payload = null;
     let locationSubmitted = false;
     let cardFocusCleanups = [];
@@ -107,9 +108,10 @@
 
     const setMapAvailability = (ready, message) => {
         mapReady = ready;
+        mapAvailabilityMessage = message || '';
         const fallback = mapElement?.querySelector?.('[data-map-fallback]');
         if (fallback) fallback.hidden = ready;
-        if (message) setViewStatus(message);
+        if (mapAvailabilityMessage) setViewStatus(mapAvailabilityMessage);
 
         if (results) {
             const compact = compactViewQuery?.matches ?? false;
@@ -120,6 +122,7 @@
     const initializeMap = () => {
         if (map) {
             map.invalidateSize();
+            if (!mapReady && mapAvailabilityMessage) setViewStatus(mapAvailabilityMessage);
             return mapReady;
         }
 
@@ -230,6 +233,7 @@
         map?.remove();
         map = null;
         mapReady = false;
+        mapAvailabilityMessage = '';
     };
 
     const setView = (view) => {

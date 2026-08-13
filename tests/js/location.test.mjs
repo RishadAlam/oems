@@ -476,6 +476,25 @@ test('terminal tile load cannot clear an earlier tile failure', () => {
     assert.match(harness.viewStatus.textContent, /map tiles could not load/i);
 });
 
+test('map reselection restores durable failure guidance', () => {
+    const harness = createHarness({ markers: [], mobile: true });
+    harness.mapToggle.click();
+    harness.listToggle.click();
+    harness.mapToggle.click();
+
+    assert.match(harness.viewStatus.textContent, /no public event locations/i);
+    assert.doesNotMatch(harness.viewStatus.textContent, /map view shown/i);
+});
+
+test('viewport reconciliation preserves durable map failure guidance', () => {
+    const harness = createHarness({ mobile: true, tileOutcome: 'tileerror' });
+    harness.mapToggle.click();
+    harness.resizeToWidth(1024);
+
+    assert.match(harness.viewStatus.textContent, /map tiles could not load/i);
+    assert.doesNotMatch(harness.viewStatus.textContent, /alongside/i);
+});
+
 test('pagehide removes the Leaflet instance', () => {
     const harness = createHarness();
     harness.mapToggle.click();
