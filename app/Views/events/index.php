@@ -1,6 +1,7 @@
 <?php
 $filters = $filters ?? ['search' => '', 'category' => '', 'city' => '', 'date' => 'upcoming', 'price' => '', 'sort' => 'soonest'];
 $activeFilters = array_filter($filters, static fn (string $value, string $key): bool => $value !== '' && !in_array([$key, $value], [['date', 'upcoming'], ['sort', 'soonest']], true), ARRAY_FILTER_USE_BOTH);
+$mapMarkerCount = count($mapPayload['markers'] ?? []);
 ?>
 <section class="events-index">
     <div class="page-shell">
@@ -94,17 +95,21 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
                 <?php endif; ?>
                 <p class="event-location-controls__status" data-location-status role="status" aria-live="polite"></p>
             </div>
-            <div class="event-view-switch" aria-label="Choose result view">
-                <button type="button" value="list" data-event-view data-view="list" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i><span>List</span></button>
-                <button type="button" value="map" data-event-view data-view="map" aria-pressed="false"><i class="ph ph-map-trifold" aria-hidden="true"></i><span>Map</span></button>
+            <div class="event-view-control">
+                <span class="event-view-control__label" id="event-view-label">View</span>
+                <div class="event-view-switch" role="group" aria-labelledby="event-view-label">
+                    <button type="button" value="list" data-event-view data-view="list" aria-pressed="true"><i class="ph ph-list" aria-hidden="true"></i><span>List</span></button>
+                    <button type="button" value="map" data-event-view data-view="map" aria-pressed="false"><i class="ph ph-map-trifold" aria-hidden="true"></i><span>Map</span></button>
+                </div>
             </div>
+            <p class="sr-only" data-event-view-status role="status" aria-live="polite"></p>
         </div>
 
         <?php if ($activeFilters !== []): ?>
             <p class="search-preview"><i class="ph ph-check-circle" aria-hidden="true"></i><span>Showing <?= count($events) ?> <?= count($events) === 1 ? 'match' : 'matches' ?> for your selected filters.</span></p>
         <?php endif; ?>
 
-        <div class="event-discovery-layout<?= $events === [] ? ' event-discovery-layout--empty' : '' ?>">
+        <div class="event-discovery-layout<?= $events === [] ? ' event-discovery-layout--empty' : '' ?>" data-event-discovery data-event-discovery-view="list">
         <?php if ($events === []): ?>
             <div class="event-empty-state">
                 <span><i class="ph ph-calendar-x" aria-hidden="true"></i></span>
@@ -149,8 +154,7 @@ $activeFilters = array_filter($filters, static fn (string $value, string $key): 
 
         <section class="event-map-panel" data-event-map-panel hidden aria-labelledby="event-map-heading">
             <div class="event-map-panel__heading">
-                <div><h2 id="event-map-heading">Event map</h2><p>Map markers represent published events with public coordinates.</p></div>
-                <p>Use the List view for complete event details.</p>
+                <div><h2 id="event-map-heading">Event map</h2><p><?= $mapMarkerCount ?> public event <?= $mapMarkerCount === 1 ? 'location' : 'locations' ?>. Only exact locations shared publicly appear here.</p></div>
             </div>
             <div class="event-map" data-event-map role="region" aria-label="Map of published public events">
                 <p data-map-fallback>Map is unavailable. Browse the complete event list instead.</p>

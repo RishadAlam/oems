@@ -8,14 +8,16 @@
     const locationStatus = document.querySelector('[data-location-status]');
     const locationForm = document.querySelector('[data-location-form]');
     const viewButtons = Array.from(document.querySelectorAll('[data-event-view]'));
+    const discovery = document.querySelector('[data-event-discovery]');
     const results = document.querySelector('[data-event-results]');
     const mapPanel = document.querySelector('[data-event-map-panel]');
     const mapElement = document.querySelector('[data-event-map]');
+    const viewStatus = document.querySelector('[data-event-view-status]');
     const payloadElement = document.querySelector('#event-map-data')
         || document.querySelector('#event-detail-map-data');
     const cards = Array.from(document.querySelectorAll('[data-event-id]'));
     const reduceMotion = global.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    const mobileViewQuery = global.matchMedia?.('(max-width: 767px)');
+    const compactViewQuery = global.matchMedia?.('(max-width: 1023px)');
     let map = null;
     let tileLayer = null;
     let handleTileLoad = null;
@@ -29,6 +31,10 @@
         if (locationStatus) locationStatus.textContent = message;
     };
 
+    const setViewStatus = (message) => {
+        if (viewStatus) viewStatus.textContent = message;
+    };
+
     if (payloadElement) {
         try {
             const parsed = JSON.parse(payloadElement.textContent || '');
@@ -37,7 +43,7 @@
             }
             payload = parsed;
         } catch (error) {
-            setStatus('The map is unavailable. The event list is still available.');
+            setViewStatus('The map is unavailable. The event list is still available.');
         }
     }
 
@@ -103,11 +109,11 @@
         mapReady = ready;
         const fallback = mapElement?.querySelector?.('[data-map-fallback]');
         if (fallback) fallback.hidden = ready;
-        if (message) setStatus(message);
+        if (message) setViewStatus(message);
 
         if (results) {
-            const mobile = mobileViewQuery?.matches ?? false;
-            results.hidden = ready && mobile && selectedMapView();
+            const compact = compactViewQuery?.matches ?? false;
+            results.hidden = ready && compact && selectedMapView();
         }
     };
 
@@ -118,7 +124,7 @@
         }
 
         if (!payload || !mapElement || !global.L?.map) {
-            setStatus('The map is unavailable. The event list is still available.');
+            setViewStatus('The map is unavailable. The event list is still available.');
             return false;
         }
 
@@ -156,6 +162,7 @@
 
             marker.on('click', () => {
                 if (!card) return;
+                if (results?.hidden) setView('list');
                 syncingFocus = true;
                 card.focus();
                 card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
@@ -197,7 +204,7 @@
         });
         let tileFailed = false;
         handleTileLoad = () => {
-            if (!tileFailed) setMapAvailability(true, 'Map loaded. Use the List view for complete event details.');
+            if (!tileFailed) setMapAvailability(true);
         };
         handleTileError = () => {
             tileFailed = true;
@@ -226,7 +233,9 @@
     };
 
     const setView = (view) => {
+        if (discovery) discovery.dataset.eventDiscoveryView = view;
         const showMap = view === 'map';
+        const eventCount = cards.length;
         for (const button of viewButtons) {
             button.setAttribute('aria-pressed', String(button.dataset.view === view));
         }
@@ -234,13 +243,17 @@
         if (!showMap) {
             if (mapPanel) mapPanel.hidden = true;
             if (results) results.hidden = false;
+            setViewStatus(`List view shown. ${eventCount} events available.`);
             return;
         }
 
         if (mapPanel) mapPanel.hidden = false;
+        const compact = compactViewQuery?.matches ?? false;
+        setViewStatus(compact
+            ? `Map view shown. ${eventCount} events remain available in List view.`
+            : `Map shown alongside ${eventCount} events.`);
         const usable = initializeMap();
-        const mobile = mobileViewQuery?.matches ?? false;
-        if (results) results.hidden = usable && mobile;
+        if (results) results.hidden = usable && compact;
     };
 
     const syncViewToViewport = () => {
@@ -248,7 +261,7 @@
         if (selectedView === 'map') setView('map');
     };
 
-    mobileViewQuery?.addEventListener?.('change', syncViewToViewport);
+    compactViewQuery?.addEventListener?.('change', syncViewToViewport);
 
     for (const button of viewButtons) {
         button.addEventListener('click', () => setView(button.dataset.view));
