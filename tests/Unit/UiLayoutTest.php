@@ -935,7 +935,7 @@ final class UiLayoutTest extends TestCase
             '.analytics-filter__heading' => ['display:flex', 'min-width:0', 'flex-direction:column'],
             '.analytics-kpi-grid' => ['display:grid'],
             '.analytics-kpi' => ['min-width:0', 'border-radius:16px'],
-            '.analytics-kpi > strong' => ['font-variant-numeric:tabular-nums'],
+            '.analytics-kpi > strong' => ['--tw-numeric-spacing:tabular-nums', 'font-variant-numeric:var('],
             '.analytics-chart-grid' => ['display:grid', 'align-items:flex-start'],
             '.analytics-chart-card' => ['min-width:0', 'border-radius:18px'],
             '.analytics-data-disclosure__content' => ['max-height:28rem', 'overflow:auto'],

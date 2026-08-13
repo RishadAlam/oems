@@ -10,6 +10,7 @@ $categoryLabels = is_array($categorySeries['labels'] ?? null) ? array_values($ca
 $categoryCounts = is_array($categorySeries['registrations'] ?? null) ? array_values($categorySeries['registrations']) : [];
 $periodCount = count($chartLabels);
 $categoryCount = count($categoryLabels);
+$categoryChartHeight = max(11, min(26, 8 + ($categoryCount * 2.25)));
 $activePeriodCount = 0;
 $busiestPeriod = null;
 $busiestPeriodTotal = 0;
@@ -120,7 +121,7 @@ $categoryNoun = $categoryCount === 1 ? 'category' : 'categories';
             <?php if ($categoryLabels === []): ?>
                 <div class="analytics-chart-empty empty-state"><strong>No category activity</strong><p>Category totals appear after registrations are recorded.</p></div>
             <?php else: ?>
-                <div class="analytics-chart-frame analytics-chart-frame--categories" style="--analytics-category-count: <?= e(max(1, min(8, $categoryCount))) ?>">
+                <div class="analytics-chart-frame analytics-chart-frame--categories" style="--analytics-category-height: <?= e(number_format($categoryChartHeight, 2, '.', '')) ?>rem">
                     <canvas data-analytics-chart="categories" data-category-count="<?= e($categoryCount) ?>" aria-hidden="true"></canvas>
                 </div>
                 <details class="analytics-data-disclosure">
