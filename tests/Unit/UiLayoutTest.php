@@ -113,27 +113,39 @@ final class UiLayoutTest extends TestCase
         );
     }
 
-    public function testSectionedFormsRemoveTheContentDividerBeforeTheActionDivider(): void
+    public function testSectionedFormsRenderOnlyOneDividerBeforeActions(): void
     {
-        $css = (string) file_get_contents(base_path('resources/css/app.css'));
+        $css = (string) file_get_contents(base_path('public/assets/css/app.css'));
 
         foreach (['profile-form-section', 'organizer-form__section'] as $sectionClass) {
-            $this->assertTrue(
-                preg_match(
-                    '/\.' . preg_quote($sectionClass, '/') . ':last-of-type\s*\{\s*@apply[^;]*border-b-0[^;]*;\s*\}/',
-                    $css,
-                ) === 1,
-                $sectionClass . ' must remove its final divider before the form action footer.',
+            $matched = preg_match(
+                '/\.' . preg_quote($sectionClass, '/') . '\{([^}]*)\}/',
+                $css,
+                $baseRule,
+            );
+
+            $this->assertSame(1, $matched);
+            $this->assertFalse(
+                str_contains($baseRule[1], 'border-bottom-width'),
+                $sectionClass . ' must not draw a divider after every section.',
             );
         }
+
+        $this->assertTrue(
+            preg_match(
+                '/\.profile-form-section~\.profile-form-section,.organizer-form__section~\.organizer-form__section\{(?=[^}]*border-top-width:1px)(?=[^}]*padding-top:calc\(var\(--spacing\) \* 8\))[^}]*\}/',
+                $css,
+            ) === 1,
+            'Later form sections must receive one leading divider with consistent spacing.',
+        );
 
         foreach (['profile-form-actions', 'organizer-form__actions'] as $actionClass) {
             $this->assertTrue(
                 preg_match(
-                    '/\.' . preg_quote($actionClass, '/') . '\s*\{[^}]*@apply[^;]*border-t[^;]*;/s',
+                    '/\.' . preg_quote($actionClass, '/') . '\{[^}]*border-top-width:1px[^}]*\}/',
                     $css,
                 ) === 1,
-                $actionClass . ' must retain the single intentional footer divider.',
+                $actionClass . ' must retain one intentional footer divider.',
             );
         }
     }
