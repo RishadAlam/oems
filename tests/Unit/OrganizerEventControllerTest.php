@@ -249,6 +249,7 @@ final class OrganizerEventControllerTest extends TestCase
             '/organizer/events?status=draft',
             query: ['status' => 'draft'],
         ));
+        $unfiltered = $this->controller->index(Request::create('GET', '/organizer/events'));
         $unknown = $this->controller->index(Request::create(
             'GET',
             '/organizer/events?status[]=draft',
@@ -257,6 +258,8 @@ final class OrganizerEventControllerTest extends TestCase
 
         $this->assertTrue(str_contains($filtered->body(), 'Dhaka Product Lab'));
         $this->assertFalse(str_contains($filtered->body(), 'Approved Forum'));
+        $this->assertTrue(str_contains($filtered->body(), '<span class="sr-only">1 matching event</span>'));
+        $this->assertTrue(str_contains($unfiltered->body(), '<span class="sr-only">2 matching events</span>'));
         $this->assertTrue(str_contains($unknown->body(), 'Dhaka Product Lab'));
         $this->assertTrue(str_contains($unknown->body(), 'Approved Forum'));
     }

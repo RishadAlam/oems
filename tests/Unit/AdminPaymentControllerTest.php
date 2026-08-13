@@ -120,7 +120,9 @@ final class AdminPaymentControllerTest extends TestCase
         $this->assertTrue(str_contains($pending->body(), 'REF-PENDING-OLD'));
         $this->assertTrue(str_contains($pending->body(), 'REF-PENDING-NEW'));
         $this->assertFalse(str_contains($pending->body(), 'REF-SETTLED'));
-        $this->assertTrue(str_contains($pending->body(), '3 matching payments'));
+        $this->assertTrue(str_contains($pending->body(), 'class="result-summary'));
+        $this->assertTrue(str_contains($pending->body(), 'role="status"'));
+        $this->assertTrue(str_contains($pending->body(), '<span class="sr-only">3 matching payments</span>'));
         $this->assertTrue(str_contains($paid->body(), 'REF-SETTLED'));
         $this->assertFalse(str_contains($paid->body(), 'REF-PENDING-OLD'));
         $this->assertTrue(str_contains($paid->body(), 'Page 1 of 1'));

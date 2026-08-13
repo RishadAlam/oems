@@ -134,7 +134,9 @@ final class AdminPeopleControllerTest extends TestCase
         $this->assertSame(200, $index->status());
         $this->assertTrue(str_contains($index->body(), '&lt;script&gt;Participant&lt;/script&gt;'), 'User name was not escaped.');
         $this->assertTrue(str_contains($index->body(), 'data-label="Account"'), 'Mobile account label missing.');
-        $this->assertTrue(str_contains($index->body(), '3</strong> matching users'), 'User result count missing.');
+        $this->assertTrue(str_contains($index->body(), 'class="result-summary'), 'User result summary missing.');
+        $this->assertTrue(str_contains($index->body(), 'role="status"'), 'User result summary status role missing.');
+        $this->assertTrue(str_contains($index->body(), '<span class="sr-only">3 matching users</span>'), 'User result count missing.');
         $this->assertTrue(str_contains($index->body(), 'Page 1 of 1'), 'User pagination summary missing.');
         $this->assertSame(200, $show->status());
         $this->assertTrue(str_contains($show->body(), 'Suspend account'), 'Suspend action missing.');

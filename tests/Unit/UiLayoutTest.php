@@ -140,23 +140,67 @@ final class UiLayoutTest extends TestCase
             }
 
             $toolbar = $toolbars->item(0);
-            $summaries = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__summary ")]', $toolbar);
+            $summaries = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__summary ")]', $toolbar);
             $forms = $xpath->query('./form[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__form ")]', $toolbar);
             $legacyToolbars = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " organizer-toolbar ")]');
 
             if ($summaries === false || $summaries->length !== 1) {
-                $violations[] = $view . ' must provide one direct <p.filter-toolbar__summary>.';
+                $violations[] = $view . ' must provide one direct <p.result-summary.filter-toolbar__summary>.';
             } else {
                 $summary = $summaries->item(0);
-                $live = (string) $summary?->attributes?->getNamedItem('aria-live')?->nodeValue;
-                $summaryCounts = $xpath->query('./strong', $summary);
+                $summaryChildren = [
+                    '.result-summary__count' => $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " result-summary__count ")]', $summary),
+                    '.result-summary__copy' => $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]', $summary),
+                    '.sr-only' => $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " sr-only ")]', $summary),
+                ];
 
-                if ($live !== 'polite') {
-                    $violations[] = $view . ' must expose its filter summary as polite live content.';
+                if (
+                    !$summary instanceof \DOMElement
+                    || $summary->getAttribute('role') !== 'status'
+                    || $summary->getAttribute('aria-live') !== 'polite'
+                    || $summary->getAttribute('aria-atomic') !== 'true'
+                ) {
+                    $violations[] = $view . ' must expose its filter summary as one atomic polite status.';
                 }
 
-                if ($summaryCounts === false || $summaryCounts->length !== 1) {
-                    $violations[] = $view . ' must provide exactly one direct <strong> result count in its filter summary.';
+                foreach ($summaryChildren as $class => $children) {
+                    if ($children === false || $children->length !== 1) {
+                        $violations[] = $view . ' must provide exactly one direct ' . $class . ' in its result summary.';
+                    }
+                }
+
+                $counts = $summaryChildren['.result-summary__count'];
+                $copies = $summaryChildren['.result-summary__copy'];
+
+                if (
+                    $counts instanceof \DOMNodeList
+                    && $counts->length === 1
+                    && $counts->item(0) instanceof \DOMElement
+                    && $counts->item(0)->getAttribute('aria-hidden') !== 'true'
+                ) {
+                    $violations[] = $view . ' must hide the visible result count from assistive technology.';
+                }
+
+                if (
+                    $copies instanceof \DOMNodeList
+                    && $copies->length === 1
+                    && $copies->item(0) instanceof \DOMElement
+                ) {
+                    $copy = $copies->item(0);
+                    $contexts = $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " result-summary__context ")]', $copy);
+                    $subjects = $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " result-summary__subject ")]', $copy);
+
+                    if ($copy->getAttribute('aria-hidden') !== 'true') {
+                        $violations[] = $view . ' must hide the visible result copy from assistive technology.';
+                    }
+
+                    if ($contexts === false || $contexts->length !== 1) {
+                        $violations[] = $view . ' must provide one .result-summary__context inside its visible copy.';
+                    }
+
+                    if ($subjects === false || $subjects->length !== 1) {
+                        $violations[] = $view . ' must provide one .result-summary__subject inside its visible copy.';
+                    }
                 }
             }
 
@@ -241,6 +285,151 @@ final class UiLayoutTest extends TestCase
 
             if ($legacyToolbars === false || $legacyToolbars->length !== 0) {
                 $violations[] = $view . ' must not retain the legacy .organizer-toolbar class.';
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
+    {
+        $views = [
+            'app/Views/admin/users/index.php',
+            'app/Views/admin/organizers/index.php',
+            'app/Views/admin/events/index.php',
+            'app/Views/admin/reviews/index.php',
+            'app/Views/organizer/events/index.php',
+            'app/Views/admin/payments/index.php',
+            'app/Views/organizer/participants/index.php',
+        ];
+        $panelViews = [
+            'app/Views/admin/payments/index.php',
+            'app/Views/organizer/participants/index.php',
+        ];
+        $violations = [];
+
+        foreach ($views as $view) {
+            $source = file_get_contents(base_path($view));
+
+            if ($source === false) {
+                $violations[] = $view . ' could not be read.';
+                continue;
+            }
+
+            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source);
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($markup ?? '');
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+
+            if ($loaded === false) {
+                $violations[] = $view . ' must contain parseable result-summary markup.';
+                continue;
+            }
+
+            $xpath = new \DOMXPath($document);
+            $summaries = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and @role = "status" and @aria-live = "polite" and @aria-atomic = "true"]');
+
+            if ($summaries === false || $summaries->length !== 1 || !$summaries->item(0) instanceof \DOMElement) {
+                $violations[] = $view . ' must render exactly one atomic polite .result-summary status.';
+                continue;
+            }
+
+            $summary = $summaries->item(0);
+            $requiredChildren = [
+                '.result-summary__count' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__count ")]',
+                '.result-summary__copy' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]',
+                '.sr-only' => './*[contains(concat(" ", normalize-space(@class), " "), " sr-only ")]',
+                '.result-summary__context' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__context ")]',
+                '.result-summary__subject' => './*[contains(concat(" ", normalize-space(@class), " "), " result-summary__copy ")]/*[contains(concat(" ", normalize-space(@class), " "), " result-summary__subject ")]',
+            ];
+
+            foreach ($requiredChildren as $class => $query) {
+                $children = $xpath->query($query, $summary);
+
+                if ($children === false || $children->length !== 1) {
+                    $violations[] = $view . ' must provide exactly one ' . $class . ' in its result summary.';
+                }
+            }
+
+            if (in_array($view, $panelViews, true)) {
+                $headings = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading--with-summary ")]');
+                $headingMains = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading-main ")]');
+
+                if ($headings === false || $headings->length !== 1) {
+                    $violations[] = $view . ' must adapt its panel heading with .dashboard-panel__heading--with-summary.';
+                }
+
+                if ($headingMains === false || $headingMains->length !== 1) {
+                    $violations[] = $view . ' must wrap its panel heading content in .dashboard-panel__heading-main.';
+                }
+            } else {
+                $toolbars = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar ")]');
+                $toolbarSummary = $toolbars === false || $toolbars->length !== 1
+                    ? false
+                    : $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " result-summary ")]', $toolbars->item(0));
+
+                if ($toolbarSummary === false || $toolbarSummary->length !== 1) {
+                    $violations[] = $view . ' must keep its result summary as a direct .filter-toolbar child.';
+                }
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testResultSummaryUsesOneSharedResponsiveVisualContract(): void
+    {
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $violations = [];
+        $sourceRules = [
+            '.result-summary' => ['flex', 'min-h-12', 'w-full', 'min-w-0', 'items-center', 'gap-3', 'sm:w-auto'],
+            '.result-summary__count' => ['grid', 'min-h-11', 'min-w-11', 'shrink-0', 'place-items-center', 'rounded-[12px]', 'bg-[var(--accent-soft)]', 'px-2.5', 'text-lg', 'font-bold', 'tabular-nums', 'text-[var(--accent)]'],
+            '.result-summary__copy' => ['grid', 'min-w-0', 'gap-0.5'],
+            '.result-summary__context' => ['text-xs', 'font-bold', 'text-[var(--ink-muted)]'],
+            '.result-summary__subject' => ['text-sm', 'font-semibold', 'leading-5', 'text-[var(--ink)]'],
+            '.dashboard-panel__heading--with-summary' => ['flex-col', 'gap-4', 'sm:flex-row', 'sm:items-center', 'sm:justify-between'],
+            '.dashboard-panel__heading-main' => ['flex', 'min-w-0', 'items-start', 'gap-3'],
+        ];
+
+        foreach ($sourceRules as $selector => $utilities) {
+            if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities)) {
+                $violations[] = 'source CSS must keep ' . $selector . ' scoped to: ' . implode(', ', $utilities) . '.';
+            }
+        }
+
+        foreach ([
+            '.result-summary' => ['display:flex', ['min-height:calc(var(--spacing) * 12)', 'min-height:3rem'], 'width:100%', 'min-width:0', 'align-items:center'],
+            '.result-summary__count' => ['display:grid', ['min-height:calc(var(--spacing) * 11)', 'min-height:2.75rem'], ['min-width:calc(var(--spacing) * 11)', 'min-width:2.75rem'], 'border-radius:12px', 'background-color:var(--accent-soft)', ['font-size:var(--text-lg)', 'font-size:1.125rem'], 'font-weight:var(--font-weight-bold)', 'font-variant-numeric:tabular-nums', 'color:var(--accent)'],
+            '.result-summary__copy' => ['display:grid', 'min-width:0'],
+            '.dashboard-panel__heading--with-summary' => ['display:flex', 'flex-direction:column'],
+            '.dashboard-panel__heading-main' => ['display:flex', 'min-width:0', 'align-items:flex-start'],
+        ] as $selector => $declarations) {
+            if (!$this->cssRuleContainsTokens($compiledCss, $selector, $declarations)) {
+                $violations[] = 'compiled CSS must keep ' . $selector . ' scoped to: ' . $this->describeCssTokens($declarations) . '.';
+            }
+        }
+
+        foreach ([
+            '.result-summary' => ['width:auto'],
+            '.dashboard-panel__heading--with-summary' => ['flex-direction:row', 'align-items:center', 'justify-content:space-between'],
+        ] as $selector => $declarations) {
+            if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations)) {
+                $violations[] = 'compiled CSS must keep ' . $selector . ' responsive at 40rem: ' . implode(', ', $declarations) . '.';
+            }
+        }
+
+        if ($this->cssHasSelector($sourceCss, '.filter-toolbar__summary strong') || $this->cssHasSelector($compiledCss, '.filter-toolbar__summary strong')) {
+            $violations[] = 'CSS must not retain the legacy .filter-toolbar__summary strong selector.';
+        }
+
+        foreach (['source' => $sourceCss, 'compiled' => $compiledCss] as $artifact => $css) {
+            foreach ($this->cssExactSelectorRuleBodies($css, '.result-summary') as $rule) {
+                if (str_contains($rule, 'position:absolute') || preg_match('/(?:^|;)width:(?:\d+(?:\.\d+)?(?:px|rem)|calc\([^)]*\))/', $rule) === 1) {
+                    $violations[] = $artifact . ' CSS must not absolutely position or give .result-summary a literal fixed width.';
+                }
             }
         }
 
@@ -352,7 +541,7 @@ final class UiLayoutTest extends TestCase
         }
 
         foreach ([
-            '.filter-toolbar' => ['align-items:center'],
+            '.filter-toolbar' => ['align-items:flex-end'],
             '.filter-toolbar__form' => ['grid-template-columns:repeat(2,minmax(0,1fr))'],
         ] as $selector => $declarations) {
             if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations)) {

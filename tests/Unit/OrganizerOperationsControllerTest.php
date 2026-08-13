@@ -135,6 +135,9 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertFalse(str_contains($response->body(), '<strong>2+2</strong>'));
         $this->assertTrue(str_contains($response->body(), 'participant-name'));
         $this->assertTrue(str_contains($response->body(), 'Payment'));
+        $this->assertTrue(str_contains($response->body(), 'class="result-summary'));
+        $this->assertTrue(str_contains($response->body(), 'role="status"'));
+        $this->assertTrue(str_contains($response->body(), '<span class="sr-only">1 matching registration</span>'));
         foreach (['Participant', 'Registration', 'Payment', 'Ticket', 'Attendance'] as $label) {
             $this->assertTrue(str_contains($response->body(), 'data-label="' . $label . '"'));
         }
