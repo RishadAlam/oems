@@ -439,13 +439,27 @@ final class UiLayoutTest extends TestCase
             '.filter-toolbar__field' => ['xl:w-40', 'xl:flex-none'],
             '.filter-toolbar__field--search' => ['xl:w-64', 'xl:flex-none'],
             '.filter-toolbar__form--compact' => ['sm:w-max', 'sm:flex-none', 'sm:grid-cols-[12rem_auto]', 'sm:items-end'],
-            '.filter-toolbar__form--compact .filter-toolbar__field' => ['sm:w-48'],
+            '.filter-toolbar__form--compact .filter-toolbar__field' => ['sm:' . 'w-48'],
             '.filter-toolbar__form--compact .filter-toolbar__actions' => ['sm:col-span-1', 'sm:w-auto'],
             '.filter-toolbar__form--compact .filter-toolbar__actions .button' => ['sm:w-auto'],
         ] as $selector => $utilities) {
             $this->assertTrue(
                 $this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities),
                 $selector . ' must preserve the compact atomic toolbar contract.',
+            );
+        }
+
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+
+        foreach ([
+            '.filter-toolbar__form--compact' => ['flex:none', 'grid-template-columns:12rem auto', 'align-items:flex-end', 'width:max-content'],
+            '.filter-toolbar__form--compact .filter-toolbar__field' => [['width:calc(var(--spacing) * 48)', 'width:12rem']],
+            '.filter-toolbar__form--compact .filter-toolbar__actions' => ['grid-column:span 1/span 1', 'width:auto'],
+            '.filter-toolbar__form--compact .filter-toolbar__actions .button' => ['width:auto'],
+        ] as $selector => $declarations) {
+            $this->assertTrue(
+                $this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations),
+                $selector . ' must be present in the compiled 40rem compact toolbar contract.',
             );
         }
     }
