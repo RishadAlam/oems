@@ -30,7 +30,7 @@ final class RoleMiddleware implements Middleware
     {
         $auth = $this->auth instanceof Closure ? ($this->auth)() : $this->auth;
         if ($auth->guest()) {
-            return Response::redirect('/login');
+            return Response::redirect($this->loginLocation($request));
         }
 
         if ($this->roles === [] || !$auth->hasRole(...$this->roles)) {
@@ -38,5 +38,23 @@ final class RoleMiddleware implements Middleware
         }
 
         return $next($request);
+    }
+
+    private function loginLocation(Request $request): string
+    {
+        $token = $request->query('token');
+
+        if (
+            $request->method() !== 'GET'
+            || $request->path() !== '/organizer/check-in'
+            || !is_scalar($token)
+            || preg_match('/\A[a-f0-9]{64}\z/i', (string) $token) !== 1
+        ) {
+            return '/login';
+        }
+
+        $returnTo = '/organizer/check-in?token=' . (string) $token;
+
+        return '/login?return_to=' . rawurlencode($returnTo);
     }
 }

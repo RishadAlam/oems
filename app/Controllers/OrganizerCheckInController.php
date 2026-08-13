@@ -39,7 +39,31 @@ final class OrganizerCheckInController extends Controller
             return Response::text('Not Found', 404);
         }
 
-        return $this->renderWorkspace($context[2]);
+        return $this->renderWorkspace(
+            $context[2],
+            scanCandidate: $this->pullScanCandidate((int) $context[1]),
+        );
+    }
+
+    public function verify(Request $request): Response
+    {
+        $userId = $this->auth->id();
+        $submitted = $request->query('token');
+        $rawToken = is_scalar($submitted) ? trim((string) $submitted) : '';
+        $candidate = $userId === null
+            ? null
+            : $this->tickets->checkInCandidateByToken($userId, $rawToken);
+        $rawToken = null;
+
+        if ($candidate === null) {
+            $this->session->flash('error', 'This QR code is invalid, expired, or belongs to another organizer.');
+
+            return Response::redirect('/organizer/events');
+        }
+
+        $this->session->flash('check_in_candidate', $candidate);
+
+        return Response::redirect('/organizer/events/' . $candidate['event_id'] . '/check-in');
     }
 
     public function store(Request $request): Response
@@ -108,12 +132,42 @@ final class OrganizerCheckInController extends Controller
         return $event === null ? null : [$userId, $eventId, $event];
     }
 
-    private function renderWorkspace(array $event, ?string $scanError = null, int $status = 200): Response
+    private function pullScanCandidate(int $eventId): ?array
+    {
+        $candidate = $this->session->pullFlash('check_in_candidate');
+
+        if (!is_array($candidate)) {
+            return null;
+        }
+
+        $candidateEventId = (int) ($candidate['event_id'] ?? 0);
+        $ticketNumber = strtoupper((string) ($candidate['ticket_number'] ?? ''));
+
+        if (
+            $candidateEventId !== $eventId
+            || preg_match('/\AOEMS-[A-Z0-9-]{4,35}\z/', $ticketNumber) !== 1
+        ) {
+            return null;
+        }
+
+        return [
+            'event_id' => $candidateEventId,
+            'ticket_number' => $ticketNumber,
+        ];
+    }
+
+    private function renderWorkspace(
+        array $event,
+        ?string $scanError = null,
+        int $status = 200,
+        ?array $scanCandidate = null,
+    ): Response
     {
         $response = $this->render('organizer/check-in/index', [
             'pageTitle' => 'Event check-in',
             'event' => $event,
             'scanError' => $scanError,
+            'scanCandidate' => $scanCandidate,
         ], 'dashboard');
 
         return $status === 200 ? $response : Response::html($response->body(), $status);

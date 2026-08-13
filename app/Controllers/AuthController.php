@@ -320,6 +320,7 @@ final class AuthController extends Controller
         return $candidate === '/'
             || $candidate === '/events'
             || preg_match('#^/events/[a-z0-9]+(?:-[a-z0-9]+)*$#', $candidate) === 1
+            || preg_match('#^/organizer/check-in\?token=[a-f0-9]{64}$#i', $candidate) === 1
                 ? $candidate
                 : null;
     }

@@ -137,14 +137,7 @@ final class TicketService
         int $scannerId,
         ?string $scannerIp,
     ): ?array {
-        if (!preg_match('/^[a-f0-9]{64}$/i', $rawToken)) {
-            return null;
-        }
-
-        $ticket = $this->tickets->findForOrganizerByTokenDigest(
-            $organizerId,
-            hash('sha256', strtolower($rawToken)),
-        );
+        $ticket = $this->organizerTicketByToken($organizerId, $rawToken);
 
         if ($ticket === null) {
             return null;
@@ -175,6 +168,27 @@ final class TicketService
 
             throw $exception;
         }
+    }
+
+    /** @return array{event_id:int,ticket_number:string}|null */
+    public function checkInCandidateByToken(int $organizerId, string $rawToken): ?array
+    {
+        $ticket = $this->organizerTicketByToken($organizerId, $rawToken);
+        $eventId = (int) ($ticket['event_id'] ?? 0);
+        $ticketNumber = strtoupper((string) ($ticket['ticket_number'] ?? ''));
+
+        if (
+            $ticket === null
+            || $eventId <= 0
+            || preg_match('/\AOEMS-[A-Z0-9-]{4,35}\z/', $ticketNumber) !== 1
+        ) {
+            return null;
+        }
+
+        return [
+            'event_id' => $eventId,
+            'ticket_number' => $ticketNumber,
+        ];
     }
 
     public function checkIn(
@@ -341,6 +355,18 @@ final class TicketService
         }
 
         return strtolower($query[1]);
+    }
+
+    private function organizerTicketByToken(int $organizerId, string $rawToken): ?array
+    {
+        if ($organizerId <= 0 || preg_match('/\A[a-f0-9]{64}\z/i', $rawToken) !== 1) {
+            return null;
+        }
+
+        return $this->tickets->findForOrganizerByTokenDigest(
+            $organizerId,
+            hash('sha256', strtolower($rawToken)),
+        );
     }
 
     private function urlPort(array $parts): ?int
