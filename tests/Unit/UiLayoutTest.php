@@ -397,7 +397,7 @@ final class UiLayoutTest extends TestCase
 
         $this->assertTrue($this->htmlSourceHasClassToken('<p class="result-summary filter-toolbar__summary">', 'result-summary'));
         $this->assertTrue($this->htmlSourceHasClassToken("<p class='filter-toolbar__summary result-summary'>", 'result-summary'));
-        $this->assertFalse($this->htmlSourceHasClassToken('<link href="/assets/css/app.css?v=20260813-result-summary-v1">', 'result-summary'));
+        $this->assertFalse($this->htmlSourceHasClassToken('<link href="/assets/css/app.css?v=20260813-global-status-v1">', 'result-summary'));
 
         $this->assertSame([], $violations, implode("\n", $violations));
     }
