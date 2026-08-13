@@ -1589,28 +1589,45 @@
         @apply flex flex-col gap-3 sm:flex-row;
     }
 
-    .organizer-toolbar {
-        @apply flex flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:items-end sm:justify-between;
+    .filter-toolbar {
+        @apply flex w-full min-w-0 flex-col gap-4 rounded-[18px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between;
     }
 
-    .organizer-toolbar > p {
-        @apply text-sm text-[var(--ink-muted)];
+    .filter-toolbar__summary {
+        @apply min-w-0 text-sm text-[var(--ink-muted)] sm:self-center;
     }
 
-    .organizer-toolbar > p strong {
-        @apply text-lg text-[var(--ink)];
+    .filter-toolbar__summary strong {
+        @apply text-lg font-semibold tabular-nums text-[var(--ink)];
     }
 
-    .organizer-toolbar form {
-        @apply flex flex-col gap-2 sm:flex-row sm:items-end;
+    .filter-toolbar__form {
+        @apply grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:max-w-full lg:flex lg:flex-wrap lg:items-end lg:justify-end;
     }
 
-    .organizer-toolbar label {
+    .filter-toolbar__field {
+        @apply grid min-w-0 content-start gap-2 lg:min-w-40 lg:flex-[0_1_12rem];
+    }
+
+    .filter-toolbar__field--search {
+        @apply sm:col-span-2 lg:min-w-72 lg:flex-[1_1_18rem];
+    }
+
+    .filter-toolbar__field label {
         @apply text-xs font-bold text-[var(--ink-muted)];
     }
 
-    .organizer-toolbar select {
-        @apply min-h-11 rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--ink)] focus:border-[var(--accent)];
+    .filter-toolbar__field input,
+    .filter-toolbar__field select {
+        @apply min-h-12 w-full min-w-0 rounded-[12px] border border-[var(--line)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--ink)] transition placeholder:text-[var(--ink-muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-3 focus:ring-[color-mix(in_srgb,var(--accent)_20%,transparent)];
+    }
+
+    .filter-toolbar__actions {
+        @apply flex w-full min-w-0 items-end sm:col-span-2 lg:w-auto lg:flex-none;
+    }
+
+    .filter-toolbar__actions .button {
+        @apply min-h-12 w-full lg:w-auto;
     }
 
     .organizer-list-panel {

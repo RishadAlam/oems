@@ -254,12 +254,25 @@ final class UiLayoutTest extends TestCase
         $violations = [];
 
         $sourceRules = [
-            '.filter-toolbar' => ['flex', 'w-full', 'flex-col', 'sm:flex-row', 'sm:flex-wrap'],
             '.filter-toolbar__summary' => ['sm:self-center'],
             '.filter-toolbar__form' => ['grid', 'w-full', 'grid-cols-1', 'sm:grid-cols-2', 'lg:flex', 'lg:flex-wrap', 'lg:items-end'],
             '.filter-toolbar__field' => ['grid', 'content-start'],
             '.filter-toolbar__actions' => ['flex', 'w-full'],
         ];
+
+        $sourceToolbarRules = $this->cssExactSelectorRuleBodies($sourceCss, '.filter-toolbar');
+        $requiredSourceToolbarUtilities = ['flex', 'w-full', 'flex-col', 'sm:flex-row', 'sm:flex-wrap'];
+        $allowedSourceToolbarFlowUtilities = ['flex-col', 'sm:flex-row', 'sm:flex-wrap'];
+
+        if (count($sourceToolbarRules) !== 1) {
+            $violations[] = 'source CSS must define exactly one .filter-toolbar rule.';
+        } elseif (!$this->cssRuleBodyHasExactFlexDirectionAndWrapUtilities(
+            $sourceToolbarRules[0],
+            $requiredSourceToolbarUtilities,
+            $allowedSourceToolbarFlowUtilities,
+        )) {
+            $violations[] = 'source CSS must require flex, w-full, flex-col, sm:flex-row, and sm:flex-wrap while rejecting every other direction or wrap utility.';
+        }
 
         foreach ($sourceRules as $selector => $tokens) {
             if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $tokens)) {
@@ -281,8 +294,40 @@ final class UiLayoutTest extends TestCase
             $violations[] = 'source CSS must not retain the legacy .organizer-toolbar selector.';
         }
 
+        $compiledResponsiveToolbarRules = [];
+
+        foreach ($this->cssMediaRuleBodies($compiledCss, '40rem') as $mediaCss) {
+            $compiledResponsiveToolbarRules = [
+                ...$compiledResponsiveToolbarRules,
+                ...$this->cssExactSelectorRuleBodies($mediaCss, '.filter-toolbar'),
+            ];
+        }
+
+        $compiledBaseToolbarRules = $this->cssExactSelectorRuleBodies($compiledCss, '.filter-toolbar');
+
+        foreach ($compiledResponsiveToolbarRules as $responsiveToolbarRule) {
+            $responsiveRuleIndex = array_search($responsiveToolbarRule, $compiledBaseToolbarRules, true);
+
+            if ($responsiveRuleIndex !== false) {
+                unset($compiledBaseToolbarRules[$responsiveRuleIndex]);
+            }
+        }
+
+        $compiledBaseToolbarRules = array_values($compiledBaseToolbarRules);
+        $flowProperties = ['flex-flow', 'flex-direction', 'flex-wrap'];
+
+        if (count($compiledBaseToolbarRules) !== 1) {
+            $violations[] = 'compiled CSS must define exactly one base .filter-toolbar rule.';
+        } elseif (!$this->cssRuleBodyHasExactDeclarationsAmongProperties(
+            $compiledBaseToolbarRules[0],
+            $flowProperties,
+            [['flex-direction', 'column']],
+        )) {
+            $violations[] = 'compiled CSS base .filter-toolbar rule must contain only flex-direction:column among flow declarations.';
+        }
+
         $compiledBaseRules = [
-            '.filter-toolbar' => ['width:100%', 'flex-direction:column'],
+            '.filter-toolbar' => ['width:100%'],
             '.filter-toolbar__form' => ['width:100%', 'display:grid', 'grid-template-columns:repeat(1,minmax(0,1fr))'],
             '.filter-toolbar__field' => ['display:grid'],
             '.filter-toolbar__actions' => ['width:100%'],
@@ -297,8 +342,17 @@ final class UiLayoutTest extends TestCase
             }
         }
 
+        if (count($compiledResponsiveToolbarRules) !== 1) {
+            $violations[] = 'compiled CSS must define exactly one 40rem .filter-toolbar rule.';
+        } elseif (!$this->cssRuleBodyHasExactDeclarationsAmongProperties(
+            $compiledResponsiveToolbarRules[0],
+            $flowProperties,
+            [['flex-flow', 'wrap']],
+        )) {
+            $violations[] = 'compiled CSS 40rem .filter-toolbar rule must contain only flex-flow:wrap among flow declarations.';
+        }
+
         foreach ([
-            '.filter-toolbar' => ['flex-direction:row', 'flex-wrap:wrap'],
             '.filter-toolbar__summary' => ['align-self:center'],
             '.filter-toolbar__form' => ['grid-template-columns:repeat(2,minmax(0,1fr))'],
         ] as $selector => $declarations) {
@@ -324,6 +378,42 @@ final class UiLayoutTest extends TestCase
             ),
             'The media-rule parser must tolerate whitespace around the min-width query.',
         );
+
+        $unexpectedUtilities = [
+            'flex-' . 'row!',
+            'sm:' . 'flex-' . 'col!',
+            'md:' . 'flex-row-' . 'reverse',
+            'flex-col-' . 'reverse',
+            'flex-' . 'nowrap',
+            'lg:' . 'flex-wrap-' . 'reverse',
+        ];
+
+        foreach ($unexpectedUtilities as $unexpectedUtility) {
+            $this->assertFalse(
+                $this->cssRuleBodyHasExactFlexDirectionAndWrapUtilities(
+                    '@apply flex w-full flex-col sm:flex-row sm:flex-wrap ' . $unexpectedUtility . ';',
+                    $requiredSourceToolbarUtilities,
+                    $allowedSourceToolbarFlowUtilities,
+                ),
+                'The source toolbar contract must reject ' . $unexpectedUtility . '.',
+            );
+        }
+
+        foreach ([
+            ['flex-direction:column!important;', [['flex-direction', 'column']]],
+            ['flex-direction:column;flex-wrap:nowrap;', [['flex-direction', 'column']]],
+            ['flex-flow:wrap!important;', [['flex-flow', 'wrap']]],
+            ['flex-flow:wrap;flex-direction:row;', [['flex-flow', 'wrap']]],
+        ] as [$fixtureRule, $expectedDeclarations]) {
+            $this->assertFalse(
+                $this->cssRuleBodyHasExactDeclarationsAmongProperties(
+                    $fixtureRule,
+                    $flowProperties,
+                    $expectedDeclarations,
+                ),
+                'The compiled toolbar contract must reject important or extra flow declarations.',
+            );
+        }
 
         $this->assertSame([], $violations, implode("\n", $violations));
     }
@@ -725,23 +815,7 @@ final class UiLayoutTest extends TestCase
         }
 
         foreach ($rules[2] as $rule) {
-            preg_match_all('/@apply\\s+([^;]+);/', $rule, $applyDeclarations);
-            $appliedUtilities = [];
-
-            foreach ($applyDeclarations[1] as $declaration) {
-                $appliedUtilities = [...$appliedUtilities, ...(preg_split('/\\s+/', trim($declaration)) ?: [])];
-            }
-
-            $containsUtilities = true;
-
-            foreach ($utilities as $utility) {
-                if (!in_array($utility, $appliedUtilities, true)) {
-                    $containsUtilities = false;
-                    break;
-                }
-            }
-
-            if ($containsUtilities) {
+            if ($this->cssRuleBodyApplyContainsUtilities($rule, $utilities)) {
                 return true;
             }
         }
@@ -749,7 +823,110 @@ final class UiLayoutTest extends TestCase
         return false;
     }
 
+    private function cssRuleBodyApplyContainsUtilities(string $rule, array $utilities): bool
+    {
+        $appliedUtilities = $this->cssRuleBodyAppliedUtilities($rule);
+
+        foreach ($utilities as $utility) {
+            if (!in_array($utility, $appliedUtilities, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function cssRuleBodyAppliedUtilities(string $rule): array
+    {
+        preg_match_all('/@apply\\s+([^;]+);/', $rule, $applyDeclarations);
+        $appliedUtilities = [];
+
+        foreach ($applyDeclarations[1] as $declaration) {
+            $appliedUtilities = [...$appliedUtilities, ...(preg_split('/\\s+/', trim($declaration)) ?: [])];
+        }
+
+        return $appliedUtilities;
+    }
+
+    private function cssRuleBodyHasExactFlexDirectionAndWrapUtilities(
+        string $rule,
+        array $requiredUtilities,
+        array $allowedFlowUtilities,
+    ): bool
+    {
+        $appliedUtilities = $this->cssRuleBodyAppliedUtilities($rule);
+
+        foreach ($requiredUtilities as $utility) {
+            if (!in_array($utility, $appliedUtilities, true)) {
+                return false;
+            }
+        }
+
+        $flowUtilities = [];
+
+        foreach ($appliedUtilities as $utility) {
+            $variants = explode(':', $utility);
+            $utilityName = trim($variants[array_key_last($variants)], '!');
+
+            if (preg_match('/\Aflex-(?:(?:row|col)(?:-reverse)?|wrap(?:-reverse)?|no(?:wrap))\z/', $utilityName) === 1) {
+                $flowUtilities[] = $utility;
+            }
+        }
+
+        sort($flowUtilities);
+        sort($allowedFlowUtilities);
+
+        return $flowUtilities === $allowedFlowUtilities;
+    }
+
+    private function cssExactSelectorRuleBodies(string $css, string $selector): array
+    {
+        $matched = preg_match_all(
+            '/(?:\\A|(?<=[{}]))\\s*' . preg_quote($selector, '/') . '\\s*\\{([^}]*)\\}/',
+            $css,
+            $rules,
+        );
+
+        return $matched === false ? [] : $rules[1];
+    }
+
+    private function cssRuleBodyHasExactDeclarationsAmongProperties(
+        string $rule,
+        array $properties,
+        array $expectedDeclarations,
+    ): bool
+    {
+        $flowDeclarations = [];
+
+        foreach (explode(';', $rule) as $declaration) {
+            $parts = explode(':', $declaration, 2);
+
+            if (count($parts) !== 2) {
+                continue;
+            }
+
+            $property = trim($parts[0]);
+
+            if (in_array($property, $properties, true)) {
+                $flowDeclarations[] = [$property, trim($parts[1])];
+            }
+        }
+
+        return $flowDeclarations === $expectedDeclarations;
+    }
+
     private function cssMediaRuleContainsTokens(string $css, string $breakpoint, string $selector, array $tokens): bool
+    {
+        foreach ($this->cssMediaRuleBodies($css, $breakpoint) as $mediaCss) {
+            if ($this->cssRuleContainsTokens($mediaCss, $selector, $tokens)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssMediaRuleBodies(string $css, string $breakpoint): array
     {
         $matched = preg_match_all(
             '/@media\\s*\\(\\s*min-width\\s*:\\s*' . preg_quote($breakpoint, '/') . '\\s*\\)\\s*\\{/',
@@ -759,8 +936,10 @@ final class UiLayoutTest extends TestCase
         );
 
         if ($matched === false || $matched === 0) {
-            return false;
+            return [];
         }
+
+        $bodies = [];
 
         foreach ($mediaQueries[0] as [$query, $start]) {
             $openBrace = $start + strrpos($query, '{');
@@ -774,19 +953,14 @@ final class UiLayoutTest extends TestCase
                     $depth--;
 
                     if ($depth === 0) {
-                        $mediaCss = substr($css, $openBrace + 1, $index - $openBrace - 1);
-
-                        if ($this->cssRuleContainsTokens($mediaCss, $selector, $tokens)) {
-                            return true;
-                        }
-
-                        continue 2;
+                        $bodies[] = substr($css, $openBrace + 1, $index - $openBrace - 1);
+                        break;
                     }
                 }
             }
         }
 
-        return false;
+        return $bodies;
     }
 
     private function cssHasSelector(string $css, string $selector): bool
