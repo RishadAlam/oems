@@ -35,4 +35,15 @@ final class LocationAccessibilityStylesTest extends TestCase
             );
         }
     }
+
+    public function testDiscoveryMapStylesScopeTheResponsiveViewContract(): void
+    {
+        $stylesheet = file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(is_string($stylesheet));
+        $this->assertTrue(str_contains($stylesheet, '.event-discovery-layout[data-event-discovery-view="map"]'));
+        $this->assertFalse(str_contains($stylesheet, '.event-discovery-layout:not(.event-discovery-layout--empty) {'));
+        $this->assertTrue(str_contains($stylesheet, '@media (min-width: 1024px)'));
+        $this->assertTrue(str_contains($stylesheet, '.event-view-control'));
+    }
 }

@@ -278,6 +278,12 @@ final class PublicEventControllerTest extends TestCase
             $body,
             'class="event-discovery-layout"',
         ), 'The canonical result list and supplemental map must share the responsive discovery layout.');
+        $this->assertTrue(str_contains($body, 'data-event-discovery data-event-discovery-view="list"'));
+        $this->assertTrue(str_contains($body, 'role="group" aria-labelledby="event-view-label"'));
+        $this->assertTrue(str_contains($body, 'id="event-view-label"'));
+        $this->assertTrue(str_contains($body, 'data-event-view-status'));
+        $this->assertTrue(str_contains($body, '1 public event location'));
+        $this->assertFalse(str_contains($body, 'Use the List view for complete event details.'));
     }
 
     public function testIndexShowsOnlyCoarseDistanceAndCoarsePlaceForRestrictedRows(): void

@@ -130,9 +130,13 @@ function createHarness({
     supported = true,
     tileOutcome = 'load',
 } = {}) {
-    let mobileViewport = mobile;
+    let viewportWidth = mobile ? 1023 : 1024;
+    const narrowViewportQuery = '(max-width: 1023px)';
     const useLocation = new ElementStub();
     const status = new ElementStub();
+    const discovery = new ElementStub();
+    discovery.dataset.eventDiscoveryView = 'list';
+    const viewStatus = new ElementStub();
     const form = new ElementStub();
     const latitudeInput = new ElementStub();
     const longitudeInput = new ElementStub();
@@ -202,9 +206,11 @@ function createHarness({
                 '[data-location-use]': useLocation,
                 '[data-location-status]': status,
                 '[data-location-form]': form,
+                '[data-event-discovery]': discovery,
                 '[data-event-results]': list,
                 '[data-event-map-panel]': panel,
                 '[data-event-map]': mapContainer,
+                '[data-event-view-status]': viewStatus,
                 '#event-map-data': payload,
             }[selector] ?? null),
             querySelectorAll: (selector) => ({
@@ -223,7 +229,7 @@ function createHarness({
         } : {},
         matchMedia(query) {
             const mediaQuery = {
-                get matches() { return query.includes('max-width') ? mobileViewport : reducedMotion; },
+                get matches() { return query.includes('max-width') ? viewportWidth <= 1023 : reducedMotion; },
                 addEventListener(type, callback) {
                     if (type === 'change') mediaListeners.set(query, callback);
                 },
@@ -245,6 +251,7 @@ function createHarness({
     return {
         card,
         cardLink,
+        discovery,
         geolocationCalls,
         leaflet,
         list,
@@ -255,12 +262,13 @@ function createHarness({
         requests,
         status,
         useLocation,
+        viewStatus,
         clickUseLocation: async () => { useLocation.click(); await Promise.resolve(); },
         pagehide: (persisted = false) => windowListeners.get('pagehide')?.({ persisted }),
         pageshow: (persisted = false) => windowListeners.get('pageshow')?.({ persisted }),
-        resizeToMobile: (nextMobile) => {
-            mobileViewport = nextMobile;
-            mediaListeners.get('(max-width: 767px)')?.({ matches: nextMobile });
+        resizeToWidth: (nextWidth) => {
+            viewportWidth = nextWidth;
+            mediaListeners.get(narrowViewportQuery)?.({ matches: nextWidth <= 1023 });
         },
     };
 }
@@ -333,17 +341,54 @@ test('list and map controls expose pressed state and mobile panel visibility', (
     assert.equal(harness.list.hidden, false);
 });
 
-test('active map view follows responsive breakpoint changes without hiding desktop results', () => {
+test('list and map controls synchronize explicit discovery state on narrow screens', () => {
+    const harness = createHarness({ mobile: true });
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'list');
+
+    harness.mapToggle.click();
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, true);
+    assert.match(harness.viewStatus.textContent, /map view/i);
+
+    harness.listToggle.click();
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'list');
+    assert.equal(harness.panel.hidden, true);
+    assert.equal(harness.list.hidden, false);
+    assert.match(harness.viewStatus.textContent, /list view/i);
+});
+
+test('map keeps results beside it at the desktop split breakpoint', () => {
+    const harness = createHarness({ mobile: false });
+    harness.mapToggle.click();
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
+    assert.equal(harness.list.hidden, false);
+    assert.match(harness.viewStatus.textContent, /alongside/i);
+});
+
+test('Map hides results below 1024px but retains results at and above it', () => {
     const harness = createHarness({ mobile: true });
     harness.mapToggle.click();
     assert.equal(harness.list.hidden, true);
 
-    harness.resizeToMobile(false);
+    harness.resizeToWidth(1024);
     assert.equal(harness.panel.hidden, false);
     assert.equal(harness.list.hidden, false);
 
-    harness.resizeToMobile(true);
+    harness.resizeToWidth(1440);
+    assert.equal(harness.list.hidden, false);
+
+    harness.resizeToWidth(1023);
     assert.equal(harness.list.hidden, true);
+});
+
+test('marker activation reveals a hidden result before focusing its card', () => {
+    const harness = createHarness({ mobile: true });
+    harness.mapToggle.click();
+    harness.leaflet.markers[0].emit('click');
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'list');
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.card.focusCalls, 1);
 });
 
 test('marker and card interactions preserve keyboard focus and disable reduced motion', () => {
@@ -389,9 +434,10 @@ test('malformed marker payload keeps the list and renders an inline fallback', (
     harness.mapToggle.click();
 
     assert.equal(harness.leaflet.maps.length, 0);
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
     assert.equal(harness.list.hidden, false);
     assert.equal(harness.panel.hidden, false);
-    assert.match(harness.status.textContent, /map is unavailable/i);
+    assert.match(harness.viewStatus.textContent, /map is unavailable/i);
 });
 
 test('zero valid public markers keeps the canonical mobile list and visible fallback', () => {
@@ -399,18 +445,20 @@ test('zero valid public markers keeps the canonical mobile list and visible fall
     harness.mapToggle.click();
 
     assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
     assert.equal(harness.list.hidden, false);
     assert.equal(harness.mapFallback.hidden, false);
-    assert.match(harness.status.textContent, /no public event locations/i);
+    assert.match(harness.viewStatus.textContent, /no public event locations/i);
 });
 
 test('tile failure keeps the canonical mobile list and reports provider attribution', () => {
     const harness = createHarness({ mobile: true, tileOutcome: 'tileerror' });
     harness.mapToggle.click();
 
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
     assert.equal(harness.list.hidden, false);
     assert.equal(harness.mapFallback.hidden, false);
-    assert.match(harness.status.textContent, /map tiles could not load/i);
+    assert.match(harness.viewStatus.textContent, /map tiles could not load/i);
     assert.equal(harness.leaflet.tileLayers[0].options.attribution, 'Map data');
 });
 
@@ -422,9 +470,10 @@ test('terminal tile load cannot clear an earlier tile failure', () => {
     tileLayer.emit('tileerror');
     tileLayer.emit('load');
 
+    assert.equal(harness.discovery.dataset.eventDiscoveryView, 'map');
     assert.equal(harness.list.hidden, false);
     assert.equal(harness.mapFallback.hidden, false);
-    assert.match(harness.status.textContent, /map tiles could not load/i);
+    assert.match(harness.viewStatus.textContent, /map tiles could not load/i);
 });
 
 test('pagehide removes the Leaflet instance', () => {
