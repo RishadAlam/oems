@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "@fontsource-variable/manrope";
 @import "@phosphor-icons/web/regular";
 

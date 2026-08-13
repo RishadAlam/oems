@@ -417,6 +417,16 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testTailwindBuildScansOnlyExplicitApplicationSources(): void
+    {
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertSame(1, substr_count($sourceCss, '@import "tailwindcss" source(none);'));
+        $this->assertTrue(str_contains($sourceCss, '@source "../../app/Views/**/*.php";'));
+        $this->assertTrue(str_contains($sourceCss, '@source "../../public/**/*.js";'));
+        $this->assertFalse(str_contains($sourceCss, '@import "tailwindcss";'));
+    }
+
     public function testSingleFieldToolbarsUseTheCompactAtomicLayoutContract(): void
     {
         foreach ([
