@@ -100,6 +100,19 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '.field-group input[type="file"]::file-selector-button'));
     }
 
+    public function testResponsiveToolbarBottomAlignsLabeledControlsAndUnlabeledActions(): void
+    {
+        $css = (string) file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue(
+            preg_match(
+                '/\.organizer-toolbar form\{(?=[^}]*flex-direction:row)(?=[^}]*align-items:flex-end)[^}]*\}/',
+                $css,
+            ) === 1,
+            'Responsive toolbar controls and actions must share one lower edge.',
+        );
+    }
+
     public function testSectionedFormsRemoveTheContentDividerBeforeTheActionDivider(): void
     {
         $css = (string) file_get_contents(base_path('resources/css/app.css'));
