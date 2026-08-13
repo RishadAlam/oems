@@ -58,9 +58,14 @@ test('creates aggregate charts with responsive theme-aware reduced-motion option
     assert.equal(result.created.length, 2);
     assert.equal(result.created[0].config.options.responsive, true);
     assert.equal(result.created[0].config.options.animation, false);
-    assert.equal(result.created[0].config.data.datasets.at(-1).label, 'Verified payments (BDT)');
-    assert.equal(result.created[0].config.data.datasets.at(-1).yAxisID, 'yMoney');
-    assert.equal(result.created[0].config.options.scales.yMoney.position, 'right');
+    assert.deepEqual(Array.from(result.created[0].config.data.datasets, (dataset) => dataset.label), ['Events', 'Registrations', 'Attendance']);
+    assert.equal('yMoney' in result.created[0].config.options.scales, false);
+    assert.equal(result.created[0].config.options.scales.x.ticks.autoSkip, true);
+    assert.equal(result.created[0].config.options.scales.x.ticks.maxTicksLimit, 8);
+    assert.equal(result.created[1].config.options.indexAxis, 'y');
+    assert.equal(result.created[1].config.options.scales.x.ticks.precision, 0);
+    assert.equal(result.created[1].config.data.datasets[0].maxBarThickness, 28);
+    assert.match(result.status.textContent, /source tables remain available/i);
     assert.equal(result.observer.observeCalls, 1);
 });
 

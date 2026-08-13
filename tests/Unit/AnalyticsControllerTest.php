@@ -54,6 +54,7 @@ final class AnalyticsControllerTest extends TestCase
         foreach (['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'] as $status) {
             $this->assertTrue(str_contains($response->body(), 'data-registration-status="' . $status . '"'));
         }
+        $this->assertAnalyticsDashboardShell($response->body(), 'Organizer analytics summary');
         $this->assertSame('organizerSummary', $repository->calls[0][0]);
     }
 
@@ -145,6 +146,7 @@ final class AnalyticsControllerTest extends TestCase
         foreach (['pending', 'confirmed', 'cancelled', 'waitlisted', 'refunded'] as $status) {
             $this->assertTrue(str_contains($response->body(), 'data-registration-status="' . $status . '"'));
         }
+        $this->assertAnalyticsDashboardShell($response->body(), 'Platform analytics summary');
 
         $invalid = $controller->index(Request::create('GET', '/admin/analytics', query: ['event_status' => 'private']));
         $this->assertSame(422, $invalid->status());
@@ -217,6 +219,25 @@ final class AnalyticsControllerTest extends TestCase
             new ReportService($repository, new DateTimeImmutable('2026-08-10 10:00:00')),
             new ReportArtifactService(),
         ), $repository];
+    }
+
+    private function assertAnalyticsDashboardShell(string $html, string $summaryLabel): void
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+        $this->assertTrue($loaded);
+        $xpath = new \DOMXPath($document);
+
+        $this->assertSame(1, $xpath->query('//section[contains(concat(" ", normalize-space(@class), " "), " analytics-filter ")]')?->length);
+        $this->assertSame(1, $xpath->query('//form[contains(concat(" ", normalize-space(@class), " "), " analytics-filter__form ") and @data-form-kind="filter"]')?->length);
+        $this->assertSame(1, $xpath->query('//*[@data-analytics-applied-range and contains(normalize-space(.), "2026-08-01") and contains(normalize-space(.), "2026-08-10")]')?->length);
+        $this->assertSame(1, $xpath->query('//section[contains(concat(" ", normalize-space(@class), " "), " analytics-kpi-grid ") and @aria-label="' . $summaryLabel . '"]')?->length);
+        $this->assertSame(4, $xpath->query('//section[@aria-label="' . $summaryLabel . '"]/*[contains(concat(" ", normalize-space(@class), " "), " analytics-kpi ")]')?->length);
+        $this->assertSame(4, $xpath->query('//section[@aria-label="' . $summaryLabel . '"]//*[@data-analytics-kpi-value]')?->length);
+        $this->assertSame(1, $xpath->query('//section[contains(concat(" ", normalize-space(@class), " "), " analytics-performance ")]')?->length);
     }
 
     private function adminController(): array
