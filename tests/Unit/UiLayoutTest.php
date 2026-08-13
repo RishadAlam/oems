@@ -454,10 +454,14 @@ final class UiLayoutTest extends TestCase
             $view = substr($file->getPathname(), strlen(base_path()) + 1);
             $source = file_get_contents($file->getPathname());
 
-            if ($source !== false && str_contains($source, 'result-summary') && !in_array($view, $views, true)) {
+            if ($source !== false && $this->htmlSourceHasClassToken($source, 'result-summary') && !in_array($view, $views, true)) {
                 $violations[] = $view . ' must not use .result-summary outside the seven permitted filtered-result surfaces.';
             }
         }
+
+        $this->assertTrue($this->htmlSourceHasClassToken('<p class="result-summary filter-toolbar__summary">', 'result-summary'));
+        $this->assertTrue($this->htmlSourceHasClassToken("<p class='filter-toolbar__summary result-summary'>", 'result-summary'));
+        $this->assertFalse($this->htmlSourceHasClassToken('<link href="/assets/css/app.css?v=20260813-result-summary-v1">', 'result-summary'));
 
         $this->assertSame([], $violations, implode("\n", $violations));
     }
@@ -504,9 +508,9 @@ final class UiLayoutTest extends TestCase
 
         foreach ([
             '.result-summary' => ['display:flex', ['min-height:calc(var(--spacing) * 12)', 'min-height:3rem'], 'width:100%', 'min-width:0', 'align-items:center'],
-            '.result-summary__count' => ['display:grid', ['min-height:calc(var(--spacing) * 11)', 'min-height:2.75rem'], ['min-width:calc(var(--spacing) * 11)', 'min-width:2.75rem'], 'border-radius:12px', 'background-color:var(--accent-soft)', ['font-size:var(--text-lg)', 'font-size:1.125rem'], 'font-weight:var(--font-weight-bold)', 'font-variant-numeric:tabular-nums', 'color:var(--accent)'],
+            '.result-summary__count' => ['display:grid', ['min-height:calc(var(--spacing) * 11)', 'min-height:2.75rem'], ['min-width:calc(var(--spacing) * 11)', 'min-width:2.75rem'], 'border-radius:12px', 'background-color:var(--accent-soft)', ['font-size:var(--text-lg)', 'font-size:1.125rem'], 'font-weight:var(--font-weight-bold)', '--tw-numeric-spacing:tabular-nums', 'font-variant-numeric:var(--tw-ordinal,) var(--tw-slashed-zero,) var(--tw-numeric-figure,) var(--tw-numeric-spacing,) var(--tw-numeric-fraction,)', 'color:var(--accent)'],
             '.result-summary__copy' => ['display:grid', 'min-width:0'],
-            '.dashboard-panel__heading--with-summary' => ['display:flex', 'flex-direction:column'],
+            '.dashboard-panel__heading--with-summary' => ['flex-direction:column'],
             '.dashboard-panel__heading-main' => ['display:flex', 'min-width:0', 'align-items:flex-start'],
         ] as $selector => $declarations) {
             if (!$this->cssRuleContainsTokens($compiledCss, $selector, $declarations)) {
@@ -516,6 +520,7 @@ final class UiLayoutTest extends TestCase
 
         foreach ([
             '.result-summary' => ['width:auto'],
+            '.filter-toolbar__summary' => ['flex:none'],
             '.dashboard-panel__heading--with-summary' => ['flex-direction:row', 'align-items:center', 'justify-content:space-between'],
         ] as $selector => $declarations) {
             if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations)) {
@@ -538,7 +543,7 @@ final class UiLayoutTest extends TestCase
         ];
         $approvedCompiledCustomProperties = [
             '.result-summary' => [],
-            '.result-summary__count' => ['--tw-font-weight:var(--font-weight-bold)'],
+            '.result-summary__count' => ['--tw-font-weight:var(--font-weight-bold)', '--tw-numeric-spacing:tabular-nums'],
             '.result-summary__copy' => [],
             '.result-summary__context' => ['--tw-font-weight:var(--font-weight-bold)'],
             '.result-summary__subject' => ['--tw-font-weight:var(--font-weight-semibold)', '--tw-leading:calc(var(--spacing) * 5)'],
@@ -615,7 +620,7 @@ final class UiLayoutTest extends TestCase
 
         $this->assertTrue(
             $this->cssRuleHasOnlyApprovedColorAndCustomDeclarations(
-                'background-color:var(--accent-soft);color:var(--accent);--tw-font-weight:var(--font-weight-bold)',
+                'background-color:var(--accent-soft);color:var(--accent);--tw-font-weight:var(--font-weight-bold);--tw-numeric-spacing:tabular-nums',
                 $approvedCompiledColorDeclarations['.result-summary__count'],
                 $approvedCompiledCustomProperties['.result-summary__count'],
             ),
@@ -1563,6 +1568,14 @@ final class UiLayoutTest extends TestCase
         }
 
         return false;
+    }
+
+    private function htmlSourceHasClassToken(string $source, string $class): bool
+    {
+        return preg_match(
+            '/\bclass\s*=\s*(["\'])(?:[^"\']*\s)?' . preg_quote($class, '/') . '(?:\s[^"\']*)?\1/i',
+            $source,
+        ) === 1;
     }
 
     private function cssRuleBodyApplyContainsUtilities(string $rule, array $utilities): bool
