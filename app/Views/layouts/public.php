@@ -9,6 +9,10 @@ $layoutHasBrandSuffix = preg_match('/\|\s*' . preg_quote($layoutSiteName, '/') .
 $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName)) === 0 || $layoutHasBrandSuffix
     ? $layoutPageTitle
     : $layoutPageTitle . ' | ' . $layoutSiteName;
+$layoutHasCurrentUser = is_array($currentUser ?? null);
+$layoutOrganizerMenuHref = $layoutHasCurrentUser ? '/dashboard' : '/register?role=organizer';
+$layoutOrganizerMenuLabel = $layoutHasCurrentUser ? 'Dashboard' : 'For organizers';
+$layoutOrganizerMenuIcon = $layoutHasCurrentUser ? 'ph-squares-four' : 'ph-microphone-stage';
 ?>
 <!doctype html>
 <html lang="en" class="scroll-smooth">
@@ -54,7 +58,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
                 <a class="nav-link" href="/events">Explore events</a>
                 <a class="nav-link" href="/events/calendar">Calendar</a>
                 <a class="nav-link" href="/blog">Blog</a>
-                <a class="nav-link" href="/register?role=organizer">For organizers</a>
+                <a class="nav-link" href="<?= e($layoutOrganizerMenuHref) ?>"><?= e($layoutOrganizerMenuLabel) ?></a>
                 <a class="nav-link" href="/#how-it-works">How it works</a>
             </nav>
 
@@ -87,7 +91,7 @@ $layoutDocumentTitle = strcasecmp(trim($layoutPageTitle), trim($layoutSiteName))
                 <a class="mobile-menu__link" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
                 <a class="mobile-menu__link" href="/events/calendar"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Event calendar</span></a>
                 <a class="mobile-menu__link" href="/blog"><i class="ph ph-newspaper-clipping" aria-hidden="true"></i><span>Blog</span></a>
-                <a class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>
+                <a class="mobile-menu__link" href="<?= e($layoutOrganizerMenuHref) ?>"><i class="ph <?= e($layoutOrganizerMenuIcon) ?>" aria-hidden="true"></i><span><?= e($layoutOrganizerMenuLabel) ?></span></a>
                 <a class="mobile-menu__link" href="/#how-it-works"><i class="ph ph-path" aria-hidden="true"></i><span>How it works</span></a>
                 <button class="mobile-menu__link text-left" type="button" data-theme-toggle aria-label="Switch to dark theme">
                     <i class="ph ph-moon" data-theme-icon aria-hidden="true"></i><span data-theme-label>Switch to dark theme</span>
