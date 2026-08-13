@@ -258,7 +258,7 @@ final class FormSystemTest extends TestCase
             }
         }
 
-        $this->assertSame(86, count($forms));
+        $this->assertSame(88, count($forms));
         foreach ($forms as [$path, $openingTag, $form]) {
             $this->assertTrue(
                 str_contains($openingTag, 'data-form-kind='),
@@ -306,7 +306,7 @@ final class FormSystemTest extends TestCase
             }
         }
 
-        $this->assertSame(32, count($entryForms));
+        $this->assertSame(33, count($entryForms));
         foreach ($entryForms as [$path, $form]) {
             $this->assertTrue(
                 str_contains($form, 'form-errors.php'),
