@@ -161,38 +161,36 @@
     <div class="page-shell">
         <div class="home-journeys__surface">
             <div class="home-journeys__intro">
-                <p class="eyebrow eyebrow--inverse"><i class="ph ph-path" aria-hidden="true"></i><span>How OEMS works</span></p>
-                <div>
-                    <h2 id="home-journeys-title" class="section-title">One platform, two clear paths</h2>
-                    <p class="section-copy">Whether you are finding a seat or filling a room, the next step stays obvious.</p>
-                </div>
+                <p class="home-journeys__label"><i class="ph ph-path" aria-hidden="true"></i><span>How OEMS works</span></p>
+                <h2 id="home-journeys-title" class="section-title">One platform, two clear paths</h2>
+                <p class="section-copy">Whether you are finding a seat or filling a room, the next step stays obvious.</p>
             </div>
 
             <div class="home-journeys__grid">
-                <article class="home-journey home-journey--participant">
-                    <header>
+                <article class="home-journey home-journey--participant" aria-labelledby="participant-journey-title" data-reveal>
+                    <header class="home-journey__header">
                         <span class="home-journey__icon"><i class="ph ph-ticket" aria-hidden="true"></i></span>
-                        <div><p>For participants</p><h3>Find a reason to show up</h3></div>
+                        <div><p class="home-journey__audience">For participants</p><h3 id="participant-journey-title">Find a reason to show up</h3></div>
                     </header>
-                    <ol>
-                        <li><span>01</span><div><strong>Discover</strong><p>Search by interest, date, or place.</p></div></li>
-                        <li><span>02</span><div><strong>Register</strong><p>Save your place and keep ticket details together.</p></div></li>
-                        <li><span>03</span><div><strong>Arrive ready</strong><p>Bring your QR ticket for a faster check-in.</p></div></li>
+                    <ol class="home-journey__steps">
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-compass"></i></span><div><strong>Discover</strong><p>Search by interest, date, or place.</p></div></li>
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-ticket"></i></span><div><strong>Register</strong><p>Save your place and keep ticket details together.</p></div></li>
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-qr-code"></i></span><div><strong>Arrive ready</strong><p>Bring your QR ticket for a faster check-in.</p></div></li>
                     </ol>
-                    <a class="text-link text-link--inverse" href="/events"><span>Explore upcoming events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                    <a class="home-journey__cta" href="/events"><span>Explore upcoming events</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 </article>
 
-                <article class="home-journey home-journey--organizer">
-                    <header>
+                <article class="home-journey home-journey--organizer" aria-labelledby="organizer-journey-title" data-reveal>
+                    <header class="home-journey__header">
                         <span class="home-journey__icon"><i class="ph ph-microphone-stage" aria-hidden="true"></i></span>
-                        <div><p>For organizers</p><h3>Turn an idea into a full room</h3></div>
+                        <div><p class="home-journey__audience">For organizers</p><h3 id="organizer-journey-title">Turn an idea into a full room</h3></div>
                     </header>
-                    <ol>
-                        <li><span>01</span><div><strong>Create</strong><p>Build a clear page with venue and schedule details.</p></div></li>
-                        <li><span>02</span><div><strong>Submit</strong><p>Send the event for review before it goes live.</p></div></li>
-                        <li><span>03</span><div><strong>Run the room</strong><p>Manage guests and scan tickets at the door.</p></div></li>
+                    <ol class="home-journey__steps">
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-note-pencil"></i></span><div><strong>Create</strong><p>Build a clear page with venue and schedule details.</p></div></li>
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-paper-plane-tilt"></i></span><div><strong>Submit</strong><p>Send the event for review before it goes live.</p></div></li>
+                        <li><span class="home-journey__step-icon" aria-hidden="true"><i class="ph ph-scan"></i></span><div><strong>Run the room</strong><p>Manage guests and scan tickets at the door.</p></div></li>
                     </ol>
-                    <a class="text-link text-link--inverse" href="/register?role=organizer"><span>Start as an organizer</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+                    <a class="home-journey__cta" href="/register?role=organizer"><span>Start as an organizer</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 </article>
             </div>
         </div>

@@ -597,79 +597,97 @@
     }
 
     .home-journeys__surface {
-        @apply overflow-hidden rounded-[24px] bg-[#101a36] text-white shadow-[var(--shadow)];
+        @apply rounded-[28px] border border-[var(--line)] bg-[var(--surface-soft)] p-5 shadow-[var(--shadow-soft)] sm:p-8 lg:p-10;
     }
 
     .home-journeys__intro {
-        @apply grid gap-5 p-6 sm:p-9 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-end lg:gap-16 lg:p-12;
+        @apply max-w-3xl;
     }
 
-    .home-journeys__intro .eyebrow {
-        @apply mb-0 justify-self-start lg:mb-1;
+    .home-journeys__label {
+        @apply inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-[var(--accent)];
+    }
+
+    .home-journeys__label .ph {
+        @apply text-lg;
     }
 
     .home-journeys__intro .section-title {
-        @apply max-w-[18ch] text-4xl sm:text-5xl;
-    }
-
-    .home-journeys__intro .section-copy {
-        @apply text-white/65;
+        @apply mt-4 max-w-[18ch] text-3xl sm:text-4xl lg:text-[2.75rem];
     }
 
     .home-journeys__grid {
-        @apply grid border-t border-white/12 lg:grid-cols-2;
+        @apply mt-8 grid gap-5 lg:mt-10 lg:grid-cols-2;
     }
 
     .home-journey {
-        @apply min-w-0 p-6 sm:p-8 lg:p-10;
+        @apply relative flex min-w-0 flex-col overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--surface-raised)] p-6 shadow-[var(--shadow-soft)] sm:p-8;
     }
 
-    .home-journey + .home-journey {
-        @apply border-t border-white/12 lg:border-l lg:border-t-0;
+    .home-journey::before {
+        content: "";
+        @apply absolute inset-x-0 top-0 h-1 bg-[var(--accent)];
     }
 
-    .home-journey header {
+    .home-journey--organizer {
+        background: color-mix(in srgb, var(--accent-soft) 36%, var(--surface-raised));
+    }
+
+    .home-journey__header {
         @apply grid grid-cols-[auto_1fr] items-start gap-4;
     }
 
     .home-journey__icon {
-        @apply grid size-11 place-items-center rounded-[12px] bg-white/10 text-xl text-[#a7baff];
+        @apply grid size-12 place-items-center rounded-[14px] bg-[var(--accent-soft)] text-2xl text-[var(--accent)];
     }
 
-    .home-journey header p {
-        @apply text-xs font-bold uppercase tracking-[0.12em] text-[#a7baff];
+    .home-journey__audience {
+        @apply text-xs font-extrabold uppercase tracking-[0.13em] text-[var(--accent)];
     }
 
     .home-journey h3 {
-        @apply mt-1 text-xl font-semibold tracking-[-0.025em] sm:text-2xl;
+        @apply mt-1 text-xl font-semibold leading-tight tracking-[-0.025em] text-[var(--ink)] sm:text-2xl;
     }
 
-    .home-journey ol {
-        @apply mt-6 grid gap-4 sm:mt-8 sm:gap-5;
+    .home-journey__steps {
+        @apply mt-7 flex-1;
     }
 
-    .home-journey li {
-        @apply grid grid-cols-[2rem_minmax(0,1fr)] gap-3;
+    .home-journey__steps li {
+        @apply relative grid grid-cols-[2.75rem_minmax(0,1fr)] gap-4 pb-6;
     }
 
-    .home-journey li > span {
-        @apply pt-0.5 text-xs font-bold text-white/60;
+    .home-journey__steps li:last-child {
+        @apply pb-0;
     }
 
-    .home-journey li strong {
-        @apply text-sm font-bold text-white;
+    .home-journey__steps li:not(:last-child)::after {
+        content: "";
+        @apply absolute bottom-0 left-[1.34375rem] top-11 w-px bg-[var(--line-strong)];
     }
 
-    .home-journey li p {
-        @apply mt-1 text-sm leading-6 text-white/62;
+    .home-journey__step-icon {
+        @apply relative z-10 grid size-11 place-items-center rounded-full border border-[color-mix(in_srgb,var(--accent)_24%,var(--line))] bg-[var(--surface-raised)] text-lg text-[var(--accent)];
     }
 
-    .home-journey > .text-link {
-        @apply mt-6 sm:mt-8;
+    .home-journey__steps strong {
+        @apply block pt-0.5 text-sm font-bold text-[var(--ink)];
     }
 
-    .text-link--inverse {
-        @apply text-[#b8c6ff] hover:text-white;
+    .home-journey__steps p {
+        @apply mt-1 text-sm leading-6 text-[var(--ink-muted)];
+    }
+
+    .home-journey__cta {
+        @apply mt-7 inline-flex min-h-11 w-fit items-center gap-2 rounded-[12px] bg-[var(--accent-soft)] px-4 py-2.5 text-sm font-bold text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-[var(--accent-ink)];
+    }
+
+    .home-journey__cta .ph {
+        @apply transition-transform;
+    }
+
+    .home-journey__cta:hover .ph {
+        @apply translate-x-0.5;
     }
 
     .organizer-callout > .page-shell {
