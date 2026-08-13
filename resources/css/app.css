@@ -218,6 +218,68 @@
         @apply grid size-9 shrink-0 place-items-center rounded-full border border-current text-lg opacity-75 transition hover:opacity-100;
     }
 
+    .email-verification-notice {
+        @apply mb-6 grid min-w-0 gap-4 rounded-[18px] border border-[color-mix(in_srgb,var(--warning)_35%,var(--line))] bg-[var(--surface-raised)] p-4 shadow-[var(--shadow-soft)] sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center sm:p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto];
+    }
+
+    .email-verification-notice__icon {
+        @apply grid size-11 shrink-0 place-items-center rounded-[12px] bg-[var(--warning-soft)] text-xl text-[var(--warning)];
+    }
+
+    .email-verification-notice__content {
+        @apply min-w-0;
+    }
+
+    .email-verification-notice__eyebrow {
+        @apply text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-[var(--warning)];
+    }
+
+    .email-verification-notice__content h2 {
+        @apply mt-1 text-lg font-extrabold tracking-[-0.02em] text-[var(--ink)];
+    }
+
+    .email-verification-notice__content > p:not(.email-verification-notice__eyebrow, .email-verification-notice__email) {
+        @apply mt-1 max-w-3xl text-sm leading-6 text-[var(--ink-muted)];
+    }
+
+    .email-verification-notice__email {
+        @apply mt-2 inline-flex max-w-full min-w-0 items-center gap-2 rounded-full bg-[var(--warning-soft)] px-3 py-1 text-xs font-semibold leading-5 text-[var(--warning)];
+    }
+
+    .email-verification-notice__email span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .email-verification-notice__action {
+        @apply flex min-w-0 sm:col-span-2 lg:col-span-1 lg:justify-end;
+    }
+
+    .email-verification-notice__action form,
+    .email-verification-notice__action .button {
+        @apply w-full lg:w-auto;
+    }
+
+    .auth-verification-help {
+        @apply mt-6 grid min-w-0 gap-3 rounded-[16px] border border-[var(--line)] bg-[var(--surface-raised)] p-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start;
+    }
+
+    .auth-verification-help__icon {
+        @apply grid size-10 shrink-0 place-items-center rounded-[11px] bg-[var(--info-soft)] text-lg text-[var(--info)];
+    }
+
+    .auth-verification-help strong {
+        @apply text-sm font-bold text-[var(--ink)];
+    }
+
+    .auth-verification-help p {
+        @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .auth-verification-help .text-link {
+        @apply sm:col-start-2;
+    }
+
     .hero-section {
         @apply relative overflow-hidden py-5 sm:py-8 lg:py-10;
         background:

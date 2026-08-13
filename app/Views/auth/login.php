@@ -61,4 +61,13 @@
     <button class="button button--primary w-full" type="submit" data-submit-label="Signing in…"><span data-submit-text>Sign in</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
 </form>
 
+<div class="auth-verification-help">
+    <span class="auth-verification-help__icon" aria-hidden="true"><i class="ph ph-envelope-simple-open"></i></span>
+    <div>
+        <strong>Verification email missing?</strong>
+        <p>Request a new single-use link for an unverified account.</p>
+    </div>
+    <a class="text-link" href="/verify-email/resend">Resend verification email</a>
+</div>
+
 <p class="auth-switch">New to OEMS? <a href="/register">Create an account</a></p>

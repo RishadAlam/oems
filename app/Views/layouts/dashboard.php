@@ -10,7 +10,7 @@
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-analytics-dashboard-v1">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-verification-recovery-v1">
     <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/dashboard-sidebar.js" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
@@ -137,6 +137,7 @@
             <main id="dashboard-content" class="px-5 py-7 sm:px-8 lg:px-10 lg:py-10">
                 <div class="mx-auto max-w-[1280px]">
                     <?php require base_path('app/Views/components/flash.php'); ?>
+                    <?php require base_path('app/Views/components/email-verification-notice.php'); ?>
                     <?= $content ?>
                 </div>
             </main>

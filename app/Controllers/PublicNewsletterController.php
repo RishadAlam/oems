@@ -35,13 +35,29 @@ final class PublicNewsletterController extends Controller
     public function confirm(Request $request): Response
     {
         $result = $this->newsletter->confirm($request->route('token'));
-        return $this->render('pages/newsletter-result', ['pageTitle' => 'Newsletter confirmation', 'success' => $result['success'], 'heading' => $result['success'] ? 'Subscription confirmed' : 'Confirmation link unavailable', 'copy' => $result['success'] ? 'You will now receive selected OEMS updates.' : 'This link is invalid, expired, or already used.']);
+        return $this->render('pages/newsletter-result', [
+            'pageTitle' => 'Newsletter confirmation',
+            'success' => $result['success'],
+            'heading' => $result['success'] ? 'Subscription confirmed' : 'Confirmation link unavailable',
+            'copy' => $result['success']
+                ? 'You will now receive selected OEMS updates.'
+                : 'This link is invalid, expired, or already used.',
+            'actionUrl' => $result['success'] ? '/events' : '/#newsletter',
+            'actionLabel' => $result['success'] ? 'Explore events' : 'Request another confirmation email',
+        ]);
     }
 
     public function unsubscribe(Request $request): Response
     {
         $result = $this->newsletter->unsubscribe($request->route('token'));
-        return $this->render('pages/newsletter-result', ['pageTitle' => 'Newsletter preferences', 'success' => $result['success'], 'heading' => $result['success'] ? 'You are unsubscribed' : 'Unsubscribe link unavailable', 'copy' => $result['success'] ? 'OEMS newsletter delivery has stopped.' : 'This link is invalid or already used.']);
+        return $this->render('pages/newsletter-result', [
+            'pageTitle' => 'Newsletter preferences',
+            'success' => $result['success'],
+            'heading' => $result['success'] ? 'You are unsubscribed' : 'Unsubscribe link unavailable',
+            'copy' => $result['success'] ? 'OEMS newsletter delivery has stopped.' : 'This link is invalid or already used.',
+            'actionUrl' => '/events',
+            'actionLabel' => 'Explore events',
+        ]);
     }
 
     private function generic(): Response
