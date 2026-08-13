@@ -46,10 +46,12 @@ This is preferable to styling every GET form globally because event discovery, h
 ### Large screens
 
 - Summary sits on the left and is vertically centered within the toolbar.
-- The form sits on the right and may wrap when its controls cannot fit.
+- The form sits on the right as one atomic layout unit; its field and action must never split onto separate toolbar rows.
+- At extra-large widths the form is max-content, non-shrinking, and non-wrapping. If a wide directory form cannot share the first line with the summary, the entire form moves to the next line and remains right-aligned.
+- One-field moderation forms use a compact two-column field/action grid from medium widths so they remain on the summary line without waiting for the extra-large layout.
 - Every field keeps its label directly above its control.
 - All controls and the action button share the same lower edge.
-- Search fields receive more width than status selectors.
+- Search fields use a bounded 16rem desktop width and status selectors use 10rem, preventing both excess empty space and uncontrolled compression.
 
 ## Visual and interaction rules
 
@@ -60,6 +62,7 @@ This is preferable to styling every GET form globally because event discovery, h
 - Give each filter form an accessible search label.
 - Mark the summary as polite live content so refreshed result totals are announced without interrupting users.
 - Preserve all current query names, values, methods, endpoints, auto-submit behavior, and button labels.
+- A one-field toolbar should be approximately 104 pixels tall at desktop widths: 72 pixels of labeled-control content plus 32 pixels of vertical padding.
 
 ## Regression contract
 
@@ -70,6 +73,8 @@ Automated checks must prove that:
 - every toolbar label/control is wrapped by `.filter-toolbar__field`;
 - compiled CSS vertically centers the summary zone;
 - compiled CSS bottom-aligns fields and actions at large widths;
+- desktop forms use max-content, `flex: none`, and `nowrap` so an action can never wrap below its field;
+- the one-field compact modifier keeps its field and action in two columns from medium widths;
 - narrow layouts are full-width and actions do not overflow;
 - the CSS asset version and public cache key are refreshed after the style change.
 

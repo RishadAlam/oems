@@ -196,3 +196,37 @@ Run `rtk git diff --check` and inspect `rtk git diff --stat` plus the exact scop
 - [ ] **Step 4: Commit verification-driven corrections**
 
 If verification required code corrections, commit them separately with `fix: finalize responsive filter toolbars`. If no correction was required, do not create an empty commit.
+
+### Task 5: Correct rejected desktop toolbar density
+
+**Files:**
+- Modify: `tests/Unit/UiLayoutTest.php`
+- Modify: `app/Views/admin/events/index.php`
+- Modify: `app/Views/admin/reviews/index.php`
+- Modify: `app/Views/organizer/events/index.php`
+- Modify: `resources/css/app.css`
+- Generate: `public/assets/css/app.css`
+
+**Interfaces:**
+- Consumes: User feedback showing the action wrapping below a single status field and producing a 166–259 pixel toolbar.
+- Produces: A compact atomic desktop form with a roughly 104-pixel one-field toolbar.
+
+- [ ] **Step 1: Update the failing responsive contract**
+
+Require a `filter-toolbar__form--compact` modifier on all three one-field toolbars. Require the general extra-large form to use max-content width, no shrinking, and no internal wrapping; require the compact medium layout to use a field/action grid.
+
+- [ ] **Step 2: Prove RED**
+
+Run `rtk php tests/run.php UiLayoutTest` and confirm only the compact-density contract fails.
+
+- [ ] **Step 3: Implement the compact layout**
+
+Add the modifier to the three one-field forms. Keep the toolbar itself wrapping, but change the extra-large form into a max-content, non-shrinking, non-wrapping flex row with 10rem fields and 16rem search fields. At medium widths, compact forms use two columns so their button cannot fall below the select.
+
+- [ ] **Step 4: Build and verify geometry**
+
+Run `rtk npm run build:css`, then verify `/admin/events` at 1280 and 2048 pixels has the label above the select, select and action on the same lower edge, toolbar height no greater than 112 pixels, and no horizontal overflow. Verify `/admin/users` at 2048 and 390 pixels.
+
+- [ ] **Step 5: Commit**
+
+Commit the test-first correction with `fix: compact responsive filter toolbars`.
