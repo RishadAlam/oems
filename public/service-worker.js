@@ -1,11 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'oems-public-static-20260813-dashboard-header-v1';
+const CACHE_NAME = 'oems-public-static-20260813-event-view-v1';
 const CACHE_PREFIX = 'oems-public-static-';
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = Object.freeze([
     OFFLINE_URL,
-    '/assets/css/app.css?v=20260813-dashboard-header-v1',
+    '/assets/css/app.css?v=20260813-event-view-v1',
     '/assets/js/theme.js?v=20260811-form-controls-fix',
     '/assets/js/app.js?v=20260812-form-system',
     '/assets/js/pwa.js?v=20260811-form-controls-fix',
