@@ -1411,7 +1411,7 @@
     }
 
     .organizer-toolbar form {
-        @apply flex flex-col gap-2 sm:flex-row sm:items-center;
+        @apply flex flex-col gap-2 sm:flex-row sm:items-end;
     }
 
     .organizer-toolbar label {

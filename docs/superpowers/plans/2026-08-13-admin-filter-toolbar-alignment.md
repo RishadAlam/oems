@@ -29,7 +29,7 @@
 - Consumes: `.organizer-toolbar form` responsive Tailwind component rule
 - Produces: compiled responsive CSS with `flex-direction:row` and `align-items:flex-end`
 
-- [ ] **Step 1: Write the failing compiled-layout regression test**
+- [x] **Step 1: Write the failing compiled-layout regression test**
 
 Add this test to `UiLayoutTest`:
 
@@ -48,13 +48,13 @@ public function testResponsiveToolbarBottomAlignsLabeledControlsAndUnlabeledActi
 }
 ```
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run: `rtk php tests/run.php UiLayoutTest`
 
 Expected: FAIL because the compiled responsive rule currently contains `align-items:center`.
 
-- [ ] **Step 3: Implement the minimal shared source correction**
+- [x] **Step 3: Implement the minimal shared source correction**
 
 Change:
 
@@ -72,19 +72,19 @@ to:
 }
 ```
 
-- [ ] **Step 4: Rebuild the compiled stylesheet**
+- [x] **Step 4: Rebuild the compiled stylesheet**
 
 Run: `rtk npm run build:css`
 
 Expected: the responsive compiled rule contains `align-items:flex-end`.
 
-- [ ] **Step 5: Run focused and complete verification**
+- [x] **Step 5: Run focused and complete verification**
 
 Run: `rtk php tests/run.php UiLayoutTest`, `rtk composer test`, `rtk npm run test:assets`, `rtk npm run test:forms`, `rtk composer check:syntax`, and `rtk git diff --check`.
 
 Expected: all tests and checks pass without warnings or failures.
 
-- [ ] **Step 6: Verify responsive behavior in the local browser**
+- [x] **Step 6: Verify responsive behavior in the local browser**
 
 At 2048 x 432 on `/admin/users`, confirm the Search input, Role select, Status select, Apply filters button, and result count have equal bottom coordinates. At 390 x 844, confirm the count and every form control remain a full-width vertical stack without horizontal overflow.
 
