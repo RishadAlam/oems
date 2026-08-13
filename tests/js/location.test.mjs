@@ -119,6 +119,13 @@ function createLeafletHarness(tileOutcome = 'load') {
 }
 
 function createHarness({
+    config = {
+        tile_url: 'https://tiles.example.test/{z}/{x}/{y}.png',
+        tile_attribution: 'Map data',
+        default_lat: 23.8103,
+        default_lng: 90.4125,
+        default_zoom: 11,
+    },
     errorCode = null,
     latitude = 23.810331,
     longitude = 90.412521,
@@ -152,13 +159,7 @@ function createHarness({
     mapContainer.querySelector = (selector) => selector === '[data-map-fallback]' ? mapFallback : null;
     const payload = new ElementStub({
         textContent: malformedPayload ? '{bad json' : JSON.stringify({
-            config: {
-                tile_url: 'https://tiles.example.test/{z}/{x}/{y}.png',
-                tile_attribution: 'Map data',
-                default_lat: 23.8103,
-                default_lng: 90.4125,
-                default_zoom: 11,
-            },
+            config,
             markers: markers ?? [{
                 id: 501,
                 title: 'Future Craft',
@@ -438,6 +439,34 @@ test('malformed marker payload keeps the list and renders an inline fallback', (
     assert.equal(harness.list.hidden, false);
     assert.equal(harness.panel.hidden, false);
     assert.match(harness.viewStatus.textContent, /map is unavailable/i);
+});
+
+test('null map config enters the durable unavailable state without hiding results', () => {
+    const harness = createHarness({ config: null, mobile: true });
+
+    assert.doesNotThrow(() => harness.mapToggle.click());
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.mapFallback.hidden, false);
+    assert.match(harness.viewStatus.textContent, /map is unavailable/i);
+
+    harness.listToggle.click();
+    harness.mapToggle.click();
+    assert.match(harness.viewStatus.textContent, /map is unavailable/i);
+});
+
+test('null and primitive marker records enter the durable unavailable state', () => {
+    const harness = createHarness({ markers: [null, 17, 'invalid'], mobile: true });
+
+    assert.doesNotThrow(() => harness.mapToggle.click());
+    assert.equal(harness.panel.hidden, false);
+    assert.equal(harness.list.hidden, false);
+    assert.equal(harness.mapFallback.hidden, false);
+    assert.match(harness.viewStatus.textContent, /no public event locations/i);
+
+    harness.listToggle.click();
+    harness.mapToggle.click();
+    assert.match(harness.viewStatus.textContent, /no public event locations/i);
 });
 
 test('zero valid public markers keeps the canonical mobile list and visible fallback', () => {

@@ -39,7 +39,8 @@
     if (payloadElement) {
         try {
             const parsed = JSON.parse(payloadElement.textContent || '');
-            if (!parsed || !Array.isArray(parsed.markers) || typeof parsed.config !== 'object') {
+            if (!parsed || !Array.isArray(parsed.markers)
+                || !parsed.config || typeof parsed.config !== 'object' || Array.isArray(parsed.config)) {
                 throw new TypeError('Invalid map payload.');
             }
             payload = parsed;
@@ -143,6 +144,8 @@
         let syncingFocus = false;
 
         for (const item of payload.markers) {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+
             const latitude = Number(item.latitude);
             const longitude = Number(item.longitude);
             if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
