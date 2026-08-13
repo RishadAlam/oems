@@ -148,6 +148,12 @@ final class UiLayoutTest extends TestCase
                 $actionClass . ' must retain one intentional footer divider.',
             );
         }
+
+        preg_match_all('/\.profile-form-actions\{([^}]*)\}/', $css, $profileActionRules);
+        $this->assertFalse(
+            str_contains(implode('', $profileActionRules[1]), 'position:sticky'),
+            'The profile action footer must not overlay scrolling section dividers.',
+        );
     }
 
     public function testPublicMapAssetsAreSelfHostedAndLoadedOnlyWhenRequested(): void
