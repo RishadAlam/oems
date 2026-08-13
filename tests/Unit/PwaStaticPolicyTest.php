@@ -59,7 +59,7 @@ final class PwaStaticPolicyTest extends TestCase
 
         foreach ([$public, $auth, $dashboard] as $html) {
             $this->assertTrue(str_contains($html, '<link rel="manifest" href="/manifest.webmanifest">'));
-            $this->assertTrue(str_contains($html, '<link rel="stylesheet" href="/assets/css/app.css?v=20260813-admin-filter-alignment-v1">'));
+            $this->assertTrue(str_contains($html, '<link rel="stylesheet" href="/assets/css/app.css?v=20260813-form-divider-v1">'));
             $this->assertTrue(str_contains($html, '<script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>'));
             $this->assertFalse(str_contains($html, 'navigator.serviceWorker'));
         }
