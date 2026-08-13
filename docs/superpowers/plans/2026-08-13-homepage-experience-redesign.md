@@ -65,13 +65,23 @@
 
 ## Verification record
 
-- [ ] Focused homepage tests pass.
-- [ ] Full PHP suite passes.
-- [ ] Full JavaScript suite passes.
-- [ ] PHP syntax checks pass.
-- [ ] Composer validates strictly.
-- [ ] CSS production build passes.
-- [ ] Desktop light and dark browser checks pass.
-- [ ] Mobile light and dark browser checks pass.
-- [ ] No horizontal overflow at tested viewports.
-- [ ] Independent review has no unresolved critical or important findings.
+- [x] Focused homepage tests pass: 21 tests, 127 assertions, 0 failures.
+- [x] Full PHP suite passes: 826 tests, 6,130 assertions, 0 failures.
+- [x] Full JavaScript suite passes: all eight JavaScript check files exit successfully.
+- [x] PHP syntax checks pass across application, core, routes, scripts, and tests.
+- [x] Composer validates strictly.
+- [x] CSS production build passes with Tailwind CSS 4.3.3.
+- [x] Desktop light and dark browser checks pass at 1440×900.
+- [x] Mobile light and dark browser checks pass at 390×844; narrow-width resilience also passes at 320×780.
+- [x] No horizontal overflow at tested viewports; controls retain at least 44px touch targets.
+- [x] Independent review has no unresolved critical or important findings.
+
+Additional browser evidence:
+
+- The hero title renders on two lines at desktop and three lines on mobile.
+- CMS announcements, category discovery, featured events, participant/organizer journeys, and organizer conversion all render in semantic order.
+- Featured-event footers share the same lower edge in the asymmetric desktop layout.
+- The mobile process eyebrow is content-width rather than field-width.
+- The organizer callout retains 20px mobile gutters and rounded corners.
+- The search form routes to `/events?search=design`, and the page exposes one `h1` with no duplicate IDs.
+- The stylesheet and service-worker cache contract use `20260813-homepage-v4` consistently.
