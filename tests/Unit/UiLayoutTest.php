@@ -28,6 +28,41 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'id="how-it-works"'));
     }
 
+    public function testOrganizerMenuKeepsSignupForGuestsAndUsesTheDashboardForAuthenticatedRoles(): void
+    {
+        $guest = $this->renderHome();
+
+        $this->assertTrue(str_contains(
+            $guest,
+            'class="nav-link" href="/register?role=organizer">For organizers</a>',
+        ));
+        $this->assertTrue(str_contains(
+            $guest,
+            'class="mobile-menu__link" href="/register?role=organizer"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></a>',
+        ));
+
+        foreach (['super-admin', 'organizer', 'participant'] as $index => $role) {
+            $authenticated = $this->renderHome([
+                'currentUser' => [
+                    'id' => $index + 1,
+                    'name' => ucfirst($role) . ' User',
+                    'email' => $role . '@example.test',
+                    'role_slug' => $role,
+                    'role_name' => ucfirst($role),
+                ],
+            ]);
+
+            $this->assertTrue(str_contains(
+                $authenticated,
+                'class="nav-link" href="/dashboard">Dashboard</a>',
+            ));
+            $this->assertTrue(str_contains(
+                $authenticated,
+                'class="mobile-menu__link" href="/dashboard"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Dashboard</span></a>',
+            ));
+        }
+    }
+
     public function testPublicLayoutRendersOptionalSeoMetadataAndHexEscapedJsonLd(): void
     {
         $view = new View(base_path('app/Views'));

@@ -616,6 +616,25 @@ final class DashboardLayoutTest extends TestCase
         ));
     }
 
+    public function testDashboardEntryRedirectsEachAuthenticatedRoleToItsOwnWorkspace(): void
+    {
+        foreach ([
+            'super-admin' => '/admin/dashboard',
+            'organizer' => '/organizer/dashboard',
+            'participant' => '/participant/dashboard',
+        ] as $role => $expectedLocation) {
+            [$controller] = $this->dashboardController($role, match ($role) {
+                'super-admin' => 91,
+                'organizer' => 92,
+                default => 93,
+            });
+
+            $response = $controller->index(Request::create('GET', '/dashboard'));
+
+            $this->assertSame($expectedLocation, $response->header('Location'));
+        }
+    }
+
     private function renderAdminDashboard(array $overrides = []): string
     {
         $view = new View(base_path('app/Views'));
