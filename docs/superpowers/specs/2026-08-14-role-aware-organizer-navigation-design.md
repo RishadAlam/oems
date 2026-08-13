@@ -23,11 +23,11 @@ The same values are used by the desktop primary navigation and mobile menu. `/da
 - `organizer` → `/organizer/dashboard`;
 - `participant` → `/participant/dashboard`.
 
-The existing prominent dashboard button remains unchanged. Homepage marketing calls to create an organizer account remain outside this narrowly scoped menu fix.
+The authenticated menu item replaces the prior duplicate dashboard CTA, leaving one dashboard entry in each responsive header. Guest Log in and Get started actions remain unchanged. Homepage marketing calls to create an organizer account remain outside this narrowly scoped menu fix.
 
 ## Accessibility and UX
 
-Desktop and mobile expose the same label and destination. The authenticated mobile item uses a dashboard icon instead of the organizer-stage icon so the visual cue matches its destination. No JavaScript is required, and keyboard order and touch-target sizing remain unchanged.
+Desktop and mobile expose the same label and destination. The authenticated mobile item uses a dashboard icon instead of the organizer-stage icon so the visual cue matches its destination. Each responsive header contains one dashboard link, avoiding redundant keyboard stops. No JavaScript is required, and touch-target sizing remains unchanged.
 
 ## Testing
 

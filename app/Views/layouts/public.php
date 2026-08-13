@@ -66,9 +66,7 @@ $layoutOrganizerMenuIcon = $layoutHasCurrentUser ? 'ph-squares-four' : 'ph-micro
                 <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme">
                     <i class="ph ph-moon" data-theme-icon aria-hidden="true"></i>
                 </button>
-                <?php if ($currentUser !== null): ?>
-                    <a class="button button--primary button--compact" href="/dashboard"><span>Dashboard</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
-                <?php else: ?>
+                <?php if (!$layoutHasCurrentUser): ?>
                     <a class="button button--quiet button--compact" href="/login">Log in</a>
                     <a class="button button--primary button--compact" href="/register"><span>Get started</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php endif; ?>
@@ -96,9 +94,7 @@ $layoutOrganizerMenuIcon = $layoutHasCurrentUser ? 'ph-squares-four' : 'ph-micro
                 <button class="mobile-menu__link text-left" type="button" data-theme-toggle aria-label="Switch to dark theme">
                     <i class="ph ph-moon" data-theme-icon aria-hidden="true"></i><span data-theme-label>Switch to dark theme</span>
                 </button>
-                <?php if ($currentUser !== null): ?>
-                    <a class="button button--primary mt-3" href="/dashboard"><span>Dashboard</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
-                <?php else: ?>
+                <?php if (!$layoutHasCurrentUser): ?>
                     <a class="button button--quiet mt-3" href="/login">Log in</a>
                     <a class="button button--primary" href="/register"><span>Get started</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
                 <?php endif; ?>

@@ -12,6 +12,7 @@
 
 - Guest desktop and mobile menu items use `For organizers` and `/register?role=organizer`.
 - Authenticated desktop and mobile menu items use `Dashboard` and `/dashboard`.
+- Each authenticated responsive header contains exactly one dashboard entry.
 - `/dashboard` routes super administrators, organizers, and participants to their existing role dashboards.
 - No JavaScript, middleware, homepage-marketing, or CSS changes.
 - Preserve all unrelated dirty and untracked files.
@@ -30,7 +31,7 @@
 
 - [ ] **Step 1: Write the failing public-navigation test**
 
-Render the home page as a guest and as `super-admin`, `organizer`, and `participant`. Assert the guest desktop/mobile items retain `/register?role=organizer` with `For organizers`, while authenticated variants use `/dashboard` with `Dashboard` in both menus.
+Render the home page as a guest and as `super-admin`, `organizer`, and `participant`. Assert the guest desktop/mobile items retain `/register?role=organizer` with `For organizers`, while authenticated variants use `/dashboard` with `Dashboard` in both menus. Parse each authenticated header and require exactly one dashboard link in the desktop primary navigation and one in the mobile navigation.
 
 - [ ] **Step 2: Add dispatcher behavior coverage**
 
@@ -65,6 +66,8 @@ At the top of the public layout, derive guest values (`/register?role=organizer`
 - [ ] **Step 2: Apply the values to both menus**
 
 Replace only the desktop primary-navigation and mobile-menu organizer anchors. Escape the derived destination, label, and icon class with `e()`.
+
+Remove the redundant authenticated dashboard CTA from the desktop action group and mobile menu footer. Preserve guest Log in and Get started actions.
 
 - [ ] **Step 3: Run focused tests and verify GREEN**
 
