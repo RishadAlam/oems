@@ -34,6 +34,28 @@ final class DashboardLayoutTest extends TestCase
         $this->assertSame([], $matches[0] ?? []);
     }
 
+    public function testEveryDashboardPageOffersOneResendActionOnlyForAnUnverifiedAccount(): void
+    {
+        $verified = $this->renderAdminDashboard();
+        $unverified = $this->renderAdminDashboard([
+            'currentUser' => [
+                'id' => 1,
+                'name' => 'Unverified Admin',
+                'email' => 'unverified-admin@example.test',
+                'role_name' => 'Super Admin',
+                'role_slug' => 'super-admin',
+                'email_verified_at' => null,
+            ],
+        ]);
+
+        $this->assertFalse(str_contains($verified, 'data-email-verification-notice'));
+        $this->assertSame(1, substr_count($unverified, 'data-email-verification-notice'));
+        $this->assertSame(1, substr_count($unverified, 'action="/verify-email/resend"'));
+        $this->assertTrue(str_contains($unverified, 'name="_token" value="test-token"'));
+        $this->assertTrue(str_contains($unverified, 'name="email" value="unverified-admin@example.test"'));
+        $this->assertTrue(str_contains($unverified, 'Resend verification email'));
+    }
+
     public function testPlacesDashboardContentInSecondDesktopGridColumn(): void
     {
         $html = $this->renderAdminDashboard();
@@ -601,10 +623,12 @@ final class DashboardLayoutTest extends TestCase
             'app' => ['name' => 'OEMS'],
             'csrfToken' => 'test-token',
             'currentUser' => [
+                'id' => 1,
                 'name' => 'Super Admin',
                 'email' => 'admin@oems.local',
                 'role_name' => 'Super Admin',
                 'role_slug' => 'super-admin',
+                'email_verified_at' => '2026-08-14 09:00:00',
             ],
             'flash' => [],
             'metrics' => [
@@ -631,10 +655,12 @@ final class DashboardLayoutTest extends TestCase
             'app' => ['name' => 'OEMS'],
             'csrfToken' => 'test-token',
             'currentUser' => [
+                'id' => 1,
                 'name' => $roleName . ' User',
                 'email' => strtolower($roleName) . '@oems.local',
                 'role_name' => $roleName,
                 'role_slug' => strtolower($roleName),
+                'email_verified_at' => '2026-08-14 09:00:00',
             ],
             'flash' => [],
             'pageTitle' => $roleName . ' dashboard',

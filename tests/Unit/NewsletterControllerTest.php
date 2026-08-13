@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use OEMS\Core\View;
 use OEMS\Tests\Support\TestCase;
 
 final class NewsletterControllerTest extends TestCase
@@ -20,5 +21,26 @@ final class NewsletterControllerTest extends TestCase
         $this->assertTrue(str_contains($layout, 'name="website"'));
         $this->assertTrue(str_contains($layout, 'name="_token"'));
         $this->assertTrue(str_contains($admin, 'Campaigns'));
+    }
+
+    public function testUnavailableNewsletterConfirmationLinksBackToTheResubscribeForm(): void
+    {
+        $html = (new View(base_path('app/Views')))->render('pages/newsletter-result', [
+            'app' => ['name' => 'OEMS'],
+            'currentUser' => null,
+            'csrfToken' => 'safe-token',
+            'errors' => [],
+            'old' => [],
+            'flash' => [],
+            'pageTitle' => 'Newsletter confirmation',
+            'success' => false,
+            'heading' => 'Confirmation link unavailable',
+            'copy' => 'This link is invalid, expired, or already used.',
+            'actionUrl' => '/#newsletter',
+            'actionLabel' => 'Request another confirmation email',
+        ], 'public');
+
+        $this->assertTrue(str_contains($html, 'href="/#newsletter"'));
+        $this->assertTrue(str_contains($html, '>Request another confirmation email<'));
     }
 }

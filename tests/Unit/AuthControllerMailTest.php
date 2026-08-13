@@ -39,7 +39,7 @@ final class AuthControllerMailTest extends TestCase
             'terms' => '1',
         ]));
 
-        $this->assertSame('/login', $response->header('Location'));
+        $this->assertSame('/verify-email/resend', $response->header('Location'));
         $this->assertSame(1, count($transport->messages));
         $this->assertSame('maliha@example.test', $transport->messages[0]->recipientEmail);
         $this->assertSame('Verify your OEMS email', $transport->messages[0]->subject);
@@ -141,6 +141,84 @@ final class AuthControllerMailTest extends TestCase
             unlink($file);
         }
         rmdir($directory);
+    }
+
+    public function testVerificationRecoveryPageAndRoutesExposeTheSecureResendFlow(): void
+    {
+        [$controller] = $this->controller();
+
+        $response = $controller->showResendVerification(Request::create('GET', '/verify-email/resend'));
+        $routes = file_get_contents(base_path('routes/web.php')) ?: '';
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue(str_contains($response->body(), 'action="/verify-email/resend"'));
+        $this->assertTrue(str_contains($response->body(), 'name="_token"'));
+        $this->assertTrue(str_contains($response->body(), 'autocomplete="email"'));
+        $this->assertTrue(str_contains($routes, '$router->get(\'/verify-email/resend\''));
+        $this->assertTrue(str_contains($routes, '$router->post(\'/verify-email/resend\''));
+        $this->assertTrue(str_contains($routes, "['csrf'], 'verification.resend'"));
+    }
+
+    public function testEligibleVerificationResendRotatesAndSendsANewLink(): void
+    {
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Resend Owner',
+            'email' => 'resend-owner@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+        ]);
+        [$controller, $transport, $session] = $this->controller($users);
+
+        $response = $controller->resendVerification(Request::create(
+            'POST',
+            '/verify-email/resend',
+            input: ['email' => ' RESEND-OWNER@example.test '],
+            server: ['REMOTE_ADDR' => '192.0.2.71'],
+        ));
+
+        $this->assertSame('/verify-email/resend', $response->header('Location'));
+        $this->assertSame(1, count($transport->messages));
+        $this->assertSame('resend-owner@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertSame('Verify your OEMS email', $transport->messages[0]->subject);
+        $this->assertSame(
+            'If the address needs verification, a new link is on its way. Use the newest email you receive.',
+            $session->get('_flash.success'),
+        );
+        $this->assertNull($session->get('_flash.development_link'));
+    }
+
+    public function testUnknownVerificationResendUsesThePrivacySinkAndTheSameBrowserCopy(): void
+    {
+        [$controller, $transport, $session] = $this->controller();
+
+        $response = $controller->resendVerification(Request::create(
+            'POST',
+            '/verify-email/resend',
+            input: ['email' => 'unknown@example.test'],
+            server: ['REMOTE_ADDR' => '192.0.2.72'],
+        ));
+
+        $this->assertSame('/verify-email/resend', $response->header('Location'));
+        $this->assertSame(1, count($transport->messages));
+        $this->assertSame('privacy-sink@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertNotSame('unknown@example.test', $transport->messages[0]->recipientEmail);
+        $this->assertSame(
+            'If the address needs verification, a new link is on its way. Use the newest email you receive.',
+            $session->get('_flash.success'),
+        );
+    }
+
+    public function testInvalidVerificationLinkRecoversAtTheResendPage(): void
+    {
+        [$controller] = $this->controller();
+
+        $request = Request::create('GET', '/verify-email/invalid')
+            ->withRouteParameters(['token' => 'invalid']);
+        $response = $controller->verifyEmail($request);
+
+        $this->assertSame('/verify-email/resend', $response->header('Location'));
     }
 
     public function testLoginPreservesOnlyAllowListedPublicReturnDestinationsThroughTheWholeFlow(): void

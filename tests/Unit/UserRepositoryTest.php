@@ -80,6 +80,25 @@ final class UserRepositoryTest extends TestCase
         $this->assertSame(0, $this->countRows($this->connection, 'sessions'));
     }
 
+    public function testVerificationTokenReplacementIsBoundedToAnEligibleAccount(): void
+    {
+        $repository = $this->repository($this->connection);
+        $firstHash = hash('sha256', 'first-verification-token');
+        $secondHash = hash('sha256', 'second-verification-token');
+
+        $this->assertTrue($repository->replaceEmailVerificationToken(1, $firstHash));
+        $this->assertSame(
+            $firstHash,
+            (string) $this->connection->query('SELECT email_verification_token_hash FROM users WHERE id = 1')->fetchColumn(),
+        );
+        $this->connection->exec("UPDATE users SET email_verified_at = '2026-08-14 09:00:00' WHERE id = 1");
+        $this->assertFalse($repository->replaceEmailVerificationToken(1, $secondHash));
+        $this->assertSame(
+            $firstHash,
+            (string) $this->connection->query('SELECT email_verification_token_hash FROM users WHERE id = 1')->fetchColumn(),
+        );
+    }
+
     public function testPasswordResetRollbackRestoresTokenPasswordAndRememberSessions(): void
     {
         $tokenHash = hash('sha256', 'rollback-token');
@@ -257,6 +276,8 @@ final class UserRepositoryTest extends TestCase
                 email TEXT NOT NULL UNIQUE,
                 password TEXT NOT NULL,
                 status TEXT NOT NULL,
+                email_verification_token_hash TEXT NULL UNIQUE,
+                email_verified_at TEXT NULL,
                 deleted_at TEXT NULL,
                 updated_at TEXT NULL
             )',

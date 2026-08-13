@@ -617,6 +617,99 @@ final class AuthServiceTest extends TestCase
         rmdir($directory);
     }
 
+    public function testVerificationResendRotatesTheTokenForAnEligibleNormalizedAccount(): void
+    {
+        $oldToken = str_repeat('a', 64);
+        $userId = $this->users->create([
+            'name' => 'Verification Owner',
+            'email' => 'owner@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+            'email_verification_token_hash' => hash('sha256', $oldToken),
+        ]);
+        $service = new AuthService($this->users, $this->session);
+
+        $result = $service->requestEmailVerification(' OWNER@Example.com ', '192.0.2.41');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('verification', $result['mail_dispatch']);
+        $this->assertSame($userId, $result['user_id']);
+        $this->assertSame('Verification Owner', $result['name']);
+        $this->assertSame('owner@example.com', $result['email']);
+        $this->assertTrue(preg_match('/^[a-f0-9]{64}$/', (string) $result['verification_token']) === 1);
+        $this->assertFalse($service->verifyEmail($oldToken));
+        $this->assertTrue($service->verifyEmail((string) $result['verification_token']));
+    }
+
+    public function testVerificationResendKeepsMissingVerifiedAndInactiveAccountsPrivate(): void
+    {
+        $verifiedId = $this->users->create([
+            'name' => 'Verified Account',
+            'email' => 'verified@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'active',
+            'email_verified_at' => '2026-08-14 08:00:00',
+        ]);
+        $inactiveId = $this->users->create([
+            'name' => 'Inactive Account',
+            'email' => 'inactive@example.com',
+            'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+            'role_id' => 3,
+            'status' => 'inactive',
+        ]);
+        $service = new AuthService($this->users, $this->session);
+
+        foreach (['missing@example.com', 'verified@example.com', 'inactive@example.com'] as $email) {
+            $result = $service->requestEmailVerification($email, '192.0.2.' . (50 + strlen($email)));
+
+            $this->assertTrue($result['success']);
+            $this->assertSame('probe', $result['mail_dispatch']);
+            $this->assertNull($result['verification_token']);
+            $this->assertNull($result['user_id']);
+            $this->assertNull($result['name']);
+            $this->assertNull($result['email']);
+        }
+
+        $this->assertSame('2026-08-14 08:00:00', $this->users->users[$verifiedId]['email_verified_at']);
+        $this->assertSame('inactive', $this->users->users[$inactiveId]['status']);
+    }
+
+    public function testVerificationResendLimitsBothTheEmailAndSourceIpWithoutRotatingAgain(): void
+    {
+        foreach (['first@example.com', 'second@example.com'] as $email) {
+            $this->users->create([
+                'name' => 'Limited Account',
+                'email' => $email,
+                'password' => password_hash('secure-password', PASSWORD_DEFAULT),
+                'role_id' => 3,
+                'status' => 'active',
+            ]);
+        }
+        $directory = sys_get_temp_dir() . '/oems-verification-rate-' . bin2hex(random_bytes(5));
+        $service = new AuthService(
+            $this->users,
+            $this->session,
+            new RateLimiter($directory, 1, 900),
+        );
+
+        try {
+            $first = $service->requestEmailVerification('first@example.com', '192.0.2.60');
+            $firstHash = $this->users->users[1]['email_verification_token_hash'] ?? null;
+            $sameEmail = $service->requestEmailVerification('first@example.com', '192.0.2.61');
+            $sameIp = $service->requestEmailVerification('second@example.com', '192.0.2.60');
+
+            $this->assertSame('verification', $first['mail_dispatch']);
+            $this->assertSame('none', $sameEmail['mail_dispatch']);
+            $this->assertSame('none', $sameIp['mail_dispatch']);
+            $this->assertSame($firstHash, $this->users->users[1]['email_verification_token_hash'] ?? null);
+            $this->assertNull($this->users->users[2]['email_verification_token_hash'] ?? null);
+        } finally {
+            $this->removeRateLimitDirectory($directory);
+        }
+    }
+
     private function removeRateLimitDirectory(string $directory): void
     {
         foreach (glob($directory . '/*') ?: [] as $file) {
