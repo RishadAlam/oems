@@ -100,17 +100,232 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '.field-group input[type="file"]::file-selector-button'));
     }
 
-    public function testResponsiveToolbarBottomAlignsLabeledControlsAndUnlabeledActions(): void
+    public function testEveryTopLevelFilterToolbarUsesTheSharedDirectChildContract(): void
     {
-        $css = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $views = [
+            'app/Views/admin/users/index.php' => ['/admin/users', 3],
+            'app/Views/admin/organizers/index.php' => ['/admin/organizers', 2],
+            'app/Views/admin/events/index.php' => ['/admin/events', 1],
+            'app/Views/admin/reviews/index.php' => ['/admin/reviews', 1],
+            'app/Views/organizer/events/index.php' => ['/organizer/events', 1],
+        ];
+        $violations = [];
+
+        foreach ($views as $view => [$route, $fieldCount]) {
+            $source = file_get_contents(base_path($view));
+
+            if ($source === false) {
+                $violations[] = $view . ' could not be read.';
+                continue;
+            }
+
+            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source);
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($markup ?? '');
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+
+            if ($loaded === false) {
+                $violations[] = $view . ' must contain parseable toolbar markup.';
+                continue;
+            }
+
+            $xpath = new \DOMXPath($document);
+            $toolbars = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar ")]');
+
+            if ($toolbars === false || $toolbars->length !== 1) {
+                $violations[] = $view . ' must render exactly one .filter-toolbar.';
+                continue;
+            }
+
+            $toolbar = $toolbars->item(0);
+            $summaries = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__summary ")]', $toolbar);
+            $forms = $xpath->query('./form[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__form ")]', $toolbar);
+            $legacyToolbars = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " organizer-toolbar ")]');
+
+            if ($summaries === false || $summaries->length !== 1) {
+                $violations[] = $view . ' must provide one direct <p.filter-toolbar__summary>.';
+            } else {
+                $summary = $summaries->item(0);
+                $live = (string) $summary?->attributes?->getNamedItem('aria-live')?->nodeValue;
+                $summaryCounts = $xpath->query('./strong', $summary);
+
+                if ($live !== 'polite') {
+                    $violations[] = $view . ' must expose its filter summary as polite live content.';
+                }
+
+                if ($summaryCounts === false || $summaryCounts->length !== 1) {
+                    $violations[] = $view . ' must provide exactly one direct <strong> result count in its filter summary.';
+                }
+            }
+
+            if ($forms === false || $forms->length !== 1) {
+                $violations[] = $view . ' must provide one direct .filter-toolbar__form.';
+            } else {
+                $form = $forms->item(0);
+                $method = strtolower((string) $form?->attributes?->getNamedItem('method')?->nodeValue);
+                $action = (string) $form?->attributes?->getNamedItem('action')?->nodeValue;
+                $ariaLabel = trim((string) $form?->attributes?->getNamedItem('aria-label')?->nodeValue);
+                $formKind = (string) $form?->attributes?->getNamedItem('data-form-kind')?->nodeValue;
+                $role = (string) $form?->attributes?->getNamedItem('role')?->nodeValue;
+                $fields = $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__field ")]', $form);
+                $actions = $xpath->query('./*[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar__actions ")]', $form);
+                $children = $xpath->query('./*', $form);
+                $bareControls = $xpath->query('./label | ./input | ./select | ./button', $form);
+
+                if ($method !== 'get' || $action !== $route || $formKind !== 'filter' || $role !== 'search' || preg_match('/(?:filter|search)/i', $ariaLabel) !== 1) {
+                    $violations[] = $view . ' must keep its labelled GET search filter form for ' . $route . '.';
+                }
+
+                if ($fields === false || $fields->length !== $fieldCount) {
+                    $violations[] = sprintf('%s must provide %d direct .filter-toolbar__field units.', $view, $fieldCount);
+                }
+
+                if ($actions === false || $actions->length !== 1) {
+                    $violations[] = $view . ' must provide one direct .filter-toolbar__actions unit.';
+                } else {
+                    $actionButtons = $xpath->query('./button[translate(@type, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz") = "submit"]', $actions->item(0));
+                    $allActionButtons = $xpath->query('./button', $actions->item(0));
+
+                    if ($actionButtons === false || $allActionButtons === false || $actionButtons->length !== 1 || $allActionButtons->length !== 1) {
+                        $violations[] = $view . ' must provide exactly one direct submit button in .filter-toolbar__actions.';
+                    }
+                }
+
+                if ($children === false || $children->length !== $fieldCount + 1) {
+                    $violations[] = $view . ' must contain only its expected field wrappers and one actions wrapper as direct filter-form children.';
+                }
+
+                if ($bareControls === false || $bareControls->length !== 0) {
+                    $violations[] = $view . ' must not leave label, input, select, or button elements as direct filter-form children.';
+                }
+
+                if ($fields !== false) {
+                    foreach ($fields as $field) {
+                        $labels = $xpath->query('./label', $field);
+                        $controls = $xpath->query('./input | ./select', $field);
+                        $visibleLabels = [];
+                        $visibleControls = [];
+
+                        if ($labels !== false) {
+                            foreach ($labels as $label) {
+                                if ($label instanceof \DOMElement && $this->isVisibleToolbarElement($label)) {
+                                    $visibleLabels[] = $label;
+                                }
+                            }
+                        }
+
+                        if ($controls !== false) {
+                            foreach ($controls as $control) {
+                                if ($control instanceof \DOMElement && $this->isVisibleToolbarElement($control)) {
+                                    $visibleControls[] = $control;
+                                }
+                            }
+                        }
+
+                        if ($labels === false || $controls === false || count($visibleLabels) !== 1 || count($visibleControls) !== 1) {
+                            $violations[] = $view . ' must give every .filter-toolbar__field exactly one direct visible label and one direct visible input or select.';
+                            continue;
+                        }
+
+                        $labelFor = $visibleLabels[0]->getAttribute('for');
+                        $controlId = $visibleControls[0]->getAttribute('id');
+
+                        if ($labelFor === '' || $controlId === '' || $labelFor !== $controlId) {
+                            $violations[] = $view . ' must match every field label for attribute to its direct control id.';
+                        }
+                    }
+                }
+            }
+
+            if ($legacyToolbars === false || $legacyToolbars->length !== 0) {
+                $violations[] = $view . ' must not retain the legacy .organizer-toolbar class.';
+            }
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testCompiledFilterToolbarUsesOneResponsiveAlignmentContract(): void
+    {
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $violations = [];
+
+        $sourceRules = [
+            '.filter-toolbar' => ['flex', 'w-full', 'flex-col', 'sm:flex-row', 'sm:flex-wrap'],
+            '.filter-toolbar__summary' => ['sm:self-center'],
+            '.filter-toolbar__form' => ['grid', 'w-full', 'grid-cols-1', 'sm:grid-cols-2', 'lg:flex', 'lg:flex-wrap', 'lg:items-end'],
+            '.filter-toolbar__field' => ['grid', 'content-start'],
+            '.filter-toolbar__actions' => ['flex', 'w-full'],
+        ];
+
+        foreach ($sourceRules as $selector => $tokens) {
+            if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $tokens)) {
+                $violations[] = 'source CSS must keep ' . $selector . ' scoped to: ' . implode(', ', $tokens) . '.';
+            }
+        }
+
+        foreach ([
+            '.filter-toolbar__field input' => ['min-h-12'],
+            '.filter-toolbar__field select' => ['min-h-12'],
+            '.filter-toolbar__actions .button' => ['min-h-12'],
+        ] as $selector => $tokens) {
+            if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $tokens)) {
+                $violations[] = 'source CSS must keep 48-pixel controls scoped to ' . $selector . '.';
+            }
+        }
+
+        if ($this->cssHasSelector($sourceCss, '.organizer-toolbar')) {
+            $violations[] = 'source CSS must not retain the legacy .organizer-toolbar selector.';
+        }
+
+        $compiledBaseRules = [
+            '.filter-toolbar' => ['width:100%', 'flex-direction:column'],
+            '.filter-toolbar__form' => ['width:100%', 'display:grid', 'grid-template-columns:repeat(1,minmax(0,1fr))'],
+            '.filter-toolbar__field' => ['display:grid'],
+            '.filter-toolbar__actions' => ['width:100%'],
+            '.filter-toolbar__field input' => [['min-height:calc(var(--spacing) * 12)', 'min-height:3rem']],
+            '.filter-toolbar__field select' => [['min-height:calc(var(--spacing) * 12)', 'min-height:3rem']],
+            '.filter-toolbar__actions .button' => [['min-height:calc(var(--spacing) * 12)', 'min-height:3rem']],
+        ];
+
+        foreach ($compiledBaseRules as $selector => $declarations) {
+            if (!$this->cssRuleContainsTokens($compiledCss, $selector, $declarations)) {
+                $violations[] = 'compiled CSS must keep ' . $selector . ' scoped to: ' . $this->describeCssTokens($declarations) . '.';
+            }
+        }
+
+        foreach ([
+            '.filter-toolbar' => ['flex-direction:row', 'flex-wrap:wrap'],
+            '.filter-toolbar__summary' => ['align-self:center'],
+            '.filter-toolbar__form' => ['grid-template-columns:repeat(2,minmax(0,1fr))'],
+        ] as $selector => $declarations) {
+            if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', $selector, $declarations)) {
+                $violations[] = 'compiled CSS must keep ' . $selector . ' scoped to its 40rem responsive rule: ' . implode(', ', $declarations) . '.';
+            }
+        }
+
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '64rem', '.filter-toolbar__form', ['display:flex', 'flex-wrap:wrap', 'align-items:flex-end'])) {
+            $violations[] = 'compiled CSS must keep lower-edge alignment scoped to the 64rem .filter-toolbar__form rule.';
+        }
+
+        if ($this->cssHasSelector($compiledCss, '.organizer-toolbar')) {
+            $violations[] = 'compiled CSS must not retain the legacy .organizer-toolbar selector.';
+        }
 
         $this->assertTrue(
-            preg_match(
-                '/\.organizer-toolbar form\{(?=[^}]*flex-direction:row)(?=[^}]*align-items:flex-end)[^}]*\}/',
-                $css,
-            ) === 1,
-            'Responsive toolbar controls and actions must share one lower edge.',
+            $this->cssMediaRuleContainsTokens(
+                '@media ( min-width : 40rem ) { .filter-toolbar-fixture { flex-direction:row; flex-wrap:wrap; } }',
+                '40rem',
+                '.filter-toolbar-fixture',
+                ['flex-direction:row', 'flex-wrap:wrap'],
+            ),
+            'The media-rule parser must tolerate whitespace around the min-width query.',
         );
+
+        $this->assertSame([], $violations, implode("\n", $violations));
     }
 
     public function testSectionedFormsRenderOnlyOneDividerBeforeActions(): void
@@ -455,6 +670,170 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-map-trifold" aria-hidden="true"'));
         $this->assertTrue(str_contains($html, 'href="/"'));
         $this->assertTrue(str_contains($html, 'Return home'));
+    }
+
+    private function cssRuleContainsTokens(string $css, string $selector, array $tokens): bool
+    {
+        $matched = preg_match_all(
+            '/([^{}]*' . preg_quote($selector, '/') . '(?![A-Za-z0-9_-])[^{}]*)\\{([^}]*)\\}/',
+            $css,
+            $rules,
+        );
+
+        if ($matched === false || $matched === 0) {
+            return false;
+        }
+
+        foreach ($rules[2] as $rule) {
+            $containsTokens = true;
+
+            foreach ($tokens as $token) {
+                $alternatives = is_array($token) ? $token : [$token];
+                $hasAlternative = false;
+
+                foreach ($alternatives as $alternative) {
+                    if (str_contains($rule, $alternative)) {
+                        $hasAlternative = true;
+                        break;
+                    }
+                }
+
+                if (!$hasAlternative) {
+                    $containsTokens = false;
+                    break;
+                }
+            }
+
+            if ($containsTokens) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssRuleApplyContainsUtilities(string $css, string $selector, array $utilities): bool
+    {
+        $matched = preg_match_all(
+            '/([^{}]*' . preg_quote($selector, '/') . '(?![A-Za-z0-9_-])[^{}]*)\\{([^}]*)\\}/',
+            $css,
+            $rules,
+        );
+
+        if ($matched === false || $matched === 0) {
+            return false;
+        }
+
+        foreach ($rules[2] as $rule) {
+            preg_match_all('/@apply\\s+([^;]+);/', $rule, $applyDeclarations);
+            $appliedUtilities = [];
+
+            foreach ($applyDeclarations[1] as $declaration) {
+                $appliedUtilities = [...$appliedUtilities, ...(preg_split('/\\s+/', trim($declaration)) ?: [])];
+            }
+
+            $containsUtilities = true;
+
+            foreach ($utilities as $utility) {
+                if (!in_array($utility, $appliedUtilities, true)) {
+                    $containsUtilities = false;
+                    break;
+                }
+            }
+
+            if ($containsUtilities) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssMediaRuleContainsTokens(string $css, string $breakpoint, string $selector, array $tokens): bool
+    {
+        $matched = preg_match_all(
+            '/@media\\s*\\(\\s*min-width\\s*:\\s*' . preg_quote($breakpoint, '/') . '\\s*\\)\\s*\\{/',
+            $css,
+            $mediaQueries,
+            PREG_OFFSET_CAPTURE,
+        );
+
+        if ($matched === false || $matched === 0) {
+            return false;
+        }
+
+        foreach ($mediaQueries[0] as [$query, $start]) {
+            $openBrace = $start + strrpos($query, '{');
+            $depth = 0;
+            $length = strlen($css);
+
+            for ($index = $openBrace; $index < $length; $index++) {
+                if ($css[$index] === '{') {
+                    $depth++;
+                } elseif ($css[$index] === '}') {
+                    $depth--;
+
+                    if ($depth === 0) {
+                        $mediaCss = substr($css, $openBrace + 1, $index - $openBrace - 1);
+
+                        if ($this->cssRuleContainsTokens($mediaCss, $selector, $tokens)) {
+                            return true;
+                        }
+
+                        continue 2;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function cssHasSelector(string $css, string $selector): bool
+    {
+        return preg_match('/' . preg_quote($selector, '/') . '(?![A-Za-z0-9_-])/', $css) === 1;
+    }
+
+    private function describeCssTokens(array $tokens): string
+    {
+        $descriptions = [];
+
+        foreach ($tokens as $token) {
+            $descriptions[] = is_array($token) ? implode(' or ', $token) : $token;
+        }
+
+        return implode(', ', $descriptions);
+    }
+
+    private function isVisibleToolbarElement(\DOMElement $element): bool
+    {
+        $classes = preg_split('/\\s+/', trim($element->getAttribute('class'))) ?: [];
+
+        if (
+            in_array('hidden', $classes, true)
+            || in_array('sr-only', $classes, true)
+            || in_array('invisible', $classes, true)
+            || in_array('opacity-0', $classes, true)
+            || $element->hasAttribute('hidden')
+        ) {
+            return false;
+        }
+
+        if (strtolower($element->getAttribute('aria-hidden')) === 'true') {
+            return false;
+        }
+
+        $style = preg_replace('/\\s+/', '', strtolower($element->getAttribute('style'))) ?? '';
+
+        if (
+            str_contains($style, 'display:none')
+            || str_contains($style, 'visibility:hidden')
+            || preg_match('/(?:^|;)opacity:0(?:!important)?(?:;|$)/', $style) === 1
+        ) {
+            return false;
+        }
+
+        return !($element->tagName === 'input' && strtolower($element->getAttribute('type')) === 'hidden');
     }
 
     private function renderHome(array $overrides = []): string
