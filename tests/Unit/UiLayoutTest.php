@@ -415,7 +415,7 @@ final class UiLayoutTest extends TestCase
                 } else {
                     $heading = $headings->item(0);
                     $headingMains = $xpath->query('./div[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading-main ")]', $heading);
-                    $headingSummary = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and @role = "status" and @aria-live = "polite" and @aria-atomic = "true"]', $heading);
+                    $headingSummary = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and contains(concat(" ", normalize-space(@class), " "), " shrink-0 ") and @role = "status" and @aria-live = "polite" and @aria-atomic = "true"]', $heading);
                     $headingChildren = $xpath->query('./*', $heading);
 
                     if ($headingMains === false || $headingMains->length !== 1) {
@@ -423,7 +423,7 @@ final class UiLayoutTest extends TestCase
                     }
 
                     if ($headingSummary === false || $headingSummary->length !== 1) {
-                        $violations[] = $view . ' must place its atomic result summary alongside .dashboard-panel__heading-main.';
+                        $violations[] = $view . ' must place its non-shrinking atomic result summary alongside .dashboard-panel__heading-main.';
                     }
 
                     if ($headingChildren === false || $headingChildren->length !== 2) {

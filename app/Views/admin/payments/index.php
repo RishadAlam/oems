@@ -26,7 +26,7 @@ $query = static fn (array $changes = []): string => http_build_query(array_filte
             <span class="dashboard-panel__icon"><i class="ph ph-list-magnifying-glass" aria-hidden="true"></i></span>
             <div><h2 id="payment-list-heading">Payment records</h2><p>Review the filtered settlement records below.</p></div>
         </div>
-        <p class="result-summary" role="status" aria-live="polite" aria-atomic="true">
+        <p class="result-summary shrink-0" role="status" aria-live="polite" aria-atomic="true">
             <strong class="result-summary__count" aria-hidden="true"><?= e($total) ?></strong>
             <span class="result-summary__copy" aria-hidden="true"><span class="result-summary__context">Matching</span><span class="result-summary__subject">Payments</span></span>
             <span class="sr-only"><?= e($total) ?> matching payment<?= $total === 1 ? '' : 's' ?></span>

@@ -148,6 +148,37 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
     }
 
+    public function testParticipantWorkspaceMakesLongOperationalIdentifiersShrinkSafe(): void
+    {
+        $registrationNumber = 'REG-' . str_repeat('A', 48);
+        $ticketNumber = 'OEMS-' . str_repeat('B', 48);
+        $this->registrations->registrations[101]['registration_number'] = $registrationNumber;
+        $this->registrations->registrations[101]['ticket_number'] = $ticketNumber;
+
+        $response = $this->participants->index($this->routed('GET', '/organizer/events/10/participants', '10'));
+
+        $this->assertSame(200, $response->status());
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($response->body());
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded);
+        $xpath = new \DOMXPath($document);
+
+        foreach (['Registration' => $registrationNumber, 'Ticket' => $ticketNumber] as $label => $identifier) {
+            $identifiers = $xpath->query(
+                '//td[@data-label="' . $label . '"]/strong['
+                . 'contains(concat(" ", normalize-space(@class), " "), " min-w-0 ")'
+                . ' and contains(concat(" ", normalize-space(@class), " "), " break-all ")]',
+            );
+
+            $this->assertSame(1, $identifiers === false ? 0 : $identifiers->length);
+            $this->assertSame($identifier, trim((string) $identifiers?->item(0)?->textContent));
+        }
+    }
+
     public function testParticipantSearchNormalizesWhitespaceAndRejectsOverlengthForUiAndCsv(): void
     {
         $normalized = $this->participants->index($this->routed(
