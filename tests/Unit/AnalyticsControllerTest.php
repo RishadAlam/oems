@@ -137,7 +137,7 @@ final class AnalyticsControllerTest extends TestCase
         $this->assertTrue(str_contains($response->body(), 'name="currency" maxlength="3" value="USD"'));
         $this->assertTrue(str_contains($response->body(), '&lt;img src=x onerror=alert(1)&gt;'));
         $this->assertFalse(str_contains($response->body(), '<img src=x onerror=alert(1)>'));
-        $this->assertTrue(str_contains($response->body(), '/assets/js/analytics-charts.js'));
+        $this->assertTrue(str_contains($response->body(), '/assets/js/analytics-charts.js?v=20260814-analytics-dashboard-v1'));
         $this->assertFalse(str_contains($response->body(), '<script>Chart category</script>'));
         $this->assertSame(['event_status' => 'published', 'currency' => 'USD'], $repository->calls[0][3]);
         foreach (['draft', 'pending', 'approved', 'rejected', 'published', 'completed', 'cancelled'] as $status) {

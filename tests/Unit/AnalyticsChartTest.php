@@ -45,7 +45,7 @@ final class AnalyticsChartTest extends TestCase
         $styles = file_get_contents(base_path('resources/css/app.css')) ?: '';
 
         $this->assertTrue(str_contains($layout, '/assets/vendor/chartjs/chart.umd.min.js'));
-        $this->assertTrue(str_contains($layout, '/assets/js/analytics-charts.js'));
+        $this->assertTrue(str_contains($layout, '/assets/js/analytics-charts.js?v=20260814-analytics-dashboard-v1'));
         $this->assertTrue(str_contains($organizer, 'analytics-charts.php'));
         $this->assertTrue(str_contains($admin, 'analytics-charts.php'));
         $this->assertTrue(str_contains($component, 'data-analytics-chart'));
