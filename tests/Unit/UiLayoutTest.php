@@ -256,32 +256,83 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'href="/register?role=organizer" class="button button--quiet"'));
     }
 
-    public function testHomeBannersRenderAsFullWidthPublicAnnouncements(): void
+    public function testHomepageSeparatesDiscoveryParticipantAndOrganizerJourneys(): void
+    {
+        $html = $this->renderHome();
+
+        $this->assertTrue(str_contains($html, 'aria-labelledby="home-hero-title"'));
+        $this->assertTrue(str_contains($html, 'id="browse-categories"'));
+        $this->assertTrue(str_contains($html, 'aria-labelledby="home-categories-title"'));
+        $this->assertTrue(str_contains($html, 'class="home-featured section-space"'));
+        $this->assertTrue(str_contains($html, 'aria-labelledby="home-featured-title"'));
+        $this->assertTrue(str_contains($html, 'class="home-journey home-journey--participant"'));
+        $this->assertTrue(str_contains($html, 'class="home-journey home-journey--organizer"'));
+        $this->assertTrue(str_contains($html, 'For participants'));
+        $this->assertTrue(str_contains($html, 'For organizers'));
+        $this->assertTrue(str_contains($html, 'class="organizer-callout__points"'));
+        $this->assertTrue(str_contains($html, 'Manage guests and check-ins'));
+    }
+
+    public function testHomeBannersRenderSafelyInProviderOrderWithOptionalContent(): void
     {
         $html = $this->renderHome([
-            'homeBanners' => [[
-                'id' => 7,
-                'title' => 'August community series',
-                'subtitle' => 'Three practical sessions for local organizers.',
-                'image_path' => '/uploads/banners/community-series.webp',
-                'link_url' => '/events?category=community',
-                'starts_at' => null,
-                'ends_at' => null,
-                'sort_order' => 10,
-            ]],
+            'homeBanners' => [
+                [
+                    'id' => 7,
+                    'title' => 'August <community> & friends',
+                    'subtitle' => 'Three practical sessions for "local" organizers.',
+                    'image_path' => '/uploads/banners/community-series.webp',
+                    'link_url' => '/events?category=community&format=series',
+                    'starts_at' => null,
+                    'ends_at' => null,
+                    'sort_order' => 10,
+                ],
+                [
+                    'id' => 8,
+                    'title' => 'Title-only <notice>',
+                    'subtitle' => '',
+                    'image_path' => '/uploads/banners/title-only.webp',
+                    'link_url' => '',
+                    'starts_at' => null,
+                    'ends_at' => null,
+                    'sort_order' => 20,
+                ],
+            ],
         ]);
 
         $this->assertTrue(str_contains($html, 'class="home-announcements"'));
-        $this->assertTrue(str_contains($html, 'class="home-announcement"'));
+        $this->assertSame(2, substr_count($html, 'class="home-announcement"'));
         $this->assertTrue(str_contains($html, 'class="home-announcement__media"'));
         $this->assertTrue(str_contains($html, 'class="home-announcement__body"'));
-        $this->assertTrue(str_contains($html, 'alt="Promotion: August community series"'));
-        $this->assertTrue(str_contains($html, '<h2>August community series</h2>'));
-        $this->assertTrue(str_contains($html, 'Three practical sessions for local organizers.'));
-        $this->assertTrue(str_contains($html, 'href="/events?category=community"'));
+        $this->assertTrue(str_contains($html, 'alt="Promotion: August &lt;community&gt; &amp; friends"'));
+        $this->assertTrue(str_contains($html, '<h2 id="home-announcement-title-0">August &lt;community&gt; &amp; friends</h2>'));
+        $this->assertTrue(str_contains($html, 'Three practical sessions for &quot;local&quot; organizers.'));
+        $this->assertTrue(str_contains($html, 'href="/events?category=community&amp;format=series"'));
+        $this->assertTrue(strpos($html, 'August &lt;community&gt;') < strpos($html, 'Title-only &lt;notice&gt;'));
+        $this->assertFalse(str_contains($html, 'August <community>'));
+        $this->assertFalse(str_contains($html, 'Title-only <notice>'));
+
+        preg_match('/<article class="home-announcement"[^>]*aria-labelledby="home-announcement-title-1"[^>]*>(.*?)<\/article>/s', $html, $titleOnlyBanner);
+        $this->assertTrue(isset($titleOnlyBanner[1]));
+        $this->assertFalse(str_contains($titleOnlyBanner[1], '<p>'));
+        $this->assertFalse(str_contains($titleOnlyBanner[1], 'class="text-link"'));
         $this->assertTrue(str_contains($html, 'Find your next standout event.'));
         $this->assertFalse(str_contains($html, 'class="dashboard-panel overflow-hidden p-0"'));
-        $this->assertFalse(str_contains($html, 'lg:grid-cols-2'));
+    }
+
+    public function testHomepageCssControlsResponsiveDensityAndLongAnnouncementCopy(): void
+    {
+        $css = (string) file_get_contents(base_path('resources/css/app.css'));
+
+        $this->assertTrue(str_contains($css, '.home-announcement__body h2,'));
+        $this->assertTrue(str_contains($css, 'overflow-wrap: anywhere;'));
+        $this->assertTrue(str_contains($css, 'lg:h-[clamp(280px,24vw,340px)]'));
+        $this->assertTrue(str_contains($css, '.home-categories__grid'));
+        $this->assertTrue(str_contains($css, '@apply grid grid-cols-2'));
+        $this->assertTrue(str_contains($css, '.home-featured__grid'));
+        $this->assertTrue(str_contains($css, '.home-journeys__grid'));
+        $this->assertTrue(str_contains($css, 'lg:grid-cols-2'));
+        $this->assertFalse(str_contains($css, 'lg:min-h-[590px]'));
     }
 
     public function testRegistrationRoleChoicesAreNativeAndSelfDescribing(): void
