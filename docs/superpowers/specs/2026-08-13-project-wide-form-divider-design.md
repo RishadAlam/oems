@@ -2,7 +2,9 @@
 
 ## Problem
 
-Sectioned forms can render two horizontal rules before their action footer. The current stylesheet puts a bottom border on every content section and a top border on the action footer. It tries to remove the final content border with `:last-of-type`, but that selector cannot match the profile form's last content `<div>` because the following action footer is also a `<div>`.
+Sectioned forms can render two horizontal rules before their action footer. The original stylesheet put a bottom border on every content section and a top border on the action footer. It tried to remove the final content border with `:last-of-type`, but that selector could not match the profile form's last content `<div>` because the following action footer was also a `<div>`.
+
+Rendered verification exposed a second cause: the desktop profile action footer was sticky. While it overlaid the scrolling form, a valid section separator could sit immediately above the footer separator and recreate the same double-line appearance.
 
 The existing regression test checks only that the ineffective source selector exists. It does not verify the CSS that the browser receives.
 
@@ -22,7 +24,8 @@ Separators belong to the content that follows them:
 1. Content sections have no bottom border.
 2. Every content section after the first receives one top border and matching top padding.
 3. The action footer retains one top border.
-4. Form grid gaps continue to provide the outer spacing.
+4. The profile action footer remains in normal form flow instead of overlaying scrolling sections.
+5. Form grid gaps continue to provide the outer spacing.
 
 The rule uses same-family general sibling selectors, so validation summaries or required-field notes before the first section do not create an unwanted divider. It also remains correct if non-section content appears between two sections.
 
@@ -42,9 +45,10 @@ This would provide a single semantic API, but it would modify nine templates wit
 - Prove both section families have no base bottom border.
 - Prove later sibling sections receive one top border.
 - Prove both action footers retain one top border.
+- Prove the profile action footer cannot become sticky and overlay scrolling section dividers.
 - Rebuild the production stylesheet and update its cache version in every layout and the service worker.
 - Run the focused UI layout test, JavaScript/PWA tests, the full PHP suite, syntax checks, Composer validation, and a representative browser inspection when the local application is available.
 
 ## Success criteria
 
-Every sectioned form shows exactly one horizontal rule between content sections and exactly one rule before its action footer, with no paired or stacked rule at any viewport size or theme.
+Every sectioned form shows exactly one horizontal rule between content sections and exactly one rule before its action footer. The action footer cannot overlay a scrolling section rule, and no paired or stacked rule appears at any viewport size or theme.
