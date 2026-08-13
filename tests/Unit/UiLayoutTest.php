@@ -1184,6 +1184,8 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($source, '.email-verification-notice {'));
         $this->assertTrue(str_contains($source, '.email-verification-notice__action {'));
         $this->assertTrue(str_contains($source, 'bg-[var(--warning-soft)]'));
+        $this->assertTrue(str_contains($source, 'sm:col-start-2'));
+        $this->assertTrue(str_contains($source, '@apply w-full sm:w-auto;'));
         $this->assertTrue(str_contains($compiled, '.email-verification-notice{'));
         $this->assertTrue(str_contains($compiled, '.email-verification-notice__action{'));
         $this->assertFalse(str_contains($source, 'dark:text-'));

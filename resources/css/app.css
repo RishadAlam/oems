@@ -252,12 +252,12 @@
     }
 
     .email-verification-notice__action {
-        @apply flex min-w-0 sm:col-span-2 lg:col-span-1 lg:justify-end;
+        @apply flex min-w-0 sm:col-start-2 sm:justify-start lg:col-start-auto lg:justify-end;
     }
 
     .email-verification-notice__action form,
     .email-verification-notice__action .button {
-        @apply w-full lg:w-auto;
+        @apply w-full sm:w-auto;
     }
 
     .auth-verification-help {
