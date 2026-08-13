@@ -80,4 +80,3 @@ Tests must prove:
 - the shared dashboard banner appears only for unverified users;
 - both source and compiled CSS contain the recovery component contract;
 - PHP, JavaScript, form, syntax, asset, PWA, and responsive browser checks remain green.
-
