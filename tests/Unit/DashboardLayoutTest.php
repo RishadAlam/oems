@@ -184,6 +184,54 @@ final class DashboardLayoutTest extends TestCase
         $this->assertFalse(str_contains($organizer, 'Week 3'));
     }
 
+    public function testOrganizerDashboardExplainsPendingApprovalAndUnverifiedEmail(): void
+    {
+        $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [
+            'summary' => [],
+            'events' => [],
+            'approval' => [
+                'id' => 20,
+                'organization_name' => 'Community Events',
+                'approval_status' => 'pending',
+                'user_status' => 'active',
+                'email_verified_at' => null,
+                'rejection_reason' => null,
+            ],
+        ]);
+
+        $this->assertTrue(str_contains($organizer, 'Organization approval pending'));
+        $this->assertTrue(str_contains($organizer, 'Email verification required'));
+        $this->assertTrue(str_contains($organizer, 'href="/profile"'));
+        $this->assertTrue(str_contains($organizer, 'Community Events'));
+    }
+
+    public function testAdminDashboardShowsPendingOrganizerQueueAndDirectReviewLinks(): void
+    {
+        $admin = $this->renderAdminDashboard([
+            'metrics' => [
+                'users' => 12,
+                'organizers' => 3,
+                'events' => 6,
+                'pending_organizers' => 2,
+            ],
+            'pendingOrganizers' => [[
+                'id' => 20,
+                'organization_name' => 'Community Events',
+                'contact_name' => 'Osman',
+                'email_verified_at' => null,
+                'user_status' => 'active',
+                'created_at' => '2026-08-11 23:09:21',
+            ]],
+        ]);
+
+        $this->assertTrue(str_contains($admin, 'aria-label="Pending organizers: 2"'));
+        $this->assertTrue(str_contains($admin, 'Organizer approval queue'));
+        $this->assertTrue(str_contains($admin, 'href="/admin/organizers?approval_status=pending"'));
+        $this->assertTrue(str_contains($admin, 'href="/admin/organizers/20"'));
+        $this->assertTrue(str_contains($admin, 'aria-label="Review Community Events"'));
+        $this->assertTrue(str_contains($admin, 'Email not verified'));
+    }
+
     public function testOrganizerNavigationDoesNotDuplicateTheEventsDestination(): void
     {
         $organizer = $this->renderRoleDashboard('dashboard/organizer', 'Organizer', [
@@ -413,7 +461,9 @@ final class DashboardLayoutTest extends TestCase
 
     public function testOrganizerControllerLoadsAuthenticatedRepositorySummaryAndRecentEvents(): void
     {
-        [$controller, $events] = $this->dashboardController('organizer', 10);
+        [$controller, $events, , , , $connection] = $this->dashboardController('organizer', 10);
+        $connection->exec("INSERT INTO users (id, name, email, status, email_verified_at, deleted_at) VALUES (10, 'Organizer User', 'organizer@oems.local', 'active', NULL, NULL)");
+        $connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status, rejection_reason, created_at) VALUES (20, 10, 'Controller Community', 'pending', NULL, '2026-08-11 09:00:00')");
         $events->events[91] = [
             'id' => 91,
             'user_id' => 10,
@@ -429,11 +479,15 @@ final class DashboardLayoutTest extends TestCase
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'aria-label="Total events: 1"'));
         $this->assertTrue(str_contains($response->body(), 'Controller Repository Summit'));
+        $this->assertTrue(str_contains($response->body(), 'Organization approval pending'));
+        $this->assertTrue(str_contains($response->body(), 'Email verification required'));
     }
 
     public function testAdminControllerCountsPendingRepositoryEvents(): void
     {
-        [$controller, $events] = $this->dashboardController('super-admin', 99);
+        [$controller, $events, , , , $connection] = $this->dashboardController('super-admin', 99);
+        $connection->exec("INSERT INTO users (id, name, email, status, email_verified_at, deleted_at) VALUES (10, 'Organizer User', 'organizer@oems.local', 'active', '2026-08-11 08:00:00', NULL)");
+        $connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status, rejection_reason, created_at) VALUES (20, 10, 'Controller Community', 'pending', NULL, '2026-08-11 09:00:00')");
         $events->events = [
             91 => ['id' => 91, 'status' => 'pending'],
             92 => ['id' => 92, 'status' => 'published'],
@@ -443,6 +497,8 @@ final class DashboardLayoutTest extends TestCase
 
         $this->assertSame(200, $response->status());
         $this->assertTrue(str_contains($response->body(), 'aria-label="Pending review: 1"'));
+        $this->assertTrue(str_contains($response->body(), 'aria-label="Pending organizers: 1"'));
+        $this->assertTrue(str_contains($response->body(), 'href="/admin/organizers/20"'));
         $this->assertSame(1, $events->countPendingForAdminCalls);
         $this->assertSame(0, $events->forAdminCalls);
     }
@@ -585,8 +641,8 @@ final class DashboardLayoutTest extends TestCase
         $tickets = new FakeTicketRepository();
         $connection = new PDO('sqlite::memory:');
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
-        $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL)');
+        $connection->exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'active', email_verified_at TEXT NULL, deleted_at TEXT NULL)");
+        $connection->exec("CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL DEFAULT '', approval_status TEXT NOT NULL DEFAULT 'pending', rejection_reason TEXT NULL, created_at TEXT NOT NULL DEFAULT '2026-08-01 00:00:00')");
         $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, organizer_id INTEGER NOT NULL, title TEXT NOT NULL DEFAULT \'\', slug TEXT NOT NULL DEFAULT \'\', start_date TEXT NOT NULL DEFAULT \'2099-01-01 00:00:00\', end_date TEXT NOT NULL DEFAULT \'2099-01-01 02:00:00\', status TEXT NOT NULL DEFAULT \'published\', deleted_at TEXT NULL)');
         $connection->exec('CREATE TABLE registrations (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, event_id INTEGER NOT NULL, status TEXT NOT NULL, registration_number TEXT NOT NULL DEFAULT \'\')');
         $connection->exec('CREATE TABLE payments (id INTEGER PRIMARY KEY, registration_id INTEGER NOT NULL, status TEXT NOT NULL)');

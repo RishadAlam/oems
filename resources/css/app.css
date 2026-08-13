@@ -1934,6 +1934,100 @@
         @apply flex items-start gap-2 rounded-[12px] bg-[var(--surface-soft)] p-4 text-xs leading-5 text-[var(--ink-muted)];
     }
 
+    .approval-overview {
+        @apply grid gap-5 rounded-[18px] border bg-[var(--surface-raised)] p-5 sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)_auto];
+    }
+
+    .approval-overview--success {
+        @apply border-[color-mix(in_srgb,var(--success)_35%,var(--line))];
+    }
+
+    .approval-overview--info {
+        @apply border-[color-mix(in_srgb,var(--info)_35%,var(--line))];
+    }
+
+    .approval-overview--warning {
+        @apply border-[color-mix(in_srgb,var(--warning)_35%,var(--line))];
+    }
+
+    .approval-overview--error {
+        @apply border-[color-mix(in_srgb,var(--error)_35%,var(--line))];
+    }
+
+    .approval-overview__icon,
+    .approval-queue__icon {
+        @apply flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-[var(--accent-soft)] text-xl text-[var(--accent)];
+    }
+
+    .approval-overview--success .approval-overview__icon {
+        @apply bg-[var(--success-soft)] text-[var(--success)];
+    }
+
+    .approval-overview--warning .approval-overview__icon {
+        @apply bg-[var(--warning-soft)] text-[var(--warning)];
+    }
+
+    .approval-overview--error .approval-overview__icon {
+        @apply bg-[var(--error-soft)] text-[var(--error)];
+    }
+
+    .approval-overview__content h2 {
+        @apply mt-1 text-lg font-extrabold text-[var(--ink)];
+    }
+
+    .approval-overview__content > p:last-of-type {
+        @apply mt-2 max-w-3xl text-sm leading-6 text-[var(--ink-muted)];
+    }
+
+    .approval-overview__eyebrow {
+        @apply flex flex-wrap gap-2 text-[0.68rem] font-extrabold uppercase tracking-[0.14em] text-[var(--ink-muted)];
+    }
+
+    .approval-overview__action {
+        @apply flex flex-wrap items-center gap-3 lg:flex-col lg:items-end;
+    }
+
+    .approval-readiness-list {
+        @apply mt-4 flex flex-wrap gap-2;
+    }
+
+    .approval-readiness-list li {
+        @apply inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--ink-muted)];
+    }
+
+    .approval-readiness-list strong {
+        @apply text-[var(--ink)];
+    }
+
+    .approval-queue {
+        @apply divide-y divide-[var(--line)] overflow-hidden rounded-[14px] border border-[var(--line)];
+    }
+
+    .approval-queue > li {
+        @apply flex flex-col gap-4 bg-[var(--surface-raised)] p-4 sm:flex-row sm:items-center sm:justify-between;
+    }
+
+    .approval-queue__identity,
+    .approval-queue__action {
+        @apply flex items-center gap-3;
+    }
+
+    .approval-queue__identity > div {
+        @apply grid gap-1;
+    }
+
+    .approval-queue__identity strong {
+        @apply text-sm font-extrabold text-[var(--ink)];
+    }
+
+    .approval-queue__identity span {
+        @apply text-xs leading-5 text-[var(--ink-muted)];
+    }
+
+    .approval-queue__action {
+        @apply flex-wrap sm:justify-end;
+    }
+
     .organizer-danger-zone {
         @apply flex flex-col gap-5 rounded-[18px] border border-[color-mix(in_srgb,var(--error)_35%,var(--line))] bg-[var(--surface-raised)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6;
     }

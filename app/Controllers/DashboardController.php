@@ -74,6 +74,7 @@ final class DashboardController extends Controller
 
         return $this->render('dashboard/organizer', [
             'pageTitle' => 'Organizer workspace',
+            'approval' => $this->dashboardMetrics->organizerApprovalForUser($userId),
             'summary' => $this->events->organizerSummary($userId),
             'events' => $this->events->recentForOrganizerUser($userId, 5),
             'transactionMetrics' => [
@@ -97,6 +98,7 @@ final class DashboardController extends Controller
         return $this->render('dashboard/admin', [
             'pageTitle' => 'Platform overview',
             'metrics' => $metrics,
+            'pendingOrganizers' => $this->dashboardMetrics->pendingOrganizerApplications(4),
         ], 'dashboard');
     }
 }
