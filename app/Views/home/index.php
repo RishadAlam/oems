@@ -200,7 +200,8 @@
 </section>
 
 <section class="organizer-callout section-space pt-0" aria-labelledby="organizer-callout-title">
-    <div class="page-shell organizer-callout__inner">
+    <div class="page-shell">
+    <div class="organizer-callout__inner">
         <div class="organizer-callout__content">
             <p class="eyebrow eyebrow--inverse"><i class="ph ph-microphone-stage" aria-hidden="true"></i><span>For organizers</span></p>
             <h2 id="organizer-callout-title" class="section-title text-white">Your audience is out there.</h2>
@@ -212,5 +213,6 @@
             </ul>
         </div>
         <a class="button button--light" href="/register?role=organizer"><span>Create organizer account</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+    </div>
     </div>
 </section>

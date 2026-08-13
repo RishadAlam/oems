@@ -250,7 +250,7 @@
     }
 
     .hero-title {
-        @apply max-w-[15ch] text-[clamp(3.2rem,5.3vw,4.85rem)] font-semibold leading-[0.96] tracking-[-0.06em] text-white;
+        @apply max-w-[15ch] text-[clamp(3rem,4.4vw,4rem)] font-semibold leading-[0.96] tracking-[-0.06em] text-white;
     }
 
     .hero-title span {
@@ -459,6 +459,18 @@
         @apply mt-10 grid items-stretch gap-6 lg:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)];
     }
 
+    .home-featured .event-card {
+        @apply flex h-full flex-col;
+    }
+
+    .home-featured .event-card__body {
+        @apply flex flex-1 flex-col;
+    }
+
+    .home-featured .event-card__footer {
+        @apply mt-auto;
+    }
+
     .home-featured .event-card__media img {
         @apply aspect-[16/10];
     }
@@ -593,7 +605,7 @@
     }
 
     .home-journeys__intro .eyebrow {
-        @apply mb-0 lg:mb-1;
+        @apply mb-0 justify-self-start lg:mb-1;
     }
 
     .home-journeys__intro .section-title {
@@ -641,7 +653,7 @@
     }
 
     .home-journey li > span {
-        @apply pt-0.5 text-xs font-bold text-white/40;
+        @apply pt-0.5 text-xs font-bold text-white/60;
     }
 
     .home-journey li strong {
@@ -658,6 +670,10 @@
 
     .text-link--inverse {
         @apply text-[#b8c6ff] hover:text-white;
+    }
+
+    .organizer-callout > .page-shell {
+        @apply px-5 sm:px-8 lg:px-10;
     }
 
     .organizer-callout__inner {
@@ -2363,7 +2379,7 @@
 
     .hero-title {
         max-width: 12ch;
-        font-size: clamp(2.75rem, 14vw, 3.65rem);
+        font-size: clamp(2.25rem, 11.5vw, 2.8rem);
     }
 
     .hero-search {

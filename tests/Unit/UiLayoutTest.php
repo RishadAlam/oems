@@ -333,6 +333,14 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '.home-journeys__grid'));
         $this->assertTrue(str_contains($css, 'lg:grid-cols-2'));
         $this->assertFalse(str_contains($css, 'lg:min-h-[590px]'));
+        $this->assertTrue(str_contains($css, '.home-featured .event-card {'));
+        $this->assertTrue(str_contains($css, '@apply flex h-full flex-col;'));
+        $this->assertTrue(str_contains($css, '.home-featured .event-card__footer {'));
+        $this->assertTrue(str_contains($css, '@apply mt-auto;'));
+        $this->assertTrue(str_contains($css, '.home-journeys__intro .eyebrow'));
+        $this->assertTrue(str_contains($css, '@apply mb-0 justify-self-start'));
+        $this->assertTrue(str_contains($css, '.organizer-callout > .page-shell'));
+        $this->assertTrue(str_contains($css, 'text-xs font-bold text-white/60'));
     }
 
     public function testRegistrationRoleChoicesAreNativeAndSelfDescribing(): void
