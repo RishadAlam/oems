@@ -33,9 +33,11 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
                 <input id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" data-form-label="Confirmation phrase" required aria-describedby="maintenance-confirmation-instruction maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>"<?= !empty($errors['confirmation']) ? ' aria-invalid="true"' : '' ?>>
                 <p id="maintenance-confirmation-instruction" class="field-help">Type <strong><?= e($phrase) ?></strong> exactly as shown.</p>
                 <?php if (!empty($errors['confirmation'])): ?><p id="maintenance-confirmation-error" class="field-error" role="alert"><?= e($errors['confirmation'][0]) ?></p><?php endif; ?>
-                <p id="maintenance-help" class="field-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
             </div>
-            <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> justify-self-start" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
+            <p id="maintenance-help" class="field-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
+            <div class="flex">
+                <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?>" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
+            </div>
         </form>
     </section>
 </div>
