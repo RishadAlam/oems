@@ -89,16 +89,35 @@ final class LocationAccessibilityStylesTest extends TestCase
             preg_match('/(?:^|[;\n])\s*outline(?:-width|-offset)?\s*:/', $rules) === 1,
             sprintf('%s must not override the global 3px focus width or offset.', $selector),
         );
+        $prohibitedUtility = $this->firstProhibitedOutlineUtility($rules);
         $this->assertFalse(
-            preg_match(
-                '/focus-visible:outline(?!(?:-\[var\(--accent\)\])(?=[\s;]|$))(?:-[^\s;]+)?/',
-                $rules,
-            ) === 1,
-            sprintf('%s must not apply a focus-visible outline width or offset utility.', $selector),
+            $prohibitedUtility !== null,
+            sprintf(
+                '%s must not apply outline utilities except focus-visible:outline-[var(--accent)]; found %s.',
+                $selector,
+                $prohibitedUtility ?? '',
+            ),
         );
-        $this->assertFalse(
-            preg_match('/focus-visible:\[outline(?:-width|-offset)?:[^\]]*\]/', $rules) === 1,
-            sprintf('%s must not apply an arbitrary focus-visible outline width or offset property.', $selector),
-        );
+    }
+
+    private function firstProhibitedOutlineUtility(string $rules): ?string
+    {
+        $utilities = preg_split('/\s+/', trim($rules)) ?: [];
+
+        foreach ($utilities as $utility) {
+            $utility = rtrim($utility, ';');
+            if ($utility === 'focus-visible:outline-[var(--accent)]') {
+                continue;
+            }
+
+            if (
+                preg_match('/(?:^|:)!?outline(?:$|-[^\s;]+)/', $utility) === 1
+                || preg_match('/(?:^|:)!?\[outline(?:-width|-offset)?:[^\]]*\]!?$/', $utility) === 1
+            ) {
+                return $utility;
+            }
+        }
+
+        return null;
     }
 }
