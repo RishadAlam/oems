@@ -447,36 +447,10 @@ final class UiLayoutTest extends TestCase
             }
 
             $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source);
-            $document = new \DOMDocument();
-            $previousErrors = libxml_use_internal_errors(true);
-            $loaded = $document->loadHTML($markup ?? '');
-            libxml_clear_errors();
-            libxml_use_internal_errors($previousErrors);
-
-            if ($loaded === false) {
-                $violations[] = $view . ' must contain parseable page-heading markup.';
-                continue;
-            }
-
-            $xpath = new \DOMXPath($document);
-            $headings = $xpath->query('//h1');
-
-            if ($headings === false || $headings->length === 0) {
-                continue;
-            }
-
-            $roots = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-page-heading ")]');
-
-            if ($roots === false || $roots->length !== 1) {
-                $violations[] = $view . ' must render exactly one .dashboard-page-heading root.';
-                continue;
-            }
-
-            $rootHeadings = $xpath->query('.//h1', $roots->item(0));
-
-            if ($rootHeadings === false || $rootHeadings->length !== 1) {
-                $violations[] = $view . ' must render exactly one H1 inside .dashboard-page-heading.';
-            }
+            $violations = [
+                ...$violations,
+                ...$this->dashboardPageHeadingMarkupViolations($markup ?? '', $view),
+            ];
         }
 
         $applicationViews = new \RecursiveIteratorIterator(
@@ -501,6 +475,21 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testDashboardPageHeadingStructuralGuardRejectsASecondDocumentHeading(): void
+    {
+        $markup = <<<'HTML'
+            <header class="dashboard-page-heading">
+                <div><h1>Canonical title</h1></div>
+            </header>
+            <section><h1>Unexpected second title</h1></section>
+            HTML;
+
+        $this->assertSame(
+            ['fixture must render exactly one document H1; found 2.'],
+            $this->dashboardPageHeadingMarkupViolations($markup, 'fixture'),
+        );
+    }
+
     public function testDashboardPageHeadingPreservesTheResponsiveTypeAndLayoutContract(): void
     {
         $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
@@ -509,7 +498,9 @@ final class UiLayoutTest extends TestCase
 
         foreach ([
             '.dashboard-page-heading' => ['flex', 'flex-col', 'sm:flex-row', 'sm:items-end', 'sm:justify-between'],
-            '.dashboard-page-heading h1' => ['text-3xl', 'sm:text-4xl'],
+            '.dashboard-page-heading > :first-child' => ['min-w-0'],
+            '.dashboard-page-heading > :not(:first-child)' => ['self-start', 'sm:self-auto'],
+            '.dashboard-page-heading h1' => ['text-3xl', 'sm:text-4xl', '[overflow-wrap:anywhere]'],
             '.dashboard-page-heading p:not(.dashboard-kicker)' => ['text-sm', 'leading-6', 'text-[var(--ink-muted)]'],
         ] as $selector => $utilities) {
             if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities)) {
@@ -517,8 +508,16 @@ final class UiLayoutTest extends TestCase
             }
         }
 
-        if (!$this->cssRuleContainsTokens($compiledCss, '.dashboard-page-heading', ['display:flex', 'flex-direction:column'])) {
+        if (!$this->cssRuleOutsideMediaContainsTokens($compiledCss, '.dashboard-page-heading', ['display:flex', 'flex-direction:column'])) {
             $violations[] = 'compiled CSS must preserve the base column .dashboard-page-heading layout.';
+        }
+
+        if (!$this->cssRuleOutsideMediaContainsTokens($compiledCss, '.dashboard-page-heading > :first-child', ['min-width:0'])) {
+            $violations[] = 'compiled CSS must keep the dashboard heading text zone shrink-safe.';
+        }
+
+        if (!$this->cssRuleOutsideMediaContainsTokens($compiledCss, '.dashboard-page-heading > :not(:first-child)', ['align-self:flex-start'])) {
+            $violations[] = 'compiled CSS must keep mobile dashboard heading actions intrinsically aligned.';
         }
 
         if (!$this->cssMediaRuleContainsTokens(
@@ -530,8 +529,21 @@ final class UiLayoutTest extends TestCase
             $violations[] = 'compiled CSS must preserve the 40rem bottom-aligned space-between .dashboard-page-heading row.';
         }
 
-        if (!$this->cssRuleContainsTokens($compiledCss, '.dashboard-page-heading h1', ['font-size:var(--text-3xl)'])) {
-            $violations[] = 'compiled CSS must preserve the base 30-pixel .dashboard-page-heading H1 size.';
+        if (!$this->cssMediaRuleContainsTokens(
+            $compiledCss,
+            '40rem',
+            '.dashboard-page-heading > :not(:first-child)',
+            ['align-self:auto'],
+        )) {
+            $violations[] = 'compiled CSS must restore automatic action-zone alignment in the 40rem dashboard heading row.';
+        }
+
+        if (!$this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.dashboard-page-heading h1',
+            ['font-size:var(--text-3xl)', 'overflow-wrap:anywhere'],
+        )) {
+            $violations[] = 'compiled CSS must preserve the base 30-pixel .dashboard-page-heading H1 size and arbitrary overflow wrapping.';
         }
 
         if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', '.dashboard-page-heading h1', ['font-size:var(--text-4xl)'])) {
@@ -546,6 +558,26 @@ final class UiLayoutTest extends TestCase
         }
 
         $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testCssBaseRuleParserExcludesMediaRulesButRetainsLayerRules(): void
+    {
+        $this->assertFalse(
+            $this->cssRuleOutsideMediaContainsTokens(
+                '@media (min-width:40rem) { .fixture { display:flex; } }',
+                '.fixture',
+                ['display:flex'],
+            ),
+            'A rule nested in @media must not satisfy a base-rule assertion.',
+        );
+        $this->assertTrue(
+            $this->cssRuleOutsideMediaContainsTokens(
+                '@layer components { .fixture { display:flex; } }',
+                '.fixture',
+                ['display:flex'],
+            ),
+            'A base rule nested in @layer must remain visible to base-rule assertions.',
+        );
     }
 
     public function testTailwindBuildScansOnlyExplicitApplicationSources(): void
@@ -987,6 +1019,138 @@ final class UiLayoutTest extends TestCase
         }
 
         return false;
+    }
+
+    private function cssRuleOutsideMediaContainsTokens(string $css, string $selector, array $tokens): bool
+    {
+        foreach ($this->cssExactSelectorRuleBodiesOutsideMedia($css, $selector) as $rule) {
+            $containsTokens = true;
+
+            foreach ($tokens as $token) {
+                $alternatives = is_array($token) ? $token : [$token];
+                $hasAlternative = false;
+
+                foreach ($alternatives as $alternative) {
+                    if (str_contains($rule, $alternative)) {
+                        $hasAlternative = true;
+                        break;
+                    }
+                }
+
+                if (!$hasAlternative) {
+                    $containsTokens = false;
+                    break;
+                }
+            }
+
+            if ($containsTokens) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function cssExactSelectorRuleBodiesOutsideMedia(string $css, string $selector): array
+    {
+        $bodies = [];
+        $frames = [];
+        $statementStart = 0;
+        $length = strlen($css);
+
+        for ($index = 0; $index < $length; $index++) {
+            if ($css[$index] === '/' && ($css[$index + 1] ?? '') === '*') {
+                $commentEnd = strpos($css, '*/', $index + 2);
+                $index = $commentEnd === false ? $length : $commentEnd + 1;
+                continue;
+            }
+
+            if ($css[$index] === '"' || $css[$index] === "'") {
+                $quote = $css[$index];
+
+                for ($index++; $index < $length; $index++) {
+                    if ($css[$index] === '\\') {
+                        $index++;
+                    } elseif (($css[$index] ?? '') === $quote) {
+                        break;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($css[$index] === '{') {
+                $prelude = trim(substr($css, $statementStart, $index - $statementStart));
+                $parentIsInMedia = $frames === [] ? false : $frames[array_key_last($frames)]['inMedia'];
+                $isAtRule = str_starts_with(ltrim($prelude), '@');
+                $frames[] = [
+                    'bodyStart' => $index + 1,
+                    'inMedia' => $parentIsInMedia || preg_match('/\A@media\b/i', $prelude) === 1,
+                    'selector' => $isAtRule ? null : $prelude,
+                ];
+                $statementStart = $index + 1;
+                continue;
+            }
+
+            if ($css[$index] === '}') {
+                $frame = array_pop($frames);
+
+                if (
+                    is_array($frame)
+                    && $frame['selector'] === $selector
+                    && $frame['inMedia'] === false
+                ) {
+                    $bodies[] = substr($css, $frame['bodyStart'], $index - $frame['bodyStart']);
+                }
+
+                $statementStart = $index + 1;
+                continue;
+            }
+
+            if ($css[$index] === ';') {
+                $statementStart = $index + 1;
+            }
+        }
+
+        return $bodies;
+    }
+
+    private function dashboardPageHeadingMarkupViolations(string $markup, string $label): array
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($markup);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        if ($loaded === false) {
+            return [$label . ' must contain parseable page-heading markup.'];
+        }
+
+        $xpath = new \DOMXPath($document);
+        $headings = $xpath->query('//h1');
+
+        if ($headings === false || $headings->length === 0) {
+            return [];
+        }
+
+        if ($headings->length !== 1) {
+            return [$label . ' must render exactly one document H1; found ' . $headings->length . '.'];
+        }
+
+        $roots = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-page-heading ")]');
+
+        if ($roots === false || $roots->length !== 1) {
+            return [$label . ' must render exactly one .dashboard-page-heading root.'];
+        }
+
+        $rootHeadings = $xpath->query('.//h1', $roots->item(0));
+
+        if ($rootHeadings === false || $rootHeadings->length !== 1) {
+            return [$label . ' must render its sole document H1 inside .dashboard-page-heading.'];
+        }
+
+        return [];
     }
 
     private function cssRuleApplyContainsUtilities(string $css, string $selector, array $utilities): bool
