@@ -353,16 +353,82 @@ final class UiLayoutTest extends TestCase
                 }
             }
 
+            $counts = $xpath->query($requiredChildren['.result-summary__count'], $summary);
+            $copies = $xpath->query($requiredChildren['.result-summary__copy'], $summary);
+            $screenReaderPhrases = $xpath->query($requiredChildren['.sr-only'], $summary);
+            $visibleChildren = $xpath->query('./*', $summary);
+            $icons = $xpath->query('.//i | .//*[contains(concat(" ", normalize-space(@class), " "), " ph ")]', $summary);
+            $nestedCards = $xpath->query('.//article | .//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel ")] | .//*[contains(concat(" ", normalize-space(@class), " "), " card ")]', $summary);
+
+            if ($visibleChildren === false || $visibleChildren->length !== 3) {
+                $violations[] = $view . ' must keep result-summary to its count, visible copy, and screen-reader phrase only.';
+            }
+
+            if ($icons !== false && $icons->length !== 0) {
+                $violations[] = $view . ' must not add an icon to its result summary.';
+            }
+
+            if ($nestedCards !== false && $nestedCards->length !== 0) {
+                $violations[] = $view . ' must not nest a card inside its result summary.';
+            }
+
+            foreach (['.result-summary__count' => $counts, '.result-summary__copy' => $copies] as $class => $children) {
+                if (
+                    $children instanceof \DOMNodeList
+                    && $children->length === 1
+                    && $children->item(0) instanceof \DOMElement
+                    && $children->item(0)->getAttribute('aria-hidden') !== 'true'
+                ) {
+                    $violations[] = $view . ' must hide visible ' . $class . ' content from assistive technology.';
+                }
+            }
+
+            if ($counts instanceof \DOMNodeList && $counts->length === 1) {
+                $countChildren = $xpath->query('./*', $counts->item(0));
+
+                if ($countChildren === false || $countChildren->length !== 0) {
+                    $violations[] = $view . ' must not nest presentation content inside .result-summary__count.';
+                }
+            }
+
+            if ($copies instanceof \DOMNodeList && $copies->length === 1) {
+                $copyChildren = $xpath->query('./*', $copies->item(0));
+
+                if ($copyChildren === false || $copyChildren->length !== 2) {
+                    $violations[] = $view . ' must keep visible result copy to its context and subject only.';
+                }
+            }
+
+            if ($screenReaderPhrases instanceof \DOMNodeList && $screenReaderPhrases->length === 1) {
+                $screenReaderChildren = $xpath->query('./*', $screenReaderPhrases->item(0));
+
+                if ($screenReaderChildren === false || $screenReaderChildren->length !== 0) {
+                    $violations[] = $view . ' must keep its screen-reader result phrase as plain text.';
+                }
+            }
+
             if (in_array($view, $panelViews, true)) {
                 $headings = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading--with-summary ")]');
-                $headingMains = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading-main ")]');
 
                 if ($headings === false || $headings->length !== 1) {
                     $violations[] = $view . ' must adapt its panel heading with .dashboard-panel__heading--with-summary.';
-                }
+                } else {
+                    $heading = $headings->item(0);
+                    $headingMains = $xpath->query('./div[contains(concat(" ", normalize-space(@class), " "), " dashboard-panel__heading-main ")]', $heading);
+                    $headingSummary = $xpath->query('./p[contains(concat(" ", normalize-space(@class), " "), " result-summary ") and @role = "status" and @aria-live = "polite" and @aria-atomic = "true"]', $heading);
+                    $headingChildren = $xpath->query('./*', $heading);
 
-                if ($headingMains === false || $headingMains->length !== 1) {
-                    $violations[] = $view . ' must wrap its panel heading content in .dashboard-panel__heading-main.';
+                    if ($headingMains === false || $headingMains->length !== 1) {
+                        $violations[] = $view . ' must wrap its panel heading content in one direct .dashboard-panel__heading-main.';
+                    }
+
+                    if ($headingSummary === false || $headingSummary->length !== 1) {
+                        $violations[] = $view . ' must place its atomic result summary alongside .dashboard-panel__heading-main.';
+                    }
+
+                    if ($headingChildren === false || $headingChildren->length !== 2) {
+                        $violations[] = $view . ' must keep the panel heading to its heading main and result summary children.';
+                    }
                 }
             } else {
                 $toolbars = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " filter-toolbar ")]');
@@ -373,6 +439,23 @@ final class UiLayoutTest extends TestCase
                 if ($toolbarSummary === false || $toolbarSummary->length !== 1) {
                     $violations[] = $view . ' must keep its result summary as a direct .filter-toolbar child.';
                 }
+            }
+        }
+
+        $allViews = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator(base_path('app/Views'), \FilesystemIterator::SKIP_DOTS),
+        );
+
+        foreach ($allViews as $file) {
+            if (!$file instanceof \SplFileInfo || !$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $view = substr($file->getPathname(), strlen(base_path()) + 1);
+            $source = file_get_contents($file->getPathname());
+
+            if ($source !== false && str_contains($source, 'result-summary') && !in_array($view, $views, true)) {
+                $violations[] = $view . ' must not use .result-summary outside the seven permitted filtered-result surfaces.';
             }
         }
 
@@ -397,6 +480,16 @@ final class UiLayoutTest extends TestCase
         foreach ($sourceRules as $selector => $utilities) {
             if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities)) {
                 $violations[] = 'source CSS must keep ' . $selector . ' scoped to: ' . implode(', ', $utilities) . '.';
+            }
+
+            $rules = $this->cssExactSelectorRuleBodies($sourceCss, $selector);
+            $actualUtilities = $rules === [] ? [] : $this->cssRuleBodyAppliedUtilities($rules[0]);
+            $expectedUtilities = $utilities;
+            sort($actualUtilities);
+            sort($expectedUtilities);
+
+            if (count($rules) !== 1 || $actualUtilities !== $expectedUtilities) {
+                $violations[] = 'source CSS must define exactly one ' . $selector . ' rule with no decorative or non-OEMS utilities.';
             }
         }
 
@@ -426,9 +519,35 @@ final class UiLayoutTest extends TestCase
         }
 
         foreach (['source' => $sourceCss, 'compiled' => $compiledCss] as $artifact => $css) {
-            foreach ($this->cssExactSelectorRuleBodies($css, '.result-summary') as $rule) {
-                if (str_contains($rule, 'position:absolute') || preg_match('/(?:^|;)width:(?:\d+(?:\.\d+)?(?:px|rem)|calc\([^)]*\))/', $rule) === 1) {
-                    $violations[] = $artifact . ' CSS must not absolutely position or give .result-summary a literal fixed width.';
+            foreach (array_keys($sourceRules) as $selector) {
+                foreach ($this->cssExactSelectorRuleBodies($css, $selector) as $rule) {
+                    if (
+                        preg_match('/(?:^|;)(?:box-shadow|transition(?:-[a-z-]+)?|animation(?:-[a-z-]+)?|position)\s*:/', $rule) === 1
+                        || preg_match('/#[0-9a-f]{3,8}\b/i', $rule) === 1
+                    ) {
+                        $violations[] = $artifact . ' CSS must not add shadows, motion, positioning, or non-token literal colors to ' . $selector . '.';
+                    }
+
+                    if (
+                        $selector === '.result-summary'
+                        && (str_contains($rule, 'position:absolute') || preg_match('/(?:^|;)width:(?:\d+(?:\.\d+)?(?:px|rem)|calc\([^)]*\))/', $rule) === 1)
+                    ) {
+                        $violations[] = $artifact . ' CSS must not absolutely position or give .result-summary a literal fixed width.';
+                    }
+
+                    $radii = [];
+                    preg_match_all('/(?:^|;)border-radius:([^;]+)/', $rule, $matches);
+
+                    foreach ($matches[1] ?? [] as $radius) {
+                        $radii[] = trim($radius);
+                    }
+
+                    if (
+                        ($selector === '.result-summary__count' && $radii !== [] && $radii !== ['12px'])
+                        || ($selector !== '.result-summary__count' && $radii !== [])
+                    ) {
+                        $violations[] = $artifact . ' CSS must not add non-OEMS radii to ' . $selector . '.';
+                    }
                 }
             }
         }

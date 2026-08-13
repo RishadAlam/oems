@@ -250,6 +250,19 @@ final class OrganizerEventControllerTest extends TestCase
             query: ['status' => 'draft'],
         ));
         $unfiltered = $this->controller->index(Request::create('GET', '/organizer/events'));
+        $zero = $this->controller->index(Request::create(
+            'GET',
+            '/organizer/events?status=published',
+            query: ['status' => 'published'],
+        ));
+        foreach (range(21, 30) as $eventId) {
+            $this->events->events[$eventId] = $this->eventFixture($eventId, 10, 'pending', 'Pending event ' . $eventId);
+        }
+        $multiDigit = $this->controller->index(Request::create(
+            'GET',
+            '/organizer/events?status=pending',
+            query: ['status' => 'pending'],
+        ));
         $unknown = $this->controller->index(Request::create(
             'GET',
             '/organizer/events?status[]=draft',
@@ -260,6 +273,8 @@ final class OrganizerEventControllerTest extends TestCase
         $this->assertFalse(str_contains($filtered->body(), 'Approved Forum'));
         $this->assertTrue(str_contains($filtered->body(), '<span class="sr-only">1 matching event</span>'));
         $this->assertTrue(str_contains($unfiltered->body(), '<span class="sr-only">2 matching events</span>'));
+        $this->assertTrue(str_contains($zero->body(), '<span class="sr-only">0 matching events</span>'));
+        $this->assertTrue(str_contains($multiDigit->body(), '<span class="sr-only">10 matching events</span>'));
         $this->assertTrue(str_contains($unknown->body(), 'Dhaka Product Lab'));
         $this->assertTrue(str_contains($unknown->body(), 'Approved Forum'));
     }
