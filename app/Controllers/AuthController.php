@@ -135,7 +135,10 @@ final class AuthController extends Controller
     public function resendVerification(Request $request): Response
     {
         $data = $request->only(['email']);
-        $data['email'] = strtolower(trim((string) ($data['email'] ?? '')));
+        $submittedEmail = $data['email'] ?? null;
+        $data['email'] = is_scalar($submittedEmail)
+            ? strtolower(trim((string) $submittedEmail))
+            : '';
         $errors = Validator::validate($data, [
             'email' => 'required|email|max:190',
         ]);

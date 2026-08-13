@@ -210,6 +210,29 @@ final class AuthControllerMailTest extends TestCase
         );
     }
 
+    public function testVerificationResendRejectsNonScalarEmailWithoutEmittingAWarning(): void
+    {
+        [$controller, $transport, $session] = $this->controller();
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new \ErrorException($message, 0, $severity);
+        });
+
+        try {
+            $response = $controller->resendVerification(Request::create(
+                'POST',
+                '/verify-email/resend',
+                input: ['email' => ['crafted@example.test']],
+                server: ['REMOTE_ADDR' => '192.0.2.73'],
+            ));
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame('/verify-email/resend', $response->header('Location'));
+        $this->assertSame(0, count($transport->messages));
+        $this->assertArrayHasKey('email', $session->get('_flash.errors', []));
+    }
+
     public function testInvalidVerificationLinkRecoversAtTheResendPage(): void
     {
         [$controller] = $this->controller();
