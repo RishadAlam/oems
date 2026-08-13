@@ -24,15 +24,18 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
     <section class="panel" aria-labelledby="maintenance-control-title">
         <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Maintenance</p><h2 id="maintenance-control-title" class="mt-1 text-xl font-bold">Traffic control</h2></div><span class="status-badge <?= $maintenanceEnabled ? 'status-badge--warning' : 'status-badge--neutral' ?>"><?= $maintenanceEnabled ? 'Active' : 'Inactive' ?></span></div>
         <p class="mt-4 text-[var(--ink-muted)]"><?= $maintenanceEnabled ? 'Public and non-administrator application routes return an accessible 503 response.' : 'All application routes are available according to their normal access rules.' ?></p>
-        <form class="mt-6" action="/admin/operations/maintenance" method="post" data-form-kind="entry">
+        <form class="form-stack mt-6" action="/admin/operations/maintenance" method="post" data-form-kind="entry">
             <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">
             <input type="hidden" name="enabled" value="<?= $nextEnabled ? '1' : '0' ?>">
-            <?php $fieldTargets = ['confirmation' => 'maintenance-confirmation', 'operations' => 'maintenance-confirmation']; $fieldLabels = ['confirmation' => 'Maintenance confirmation', 'operations' => 'Maintenance control']; $formErrorSummaryId = 'maintenance-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
-            <label class="form-label" for="maintenance-confirmation">Type <strong><?= e($phrase) ?></strong> to continue</label>
-            <input class="form-input" id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" required aria-describedby="maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>"<?= !empty($errors['confirmation']) ? ' aria-invalid="true"' : '' ?>>
-            <p id="maintenance-help" class="form-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
-            <?php if (!empty($errors['confirmation'])): ?><p id="maintenance-confirmation-error" class="form-error" role="alert"><?= e($errors['confirmation'][0]) ?></p><?php endif; ?>
-            <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> mt-5" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
+            <?php $fieldTargets = ['confirmation' => 'maintenance-confirmation', 'operations' => 'maintenance-confirmation']; $fieldLabels = ['confirmation' => 'Confirmation phrase', 'operations' => 'Maintenance control']; $formErrorSummaryId = 'maintenance-error-summary'; require base_path('app/Views/components/form-errors.php'); ?>
+            <div class="field-group">
+                <label for="maintenance-confirmation">Confirmation phrase</label>
+                <input id="maintenance-confirmation" name="confirmation" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" data-form-label="Confirmation phrase" required aria-describedby="maintenance-confirmation-instruction maintenance-help<?= !empty($errors['confirmation']) ? ' maintenance-confirmation-error' : '' ?>"<?= !empty($errors['confirmation']) ? ' aria-invalid="true"' : '' ?>>
+                <p id="maintenance-confirmation-instruction" class="field-help">Type <strong><?= e($phrase) ?></strong> exactly as shown.</p>
+                <?php if (!empty($errors['confirmation'])): ?><p id="maintenance-confirmation-error" class="field-error" role="alert"><?= e($errors['confirmation'][0]) ?></p><?php endif; ?>
+                <p id="maintenance-help" class="field-help">Health endpoints, the login page, static assets, and signed-in super administrators remain available.</p>
+            </div>
+            <button class="button <?= $nextEnabled ? 'button--danger' : 'button--primary' ?> justify-self-start" type="submit" data-submit-label="Updating maintenance…"><i class="ph <?= $nextEnabled ? 'ph-warning' : 'ph-check-circle' ?>" aria-hidden="true"></i><span data-submit-text><?= $nextEnabled ? 'Enable maintenance' : 'Disable maintenance' ?></span></button>
         </form>
     </section>
 </div>

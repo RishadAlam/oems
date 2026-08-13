@@ -43,7 +43,7 @@ final class AdminOperationsController extends Controller
         $expected = $enabled === true ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
 
         if ($enabled === null || !hash_equals($expected, $confirmation)) {
-            return $this->page(['confirmation' => ['Type the exact confirmation phrase shown below.']], 422);
+            return $this->page(['confirmation' => ['Enter the exact confirmation phrase.']], 422);
         }
 
         try {
