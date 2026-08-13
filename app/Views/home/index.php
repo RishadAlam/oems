@@ -37,7 +37,35 @@
 </section>
 
 <?php if (($homeBanners ?? []) !== []): ?>
-<section class="section-space pt-0" aria-label="Platform announcements"><div class="page-shell grid gap-5 lg:grid-cols-2"><?php foreach ($homeBanners as $banner): ?><article class="dashboard-panel overflow-hidden p-0"><img class="aspect-[16/7] w-full object-cover" src="<?= e($banner['image_path']) ?>" alt="" width="1200" height="525" loading="lazy"><div class="p-6"><h2 class="text-xl font-bold"><?= e($banner['title']) ?></h2><?php if (!empty($banner['subtitle'])): ?><p class="mt-2 text-[var(--ink-muted)]"><?= e($banner['subtitle']) ?></p><?php endif; ?><?php if (!empty($banner['link_url'])): ?><a class="text-link mt-4 inline-flex" href="<?= e($banner['link_url']) ?>"><span>Learn more</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a><?php endif; ?></div></article><?php endforeach; ?></div></section>
+<section class="home-announcements" aria-label="Platform announcements">
+    <div class="page-shell home-announcements__list">
+        <?php foreach ($homeBanners as $banner): ?>
+            <article class="home-announcement">
+                <div class="home-announcement__media">
+                    <img
+                        src="<?= e($banner['image_path']) ?>"
+                        alt="Promotion: <?= e($banner['title']) ?>"
+                        width="1200"
+                        height="525"
+                        loading="lazy"
+                    >
+                </div>
+                <div class="home-announcement__body">
+                    <h2><?= e($banner['title']) ?></h2>
+                    <?php if (!empty($banner['subtitle'])): ?>
+                        <p><?= e($banner['subtitle']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($banner['link_url'])): ?>
+                        <a class="text-link" href="<?= e($banner['link_url']) ?>">
+                            <span>Learn more</span>
+                            <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </article>
+        <?php endforeach; ?>
+    </div>
+</section>
 <?php endif; ?>
 
 <section class="category-rail" aria-label="Popular event categories">

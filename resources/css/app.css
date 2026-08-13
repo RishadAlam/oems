@@ -354,6 +354,42 @@
         @apply py-20 sm:py-24 lg:py-28;
     }
 
+    .home-announcements {
+        @apply py-8 sm:py-10 lg:py-12;
+    }
+
+    .home-announcements__list {
+        @apply grid gap-5;
+    }
+
+    .home-announcement {
+        @apply grid min-w-0 overflow-hidden rounded-[24px] border border-[var(--line)] bg-[var(--surface-raised)] shadow-[var(--shadow-soft)] lg:min-h-[300px] lg:grid-cols-[minmax(0,1.9fr)_minmax(18rem,1fr)];
+    }
+
+    .home-announcement__media {
+        @apply min-h-0 overflow-hidden bg-[var(--surface-soft)];
+    }
+
+    .home-announcement__media img {
+        @apply aspect-[16/7] h-full w-full object-cover object-center lg:min-h-[300px] lg:aspect-auto;
+    }
+
+    .home-announcement__body {
+        @apply flex min-w-0 flex-col justify-center p-6 sm:p-8 lg:p-10;
+    }
+
+    .home-announcement__body h2 {
+        @apply text-2xl font-semibold leading-tight tracking-[-0.035em] sm:text-3xl;
+    }
+
+    .home-announcement__body p {
+        @apply mt-3 text-sm leading-6 text-[var(--ink-muted)] sm:text-base sm:leading-7;
+    }
+
+    .home-announcement__body .text-link {
+        @apply mt-6 self-start;
+    }
+
     .section-title {
         @apply text-4xl font-semibold leading-[1.04] tracking-[-0.045em] sm:text-5xl lg:text-[3.5rem];
     }
