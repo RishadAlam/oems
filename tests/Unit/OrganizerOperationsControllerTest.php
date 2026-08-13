@@ -345,6 +345,71 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertTrue(str_contains((string) $this->session->get('_flash.info'), 'already checked in'));
     }
 
+    public function testQrVerificationLinkResolvesToTheOwnedEventWithoutMutatingOnGet(): void
+    {
+        $rawToken = str_repeat('a', 64);
+        [$router] = $this->routerForRole('organizer');
+
+        $resolved = $router->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . $rawToken,
+            query: ['token' => $rawToken],
+        ));
+
+        $this->assertSame(302, $resolved->status());
+        $this->assertSame('/organizer/events/10/check-in', $resolved->header('Location'));
+        $this->assertSame([], $this->tickets->attendance);
+        $this->assertSame('valid', $this->tickets->tickets[20]['status']);
+        $this->assertSame([
+            'event_id' => 10,
+            'ticket_number' => 'OEMS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        ], $this->session->get('_flash.check_in_candidate'));
+        $this->assertFalse(str_contains(serialize($_SESSION), $rawToken));
+
+        $workspace = $this->checkIn->index($this->routed('GET', '/organizer/events/10/check-in', '10'));
+
+        $this->assertSame(200, $workspace->status());
+        $this->assertTrue(str_contains($workspace->body(), 'QR code recognized'));
+        $this->assertTrue(str_contains($workspace->body(), 'value="OEMS-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"'));
+        $this->assertTrue(str_contains($workspace->body(), 'Review the ticket number, then confirm the participant check-in.'));
+        $this->assertFalse(str_contains($workspace->body(), $rawToken));
+        $this->assertNull($this->session->get('_flash.check_in_candidate'));
+    }
+
+    public function testQrVerificationLinkFailsClosedForUnknownTokensAndNonOrganizerSessions(): void
+    {
+        $unknownToken = str_repeat('b', 64);
+        [$organizerRouter] = $this->routerForRole('organizer');
+        $unknown = $organizerRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . $unknownToken,
+            query: ['token' => $unknownToken],
+        ));
+
+        $this->assertSame('/organizer/events', $unknown->header('Location'));
+        $this->assertSame('This QR code is invalid, expired, or belongs to another organizer.', $this->session->get('_flash.error'));
+        $this->assertFalse(str_contains(serialize($_SESSION), $unknownToken));
+
+        [$participantRouter] = $this->routerForRole('participant');
+        $participant = $participantRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . str_repeat('a', 64),
+            query: ['token' => str_repeat('a', 64)],
+        ));
+        $this->assertSame(403, $participant->status());
+
+        [$guestRouter] = $this->routerForRole('guest');
+        $guest = $guestRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . str_repeat('a', 64),
+            query: ['token' => str_repeat('a', 64)],
+        ));
+        $this->assertSame(
+            '/login?return_to=%2Forganizer%2Fcheck-in%3Ftoken%3D' . str_repeat('a', 64),
+            $guest->header('Location'),
+        );
+    }
+
     public function testFailedScansAreRateLimitedWithoutRetainingSubmittedValues(): void
     {
         $secret = str_repeat('f', 64);
@@ -378,7 +443,9 @@ final class OrganizerOperationsControllerTest extends TestCase
         $session = new Session(false);
         $security = new Security($session);
         $users = $this->users($role);
-        $this->authenticateSession($session, $users, 10);
+        if ($role !== 'guest') {
+            $this->authenticateSession($session, $users, 10);
+        }
         $auth = new Auth($session, $users);
         $container = new Container();
         $container->instance(OrganizerParticipantController::class, $this->participants);

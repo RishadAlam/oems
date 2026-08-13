@@ -307,6 +307,46 @@ final class AuthControllerMailTest extends TestCase
         }
     }
 
+    public function testLoginPreservesOnlyTheExactOpaqueOrganizerQrReturnDestination(): void
+    {
+        $rawToken = str_repeat('a', 64);
+        $returnTo = '/organizer/check-in?token=' . $rawToken;
+        $users = new FakeUserRepository();
+        $users->create([
+            'name' => 'Returning Organizer',
+            'email' => 'organizer-return@example.test',
+            'password' => password_hash('DemoPass!2026', PASSWORD_DEFAULT),
+            'role_id' => 2,
+            'status' => 'active',
+            'email_verified_at' => '2026-08-01 09:00:00',
+        ]);
+        [$controller] = $this->controller($users);
+
+        $form = $controller->showLogin(Request::create('GET', '/login', query: ['return_to' => $returnTo]));
+        $success = $controller->login(Request::create('POST', '/login', input: [
+            'email' => 'organizer-return@example.test',
+            'password' => 'DemoPass!2026',
+            'return_to' => $returnTo,
+        ]));
+
+        $this->assertTrue(str_contains(
+            $form->body(),
+            'name="return_to" value="/organizer/check-in?token=' . $rawToken . '"',
+        ));
+        $this->assertSame($returnTo, $success->header('Location'));
+
+        foreach ([
+            '/organizer/check-in?token=' . str_repeat('g', 64),
+            '/organizer/check-in?token=' . $rawToken . '&next=/admin',
+            '//organizer/check-in?token=' . $rawToken,
+        ] as $unsafeReturnTo) {
+            $rejected = $controller->showLogin(Request::create('GET', '/login', query: [
+                'return_to' => $unsafeReturnTo,
+            ]));
+            $this->assertFalse(str_contains($rejected->body(), 'name="return_to"'));
+        }
+    }
+
     public function testSuccessfulLoginRotatesThePreAuthenticationCsrfToken(): void
     {
         $users = new FakeUserRepository();
