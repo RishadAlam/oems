@@ -57,6 +57,8 @@ final class AdminOperationsControllerTest extends TestCase
         $invalidBody = $invalid->body();
         $this->assertTrue(str_contains($invalidBody, '<form class="form-stack mt-6"'));
         $this->assertTrue(str_contains($invalidBody, '<div class="field-group">'));
+        $this->assertTrue(str_contains($invalidBody, "</div>\n            <p id=\"maintenance-help\" class=\"field-help\">"));
+        $this->assertTrue(str_contains($invalidBody, '<div class="flex justify-start">'));
         $this->assertTrue(str_contains($invalidBody, '<label for="maintenance-confirmation">Confirmation phrase</label>'));
         $this->assertTrue(str_contains($invalidBody, 'data-form-label="Confirmation phrase"'));
         $this->assertTrue(str_contains($invalidBody, 'Type <strong>ENABLE MAINTENANCE</strong> exactly as shown.'));
