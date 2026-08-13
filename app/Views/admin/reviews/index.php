@@ -8,17 +8,19 @@
     </div>
 </section>
 
-<div class="organizer-toolbar mt-8">
-    <p><strong><?= e(count($reviews)) ?></strong> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</p>
-    <form action="/admin/reviews" method="get" data-form-kind="filter">
-        <label for="review-status">Status</label>
-        <select id="review-status" name="status">
-            <option value="">All statuses</option>
-            <option value="pending"<?= $status === 'pending' ? ' selected' : '' ?>>Pending</option>
-            <option value="published"<?= $status === 'published' ? ' selected' : '' ?>>Published</option>
-            <option value="hidden"<?= $status === 'hidden' ? ' selected' : '' ?>>Hidden</option>
-        </select>
-        <button class="button button--quiet button--compact" type="submit"><i class="ph ph-funnel" aria-hidden="true"></i><span>Filter</span></button>
+<div class="filter-toolbar mt-8">
+    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e(count($reviews)) ?></strong> <?= count($reviews) === 1 ? 'review' : 'reviews' ?> in this queue</p>
+    <form class="filter-toolbar__form" action="/admin/reviews" method="get" role="search" aria-label="Filter reviews" data-form-kind="filter">
+        <div class="filter-toolbar__field">
+            <label for="review-status">Status</label>
+            <select id="review-status" name="status">
+                <option value="">All statuses</option>
+                <option value="pending"<?= $status === 'pending' ? ' selected' : '' ?>>Pending</option>
+                <option value="published"<?= $status === 'published' ? ' selected' : '' ?>>Published</option>
+                <option value="hidden"<?= $status === 'hidden' ? ' selected' : '' ?>>Hidden</option>
+            </select>
+        </div>
+        <div class="filter-toolbar__actions"><button class="button button--quiet button--compact" type="submit"><i class="ph ph-funnel" aria-hidden="true"></i><span>Filter</span></button></div>
     </form>
 </div>
 

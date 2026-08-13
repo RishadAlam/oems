@@ -19,17 +19,19 @@ $statusLabels = [
     <a class="button button--primary" href="/organizer/events/create"><i class="ph ph-plus" aria-hidden="true"></i><span>Create event</span></a>
 </div>
 
-<div class="organizer-toolbar mt-8">
-    <p><strong><?= e($summary['total'] ?? count($events)) ?></strong> <?= (int) ($summary['total'] ?? count($events)) === 1 ? 'event' : 'events' ?></p>
-    <form action="/organizer/events" method="get" data-form-kind="filter">
-        <label for="event-status">Filter by status</label>
-        <select id="event-status" name="status" data-auto-submit>
-            <option value="">All statuses</option>
-            <?php foreach ($statuses as $option): ?>
-                <option value="<?= e($option) ?>" <?= $status === $option ? 'selected' : '' ?>><?= e($statusLabels[$option] ?? ucfirst($option)) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <button class="button button--quiet button--compact" type="submit" data-auto-submit-fallback>Apply</button>
+<div class="filter-toolbar mt-8">
+    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e($summary['total'] ?? count($events)) ?></strong> <?= (int) ($summary['total'] ?? count($events)) === 1 ? 'event' : 'events' ?></p>
+    <form class="filter-toolbar__form" action="/organizer/events" method="get" role="search" aria-label="Filter events" data-form-kind="filter">
+        <div class="filter-toolbar__field">
+            <label for="event-status">Filter by status</label>
+            <select id="event-status" name="status" data-auto-submit>
+                <option value="">All statuses</option>
+                <?php foreach ($statuses as $option): ?>
+                    <option value="<?= e($option) ?>" <?= $status === $option ? 'selected' : '' ?>><?= e($statusLabels[$option] ?? ucfirst($option)) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="filter-toolbar__actions"><button class="button button--quiet button--compact" type="submit" data-auto-submit-fallback>Apply</button></div>
     </form>
 </div>
 

@@ -24,12 +24,12 @@ $query = static function (int $targetPage) use ($search, $approval, $pagination)
     </div>
 </div>
 
-<div class="organizer-toolbar mt-8">
-    <p><strong><?= e($total) ?></strong> matching <?= $total === 1 ? 'organizer' : 'organizers' ?></p>
-    <form action="/admin/organizers" method="get" data-form-kind="filter">
-        <div class="field-group"><label for="organizer-search">Search</label><input id="organizer-search" name="search" type="search" maxlength="100" value="<?= e($search) ?>" placeholder="Organization, contact, or email"></div>
-        <div class="field-group"><label for="approval-status">Approval</label><select id="approval-status" name="approval_status"><option value="">All states</option><?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $value => $label): ?><option value="<?= e($value) ?>"<?= $approval === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-        <button class="button button--quiet button--compact" type="submit"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Apply filters</span></button>
+<div class="filter-toolbar mt-8">
+    <p class="filter-toolbar__summary" aria-live="polite"><strong><?= e($total) ?></strong> matching <?= $total === 1 ? 'organizer' : 'organizers' ?></p>
+    <form class="filter-toolbar__form" action="/admin/organizers" method="get" role="search" aria-label="Filter organizers" data-form-kind="filter">
+        <div class="filter-toolbar__field filter-toolbar__field--search"><label for="organizer-search">Search</label><input id="organizer-search" name="search" type="search" maxlength="100" value="<?= e($search) ?>" placeholder="Organization, contact, or email"></div>
+        <div class="filter-toolbar__field"><label for="approval-status">Approval</label><select id="approval-status" name="approval_status"><option value="">All states</option><?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'] as $value => $label): ?><option value="<?= e($value) ?>"<?= $approval === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
+        <div class="filter-toolbar__actions"><button class="button button--quiet button--compact" type="submit"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span>Apply filters</span></button></div>
     </form>
 </div>
 
