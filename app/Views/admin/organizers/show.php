@@ -25,8 +25,8 @@ $approvalDecisionAvailable = in_array($approval, ['pending', 'rejected'], true);
         <?php if (!empty($organizer['rejection_reason'])): ?><div class="form-alert" role="note"><i class="ph ph-warning-circle" aria-hidden="true"></i><span><strong>Previous feedback:</strong> <?= e($organizer['rejection_reason']) ?></span></div><?php endif; ?>
         <dl class="organizer-detail-list">
             <div><dt>Approval</dt><dd><span class="status-chip status-chip--<?= e($approval) ?>"><?= e(ucfirst($approval)) ?></span></dd></div>
-            <div><dt>Account status</dt><dd><?= e(ucfirst((string) ($organizer['user_status'] ?? 'inactive'))) ?></dd></div>
-            <div><dt>Email verification</dt><dd><?= !empty($organizer['email_verified_at']) ? 'Verified' : 'Not verified' ?></dd></div>
+            <div><dt>Account status</dt><dd><span class="status-chip status-chip--<?= e((string) ($organizer['user_status'] ?? 'inactive')) ?>"><?= e(ucfirst((string) ($organizer['user_status'] ?? 'inactive'))) ?></span></dd></div>
+            <div><dt>Email verification</dt><dd><span class="status-chip <?= $emailVerified ? 'status-chip--success' : 'status-chip--warning' ?>"><?= $emailVerified ? 'Verified' : 'Not verified' ?></span></dd></div>
             <div><dt>Tax identifier</dt><dd><?= e($organizer['tax_identifier'] ?? 'Not provided') ?></dd></div>
             <div><dt>Active events</dt><dd><?= e((int) ($organizer['event_count'] ?? 0)) ?></dd></div>
             <div><dt>Location</dt><dd><?= e(implode(', ', array_filter([$organizer['city'] ?? null, $organizer['country'] ?? null]))) ?: 'Not provided' ?></dd></div>
@@ -55,7 +55,7 @@ $approvalDecisionAvailable = in_array($approval, ['pending', 'rejected'], true);
                         ] as $requirement): ?>
                             <li>
                                 <span><i class="ph <?= $requirement['complete'] ? 'ph-check-circle' : 'ph-x-circle' ?>" aria-hidden="true"></i><?= e($requirement['label']) ?></span>
-                                <strong><?= $requirement['complete'] ? 'Completed' : 'Not completed' ?></strong>
+                                <strong><span class="status-chip <?= $requirement['complete'] ? 'status-chip--success' : 'status-chip--danger' ?>"><?= $requirement['complete'] ? 'Completed' : 'Not completed' ?></span></strong>
                             </li>
                         <?php endforeach; ?>
                     </ul>

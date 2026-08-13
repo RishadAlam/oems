@@ -12,10 +12,10 @@ $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
 
 <div class="mt-7 grid gap-6 xl:grid-cols-2">
     <section class="panel" aria-labelledby="readiness-title">
-        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Readiness</p><h2 id="readiness-title" class="mt-1 text-xl font-bold">Application checks</h2></div><span class="status-badge <?= $ready ? 'status-badge--success' : 'status-badge--danger' ?>"><?= $ready ? 'Ready' : 'Unavailable' ?></span></div>
+        <div class="flex items-start justify-between gap-4"><div><p class="dashboard-kicker">Readiness</p><h2 id="readiness-title" class="mt-1 text-xl font-bold">Application checks</h2></div><span class="status-badge <?= $ready ? 'status-badge--info' : 'status-badge--danger' ?>"><?= $ready ? 'Ready' : 'Unavailable' ?></span></div>
         <dl class="mt-6 grid gap-3">
             <?php foreach (['database' => 'Database connection', 'schema' => 'Required schema', 'storage' => 'Private writable storage'] as $key => $label): ?>
-                <div class="flex min-h-11 items-center justify-between gap-4 border-b border-[var(--line)] py-2 last:border-0"><dt><?= e($label) ?></dt><dd class="font-semibold <?= !empty($checks[$key]) ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' ?>"><?= !empty($checks[$key]) ? 'Passing' : 'Needs attention' ?></dd></div>
+                <div class="flex min-h-11 items-center justify-between gap-4 border-b border-[var(--line)] py-2 last:border-0"><dt><?= e($label) ?></dt><dd><span class="status-badge <?= !empty($checks[$key]) ? 'status-badge--success' : 'status-badge--danger' ?>"><?= !empty($checks[$key]) ? 'Passing' : 'Needs attention' ?></span></dd></div>
             <?php endforeach; ?>
         </dl>
         <p class="mt-5 text-sm text-[var(--ink-muted)]">The public readiness endpoint returns component state only. Paths, versions, credentials, and exception details are never included.</p>

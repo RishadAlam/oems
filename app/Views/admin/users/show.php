@@ -22,7 +22,7 @@ $canReactivate = in_array($role, ['participant', 'organizer'], true)
         <dl class="organizer-detail-list">
             <div><dt>Role</dt><dd><?= e($managedUser['role_name'] ?? ucfirst($role)) ?></dd></div>
             <div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($status) ?>"><?= e(ucfirst($status)) ?></span></dd></div>
-            <div><dt>Email verification</dt><dd><?= !empty($managedUser['email_verified_at']) ? 'Verified' : 'Not verified' ?></dd></div>
+            <div><dt>Email verification</dt><dd><span class="status-chip <?= !empty($managedUser['email_verified_at']) ? 'status-chip--success' : 'status-chip--warning' ?>"><?= !empty($managedUser['email_verified_at']) ? 'Verified' : 'Not verified' ?></span></dd></div>
             <div><dt>Active remembered sessions</dt><dd><?= e((int) ($managedUser['session_count'] ?? 0)) ?></dd></div>
             <div><dt>Registrations</dt><dd><?= e((int) ($managedUser['registration_count'] ?? 0)) ?></dd></div>
             <div><dt>Last sign-in</dt><dd><?= e($managedUser['last_login_at'] ?? 'No recorded sign-in') ?></dd></div>

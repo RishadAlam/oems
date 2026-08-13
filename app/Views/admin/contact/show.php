@@ -4,7 +4,7 @@
 </header>
 
 <section class="dashboard-panel mt-8">
-    <dl class="grid gap-4 sm:grid-cols-2"><div><dt>Status</dt><dd><?= e(ucfirst($message['status'])) ?></dd></div><div><dt>Received</dt><dd><?= e($message['created_at']) ?></dd></div></dl>
+    <dl class="grid gap-4 sm:grid-cols-2"><div><dt>Status</dt><dd><span class="status-chip status-chip--<?= e($message['status']) ?>"><?= e(ucfirst($message['status'])) ?></span></dd></div><div><dt>Received</dt><dd><?= e($message['created_at']) ?></dd></div></dl>
     <div class="mt-6 whitespace-pre-wrap rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--surface-soft)] p-5"><?= e($message['message']) ?></div>
 </section>
 

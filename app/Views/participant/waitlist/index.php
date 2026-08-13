@@ -28,7 +28,7 @@
                         <p class="dashboard-kicker"><i class="ph ph-users-three" aria-hidden="true"></i><span>Position <?= e($entry['position'] ?? 'Not available') ?></span></p>
                         <h2 id="waitlist-event-<?= e($entry['id']) ?>" class="mt-2 text-xl font-bold"><?= e($entry['event_title']) ?></h2>
                     </div>
-                    <span class="status-chip status-chip--pending">Waitlisted</span>
+                    <span class="status-chip status-chip--waitlisted">Waitlisted</span>
                 </div>
                 <dl class="status-list mt-5">
                     <div><dt>Starts</dt><dd><?= e($entry['start_display']) ?></dd></div>

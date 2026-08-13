@@ -1721,19 +1721,31 @@
 
     .status-chip,
     .status-badge {
-        @apply inline-flex items-center rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-bold text-[var(--ink-muted)];
+        --status-fg: var(--ink-muted);
+        --status-bg: var(--surface-soft);
+        --status-border: color-mix(in srgb, var(--ink-muted) 24%, var(--line));
+        @apply inline-flex min-h-6 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-bold leading-4;
+        color: var(--status-fg);
+        background: var(--status-bg);
+        border-color: var(--status-border);
+        font-variant-numeric: tabular-nums;
     }
 
     .status-chip--active,
     .status-chip--published,
     .status-chip--valid,
     .status-chip--sent,
+    .status-chip--read,
+    .status-chip--info,
     .status-badge--active,
     .status-badge--published,
     .status-badge--valid,
     .status-badge--sent,
+    .status-badge--read,
     .status-badge--info {
-        @apply bg-[var(--info-soft)] text-[var(--info)];
+        --status-fg: var(--info);
+        --status-bg: var(--info-soft);
+        --status-border: color-mix(in srgb, var(--info) 32%, var(--line));
     }
 
     .status-chip--approved,
@@ -1744,6 +1756,7 @@
     .status-chip--replied,
     .status-chip--subscribed,
     .status-chip--present,
+    .status-chip--success,
     .status-badge--approved,
     .status-badge--confirmed,
     .status-badge--paid,
@@ -1753,7 +1766,9 @@
     .status-badge--subscribed,
     .status-badge--present,
     .status-badge--success {
-        @apply bg-[var(--success-soft)] text-[var(--success)];
+        --status-fg: var(--success);
+        --status-bg: var(--success-soft);
+        --status-border: color-mix(in srgb, var(--success) 32%, var(--line));
     }
 
     .status-chip--pending,
@@ -1761,15 +1776,18 @@
     .status-chip--queued,
     .status-chip--processing,
     .status-chip--new,
-    .status-chip--read,
+    .status-chip--partially_refunded,
+    .status-chip--warning,
     .status-badge--pending,
     .status-badge--waitlisted,
     .status-badge--queued,
     .status-badge--processing,
     .status-badge--new,
-    .status-badge--read,
+    .status-badge--partially_refunded,
     .status-badge--warning {
-        @apply bg-[var(--warning-soft)] text-[var(--warning)];
+        --status-fg: var(--warning);
+        --status-bg: var(--warning-soft);
+        --status-border: color-mix(in srgb, var(--warning) 32%, var(--line));
     }
 
     .status-chip--rejected,
@@ -1777,13 +1795,16 @@
     .status-chip--suspended,
     .status-chip--revoked,
     .status-chip--cancelled,
+    .status-chip--danger,
     .status-badge--rejected,
     .status-badge--failed,
     .status-badge--suspended,
     .status-badge--revoked,
     .status-badge--cancelled,
     .status-badge--danger {
-        @apply bg-[var(--error-soft)] text-[var(--error)];
+        --status-fg: var(--error);
+        --status-bg: var(--error-soft);
+        --status-border: color-mix(in srgb, var(--error) 32%, var(--line));
     }
 
     .status-chip--draft,
@@ -1791,24 +1812,26 @@
     .status-chip--archived,
     .status-chip--hidden,
     .status-chip--refunded,
-    .status-chip--partially_refunded,
     .status-chip--absent,
     .status-chip--none,
     .status-chip--not_checked_in,
     .status-chip--unsubscribed,
+    .status-chip--neutral,
+    .status-chip--muted,
     .status-badge--draft,
     .status-badge--inactive,
     .status-badge--archived,
     .status-badge--hidden,
     .status-badge--refunded,
-    .status-badge--partially_refunded,
     .status-badge--absent,
     .status-badge--none,
     .status-badge--not_checked_in,
     .status-badge--unsubscribed,
     .status-badge--neutral,
     .status-badge--muted {
-        @apply bg-[var(--surface-soft)] text-[var(--ink-muted)];
+        --status-fg: var(--ink-muted);
+        --status-bg: var(--surface-soft);
+        --status-border: color-mix(in srgb, var(--ink-muted) 24%, var(--line));
     }
 
     .queue-list {
