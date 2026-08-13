@@ -88,7 +88,7 @@ Expected: all tests and checks pass without warnings or failures.
 
 At 2048 x 432 on `/admin/users`, confirm the Search input, Role select, Status select, Apply filters button, and result count have equal bottom coordinates. At 390 x 844, confirm the count and every form control remain a full-width vertical stack without horizontal overflow.
 
-- [ ] **Step 7: Commit the fix**
+- [x] **Step 7: Commit the fix**
 
 ```bash
 rtk git add tests/Unit/UiLayoutTest.php resources/css/app.css public/assets/css/app.css docs/superpowers/plans/2026-08-13-admin-filter-toolbar-alignment.md
