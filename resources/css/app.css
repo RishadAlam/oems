@@ -1181,8 +1181,16 @@
         @apply flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between;
     }
 
+    .dashboard-page-heading > :first-child {
+        @apply min-w-0;
+    }
+
+    .dashboard-page-heading > :not(:first-child) {
+        @apply self-start sm:self-auto;
+    }
+
     .dashboard-page-heading h1 {
-        @apply mt-3 text-3xl font-semibold tracking-[-0.045em] sm:text-4xl;
+        @apply mt-3 text-3xl font-semibold tracking-[-0.045em] [overflow-wrap:anywhere] sm:text-4xl;
     }
 
     .dashboard-page-heading p:not(.dashboard-kicker) {

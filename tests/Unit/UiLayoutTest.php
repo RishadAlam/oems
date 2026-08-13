@@ -578,6 +578,14 @@ final class UiLayoutTest extends TestCase
             ),
             'A base rule nested in @layer must remain visible to base-rule assertions.',
         );
+        $this->assertTrue(
+            $this->cssRuleOutsideMediaContainsTokens(
+                '@layer components { .fixture>:first-child { min-width:0; } }',
+                '.fixture > :first-child',
+                ['min-width:0'],
+            ),
+            'Exact selector matching must tolerate minified combinator whitespace.',
+        );
     }
 
     public function testTailwindBuildScansOnlyExplicitApplicationSources(): void
@@ -1086,7 +1094,7 @@ final class UiLayoutTest extends TestCase
                 $frames[] = [
                     'bodyStart' => $index + 1,
                     'inMedia' => $parentIsInMedia || preg_match('/\A@media\b/i', $prelude) === 1,
-                    'selector' => $isAtRule ? null : $prelude,
+                    'selector' => $isAtRule ? null : $this->normalizeCssSelector($prelude),
                 ];
                 $statementStart = $index + 1;
                 continue;
@@ -1097,7 +1105,7 @@ final class UiLayoutTest extends TestCase
 
                 if (
                     is_array($frame)
-                    && $frame['selector'] === $selector
+                    && $frame['selector'] === $this->normalizeCssSelector($selector)
                     && $frame['inMedia'] === false
                 ) {
                     $bodies[] = substr($css, $frame['bodyStart'], $index - $frame['bodyStart']);
@@ -1113,6 +1121,11 @@ final class UiLayoutTest extends TestCase
         }
 
         return $bodies;
+    }
+
+    private function normalizeCssSelector(string $selector): string
+    {
+        return preg_replace('/\s*([>+~])\s*/', '$1', trim($selector)) ?? trim($selector);
     }
 
     private function dashboardPageHeadingMarkupViolations(string $markup, string $label): array
@@ -1269,7 +1282,10 @@ final class UiLayoutTest extends TestCase
     private function cssMediaRuleContainsTokens(string $css, string $breakpoint, string $selector, array $tokens): bool
     {
         foreach ($this->cssMediaRuleBodies($css, $breakpoint) as $mediaCss) {
-            if ($this->cssRuleContainsTokens($mediaCss, $selector, $tokens)) {
+            if (
+                $this->cssRuleContainsTokens($mediaCss, $selector, $tokens)
+                || $this->cssRuleContainsTokens($mediaCss, $this->normalizeCssSelector($selector), $tokens)
+            ) {
                 return true;
             }
         }
