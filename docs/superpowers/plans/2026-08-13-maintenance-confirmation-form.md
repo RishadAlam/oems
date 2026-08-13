@@ -30,7 +30,7 @@
 - Consumes: `AdminOperationsController::updateMaintenance(Request): Response`, shared `form-stack`, `field-group`, `field-help`, and `field-error` CSS contracts, and `data-form-label` consumed by `OEMSForms.messageFor`.
 - Produces: a rendered confirmation control with `id="maintenance-confirmation"`, a concise `Confirmation phrase` label, phrase-specific helper copy, and linked invalid feedback.
 
-- [ ] **Step 1: Write the failing rendered-form test**
+- [x] **Step 1: Write the failing rendered-form test**
 
 Extend `testOperationsPageAndConfirmationBoundToggleAreTruthful()` immediately after the invalid response assertions:
 
@@ -52,7 +52,7 @@ $this->assertFalse(str_contains($invalidBody, 'class="form-error"'));
 
 This test catches a regression back to loose legacy controls, verbose client field naming, missing accessibility state, or an imprecise server message.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -62,14 +62,14 @@ rtk composer test -- AdminOperationsControllerTest
 
 Expected: FAIL because the form still renders `class="mt-6"`, legacy field classes, the instruction as the visible label, and the previous server validation message.
 
-- [ ] **Step 3: Commit the failing regression test**
+- [x] **Step 3: Commit the failing regression test**
 
 ```bash
 rtk git add tests/Unit/AdminOperationsControllerTest.php
 rtk git commit -m "test: capture maintenance form layout regression"
 ```
 
-- [ ] **Step 4: Implement the shared form hierarchy**
+- [x] **Step 4: Implement the shared form hierarchy**
 
 In `AdminOperationsController::updateMaintenance()`, return this concise validation message for a missing or non-exact phrase:
 
@@ -108,7 +108,7 @@ In `app/Views/admin/operations/index.php`:
 
 4. Remove the button's `mt-5` and add `justify-self-start` so `form-stack` controls vertical rhythm without stretching the destructive action across the panel.
 
-- [ ] **Step 5: Run focused PHP and JavaScript form tests and verify GREEN**
+- [x] **Step 5: Run focused PHP and JavaScript form tests and verify GREEN**
 
 Run:
 
@@ -119,14 +119,14 @@ rtk node --test tests/js/form-validation.test.mjs
 
 Expected: both commands PASS. The controller test proves the server-rendered invalid state, while the existing JavaScript test proves concise `data-form-label` values drive linked client summaries.
 
-- [ ] **Step 6: Commit the implementation**
+- [x] **Step 6: Commit the implementation**
 
 ```bash
 rtk git add app/Controllers/AdminOperationsController.php app/Views/admin/operations/index.php
 rtk git commit -m "fix: align maintenance confirmation form"
 ```
 
-- [ ] **Step 7: Verify the rendered error state in the browser**
+- [x] **Step 7: Verify the rendered error state in the browser**
 
 Start the local app and open `/admin/operations` as a super administrator. Submit the empty confirmation field to generate the non-mutating client error state. Verify at 1440px and 390px widths in light and dark themes:
 
@@ -137,7 +137,7 @@ Start the local app and open `/admin/operations` as a super administrator. Submi
 - the page has no horizontal overflow;
 - maintenance stays inactive.
 
-- [ ] **Step 8: Run the full verification suite**
+- [x] **Step 8: Run the full verification suite**
 
 Run:
 
@@ -151,7 +151,7 @@ rtk git diff --check
 
 Expected: all PHP and JavaScript tests pass, all PHP files parse, Composer validation succeeds, and Git reports no whitespace errors.
 
-- [ ] **Step 9: Record completion and commit final plan state if changed**
+- [x] **Step 9: Record completion and commit final plan state if changed**
 
 Mark completed plan checkboxes and record the exact verification results. If the plan file changes, commit only that file:
 
@@ -159,3 +159,15 @@ Mark completed plan checkboxes and record the exact verification results. If the
 rtk git add docs/superpowers/plans/2026-08-13-maintenance-confirmation-form.md
 rtk git commit -m "docs: complete maintenance form implementation plan"
 ```
+
+## Completion record
+
+- The initial controller test passed with 14 assertions before the regression was added.
+- The regression test failed against the legacy markup, then passed with 28 assertions after the shared-form hierarchy and browser-polish changes.
+- The client-side form validation suite passed all 16 focused tests.
+- Browser verification covered the client error and server 422 error states at 1440px and 390px widths in light and dark themes. The exact wrong-phrase submission left maintenance inactive.
+- Full PHP suite: 823 tests, 6,086 assertions, 0 failures.
+- Full JavaScript suite: 48 tests, 0 failures.
+- PHP syntax check: every scanned PHP file passed.
+- Composer validation: `composer.json` is valid in strict mode.
+- Git whitespace check: no errors.
