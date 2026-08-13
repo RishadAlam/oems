@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-megaphone" aria-hidden="true"></i><span>Email operations</span></p><h1>Newsletter campaigns</h1><p>Campaigns are sent only to confirmed subscribers through the durable outbox.</p></div>
     <a class="button button--primary" href="/admin/newsletter/create"><i class="ph ph-plus" aria-hidden="true"></i><span>Create campaign</span></a>
 </header>

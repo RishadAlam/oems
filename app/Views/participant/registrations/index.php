@@ -1,5 +1,5 @@
 <?php $statusLabels = ['pending' => 'Pending', 'confirmed' => 'Confirmed', 'cancelled' => 'Cancelled', 'refunded' => 'Refunded']; ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Participant history</span></p><h1>My registrations</h1><p>Track payment, confirmation, ticket, and cancellation status.</p></div>
     <a class="button button--primary" href="/events"><i class="ph ph-compass" aria-hidden="true"></i><span>Explore events</span></a>
 </header>

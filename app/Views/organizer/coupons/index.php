@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span>Pricing tools</span></p><h1>Coupons</h1><p>Create controlled discounts for one event or your full event catalog.</p></div>
     <a class="button button--primary" href="/organizer/coupons/create"><i class="ph ph-plus" aria-hidden="true"></i><span>Create coupon</span></a>
 </header>

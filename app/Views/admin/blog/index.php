@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-newspaper" aria-hidden="true"></i><span>Editorial publishing</span></p><h1>Blog</h1><p>Create plain-text guides and publish them to public discovery.</p></div>
     <a class="button button--primary" href="/admin/blog/create"><i class="ph ph-plus" aria-hidden="true"></i><span>New post</span></a>
 </header>

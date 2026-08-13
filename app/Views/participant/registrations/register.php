@@ -10,7 +10,7 @@ $described = static function (string $field, string $help, array $errors): strin
     return ' aria-describedby="' . e(implode(' ', $ids)) . '"' . (count($ids) > 1 ? ' aria-invalid="true"' : '');
 };
 ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div>
         <p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span>One place</span></p>
         <h1>Register for <?= e($event['title']) ?></h1>

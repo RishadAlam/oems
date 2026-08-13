@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-chats" aria-hidden="true"></i><span>Support operations</span></p><h1>Contact inbox</h1><p>Review public messages and keep every state change explicit.</p></div>
 </header>
 

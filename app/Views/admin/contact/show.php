@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-envelope-open" aria-hidden="true"></i><span>Message evidence</span></p><h1><?= e($message['subject']) ?></h1><p>Received from <?= e($message['name']) ?> at <?= e($message['email']) ?>.</p></div>
     <a class="button button--quiet" href="/admin/contact">Back to inbox</a>
 </header>

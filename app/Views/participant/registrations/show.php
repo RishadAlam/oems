@@ -61,7 +61,7 @@ $paymentDetailLabel = $eventCancelled
     ? 'Event cancelled'
     : ($paymentStatus === 'pending' ? 'Payment review pending' : ucfirst(str_replace('_', ' ', $paymentStatus)));
 ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-identification-card" aria-hidden="true"></i><span><?= e($registration['registration_number']) ?></span></p><h1><?= e($registration['event_title']) ?></h1><p><?= e($statusCopy) ?></p></div>
     <a class="button button--quiet" href="/participant/registrations"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>All registrations</span></a>
 </header>

@@ -14,7 +14,7 @@ $canUseArtifacts = $status !== 'cancelled';
 $hasQr = $canUseArtifacts && !empty($ticket['has_qr_artifact']);
 $hasPdf = $canUseArtifacts && !empty($ticket['has_pdf_artifact']);
 ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span><?= e($ticket['ticket_number']) ?></span></p><h1><?= e($ticket['event_title']) ?></h1><p><?= e($statusCopy) ?></p></div>
     <a class="button button--quiet" href="/participant/tickets"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>All tickets</span></a>
 </header>

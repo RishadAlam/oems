@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-seal-check" aria-hidden="true"></i><span>Verified attendance</span></p><h1>My certificates</h1><p>Download certificates earned after confirmed attendance at completed events.</p></div>
     <a class="button button--quiet" href="/participant/registrations"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
 </header>

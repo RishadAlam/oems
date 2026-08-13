@@ -1,5 +1,5 @@
 <?php $statusLabels = ['valid' => 'Valid', 'used' => 'Checked in', 'cancelled' => 'Cancelled']; ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span>Participant access</span></p><h1>My tickets</h1><p>Open a ticket for its check-in code or PDF.</p></div>
     <a class="button button--quiet" href="/participant/registrations"><i class="ph ph-list-checks" aria-hidden="true"></i><span>Registrations</span></a>
 </header>

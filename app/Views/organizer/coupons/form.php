@@ -11,7 +11,7 @@ $described = static function (string $key, string $help) use ($errors): string {
     return ' aria-describedby="' . e(implode(' ', $ids)) . '"' . (count($ids) > 1 ? ' aria-invalid="true"' : '');
 };
 ?>
-<header class="dashboard-page-header"><div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span>Pricing tools</span></p><h1><?= $isEdit ? 'Edit coupon' : 'Create coupon' ?></h1><p>Coupon pricing is rechecked inside the registration transaction.</p></div><a class="button button--quiet" href="/organizer/coupons">Back to coupons</a></header>
+<header class="dashboard-page-heading"><div><p class="dashboard-kicker"><i class="ph ph-ticket" aria-hidden="true"></i><span>Pricing tools</span></p><h1><?= $isEdit ? 'Edit coupon' : 'Create coupon' ?></h1><p>Coupon pricing is rechecked inside the registration transaction.</p></div><a class="button button--quiet" href="/organizer/coupons">Back to coupons</a></header>
 
 <form class="dashboard-panel organizer-form mt-8" action="<?= e($action) ?>" method="post" data-form-kind="entry">
     <input type="hidden" name="_token" value="<?= e($csrfToken) ?>">

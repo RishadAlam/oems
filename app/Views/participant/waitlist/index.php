@@ -1,4 +1,4 @@
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div>
         <p class="dashboard-kicker"><i class="ph ph-hourglass-medium" aria-hidden="true"></i><span>Seat queue</span></p>
         <h1>My waitlist</h1>

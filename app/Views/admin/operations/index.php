@@ -4,7 +4,7 @@ $checks = is_array($readiness['checks'] ?? null) ? $readiness['checks'] : [];
 $nextEnabled = !$maintenanceEnabled;
 $phrase = $nextEnabled ? 'ENABLE MAINTENANCE' : 'DISABLE MAINTENANCE';
 ?>
-<header class="dashboard-page-header">
+<header class="dashboard-page-heading">
     <div><p class="dashboard-kicker"><i class="ph ph-pulse" aria-hidden="true"></i><span>Production controls</span></p><h1>Operations</h1><p>Check application readiness and control planned maintenance without exposing infrastructure details.</p></div>
 </header>
 
