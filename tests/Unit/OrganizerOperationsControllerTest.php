@@ -376,7 +376,7 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertNull($this->session->get('_flash.check_in_candidate'));
     }
 
-    public function testQrVerificationLinkFailsClosedForUnknownTokensAndNonOrganizerSessions(): void
+    public function testQrVerificationLinkFailsClosedForUnknownTokensAndPreservesGuestReturn(): void
     {
         $unknownToken = str_repeat('b', 64);
         [$organizerRouter] = $this->routerForRole('organizer');
@@ -390,14 +390,6 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertSame('This QR code is invalid, expired, or belongs to another organizer.', $this->session->get('_flash.error'));
         $this->assertFalse(str_contains(serialize($_SESSION), $unknownToken));
 
-        [$participantRouter] = $this->routerForRole('participant');
-        $participant = $participantRouter->dispatch(Request::create(
-            'GET',
-            '/organizer/check-in?token=' . str_repeat('a', 64),
-            query: ['token' => str_repeat('a', 64)],
-        ));
-        $this->assertSame(403, $participant->status());
-
         [$guestRouter] = $this->routerForRole('guest');
         $guest = $guestRouter->dispatch(Request::create(
             'GET',
@@ -408,6 +400,68 @@ final class OrganizerOperationsControllerTest extends TestCase
             '/login?return_to=%2Forganizer%2Fcheck-in%3Ftoken%3D' . str_repeat('a', 64),
             $guest->header('Location'),
         );
+    }
+
+    public function testTicketHolderQrVerificationOpensTheOwnedTicketWithoutCheckingIn(): void
+    {
+        $rawToken = str_repeat('a', 64);
+        [$participantRouter] = $this->routerForRole('participant');
+
+        $response = $participantRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . $rawToken,
+            query: ['token' => $rawToken],
+        ));
+
+        $this->assertSame(302, $response->status());
+        $this->assertSame('/participant/tickets/20', $response->header('Location'));
+        $this->assertSame(
+            'This is your ticket QR. Event staff must scan it from an organizer account to check you in.',
+            $this->session->get('_flash.info'),
+        );
+        $this->assertSame([], $this->tickets->attendance);
+        $this->assertSame('valid', $this->tickets->tickets[20]['status']);
+        $this->assertFalse(str_contains(serialize($_SESSION), $rawToken));
+    }
+
+    public function testTicketHolderQrVerificationRejectsTicketsOwnedByAnotherParticipant(): void
+    {
+        $rawToken = str_repeat('b', 64);
+        [$participantRouter] = $this->routerForRole('participant');
+
+        $response = $participantRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . $rawToken,
+            query: ['token' => $rawToken],
+        ));
+
+        $this->assertSame(302, $response->status());
+        $this->assertSame('/participant/tickets', $response->header('Location'));
+        $this->assertSame(
+            'This QR code is invalid or does not belong to your account.',
+            $this->session->get('_flash.error'),
+        );
+        $this->assertFalse(str_contains(serialize($_SESSION), $rawToken));
+    }
+
+    public function testAdministratorQrVerificationReturnsRoleSpecificGuidanceInsteadOfForbidden(): void
+    {
+        $rawToken = str_repeat('a', 64);
+        [$adminRouter] = $this->routerForRole('super-admin');
+
+        $response = $adminRouter->dispatch(Request::create(
+            'GET',
+            '/organizer/check-in?token=' . $rawToken,
+            query: ['token' => $rawToken],
+        ));
+
+        $this->assertSame(302, $response->status());
+        $this->assertSame('/admin/dashboard', $response->header('Location'));
+        $this->assertSame(
+            'Ticket check-in must be completed by the event organizer.',
+            $this->session->get('_flash.info'),
+        );
+        $this->assertFalse(str_contains(serialize($_SESSION), $rawToken));
     }
 
     public function testFailedScansAreRateLimitedWithoutRetainingSubmittedValues(): void
@@ -442,14 +496,30 @@ final class OrganizerOperationsControllerTest extends TestCase
         $_SESSION = [];
         $session = new Session(false);
         $security = new Security($session);
+        $this->session = $session;
+        $this->security = $security;
         $users = $this->users($role);
         if ($role !== 'guest') {
-            $this->authenticateSession($session, $users, 10);
+            $this->authenticateSession($session, $users, $this->userIdForRole($role));
         }
         $auth = new Auth($session, $users);
+        $checkIn = new OrganizerCheckInController(
+            new View(base_path('app/Views')),
+            $session,
+            $security,
+            $auth,
+            new Config(['name' => 'OEMS', 'url' => 'https://oems.test']),
+            $this->registrations,
+            new TicketService(
+                new PDO('sqlite::memory:'),
+                $this->tickets,
+                new TicketArtifactService($this->temporaryDirectory . '/route-tickets'),
+            ),
+            new RateLimiter($this->temporaryDirectory . '/route-limits', 2, 900),
+        );
         $container = new Container();
         $container->instance(OrganizerParticipantController::class, $this->participants);
-        $container->instance(OrganizerCheckInController::class, $this->checkIn);
+        $container->instance(OrganizerCheckInController::class, $checkIn);
         $router = new Router($container);
         $router->aliasMiddleware('role', new RoleMiddleware($auth));
         $router->aliasMiddleware('csrf', new CsrfMiddleware($security));
@@ -462,16 +532,30 @@ final class OrganizerOperationsControllerTest extends TestCase
     private function users(string $role): FakeUserRepository
     {
         $users = new FakeUserRepository();
-        $users->users[10] = [
-            'id' => 10,
-            'role_id' => $role === 'organizer' ? 2 : 3,
-            'name' => 'Organizer User',
-            'email' => 'organizer@example.test',
+        $userId = $this->userIdForRole($role);
+        $users->users[$userId] = [
+            'id' => $userId,
+            'role_id' => match ($role) {
+                'super-admin' => 1,
+                'organizer' => 2,
+                default => 3,
+            },
+            'name' => ucfirst($role) . ' User',
+            'email' => $role . '@example.test',
             'status' => 'active',
             'email_verified_at' => '2026-08-08 10:00:00',
         ];
 
         return $users;
+    }
+
+    private function userIdForRole(string $role): int
+    {
+        return match ($role) {
+            'participant' => 1,
+            'super-admin' => 9,
+            default => 10,
+        };
     }
 
     private function routed(
