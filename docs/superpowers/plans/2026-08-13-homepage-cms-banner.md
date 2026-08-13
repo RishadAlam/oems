@@ -31,7 +31,7 @@
 - Consumes: `View::render('home/index', array $data, 'public'): string`
 - Produces: `UiLayoutTest::testHomeBannersRenderAsFullWidthPublicAnnouncements(): void` and a `renderHome(array $overrides = []): string` fixture helper
 
-- [ ] **Step 1: Extend the home rendering fixture**
+- [x] **Step 1: Extend the home rendering fixture**
 
 Change `renderHome()` to accept an override array and merge it over the normal page data so one test can supply representative `homeBanners` without constructing database infrastructure:
 
@@ -62,7 +62,7 @@ private function renderHome(array $overrides = []): string
 }
 ```
 
-- [ ] **Step 2: Write the failing rendered-view test**
+- [x] **Step 2: Write the failing rendered-view test**
 
 Add a test that supplies a complete banner fixture and asserts the public contract independently from the implementation:
 
@@ -98,7 +98,7 @@ public function testHomeBannersRenderAsFullWidthPublicAnnouncements(): void
 
 This test catches a return to a half-width generic card, missing announcement structure, missing accessible image identity, lost CMS content, or accidental replacement of the primary hero.
 
-- [ ] **Step 3: Run the focused test and verify the expected failure**
+- [x] **Step 3: Run the focused test and verify the expected failure**
 
 Run:
 
@@ -108,7 +108,7 @@ php tests/run.php tests/Unit/UiLayoutTest.php
 
 Expected: FAIL in `testHomeBannersRenderAsFullWidthPublicAnnouncements` because `home-announcements` and `home-announcement` do not exist in the current output.
 
-- [ ] **Step 4: Commit the failing regression test**
+- [x] **Step 4: Commit the failing regression test**
 
 ```bash
 git add tests/Unit/UiLayoutTest.php
@@ -134,7 +134,7 @@ git commit -m "test: capture homepage banner layout regression"
 - Consumes: each `$homeBanners` row with `title`, `subtitle`, `image_path`, and `link_url`
 - Produces: semantic `.home-announcements` and `.home-announcement` public markup plus compiled responsive CSS served as `20260813-home-banner-v1`
 
-- [ ] **Step 1: Replace the generic banner markup**
+- [x] **Step 1: Replace the generic banner markup**
 
 Render the collection as a dedicated stacked list. Use escaped values for every CMS field and retain the optional content conditions:
 
@@ -159,7 +159,7 @@ Render the collection as a dedicated stacked list. Use escaped values for every 
 <?php endif; ?>
 ```
 
-- [ ] **Step 2: Add the dedicated component styles**
+- [x] **Step 2: Add the dedicated component styles**
 
 Add these rules near the other homepage section styles:
 
@@ -201,7 +201,7 @@ Add these rules near the other homepage section styles:
 }
 ```
 
-- [ ] **Step 3: Rebuild the stylesheet**
+- [x] **Step 3: Rebuild the stylesheet**
 
 Run:
 
@@ -211,11 +211,11 @@ npm run build:css
 
 Expected: exit 0 and `public/assets/css/app.css` contains the new component rules and the large-breakpoint split grid.
 
-- [ ] **Step 4: Advance the stylesheet cache key everywhere**
+- [x] **Step 4: Advance the stylesheet cache key everywhere**
 
 Replace `20260813-form-divider-v2` with `20260813-home-banner-v1` in all four layouts, `public/service-worker.js`, `tests/Unit/PwaStaticPolicyTest.php`, `tests/Unit/OrganizerVenueControllerTest.php`, and `tests/js/pwa.test.mjs`. Do not change JavaScript cache keys.
 
-- [ ] **Step 5: Run focused PHP and PWA tests**
+- [x] **Step 5: Run focused PHP and PWA tests**
 
 Run:
 
@@ -228,7 +228,7 @@ node --test tests/js/pwa.test.mjs tests/js/assets.test.mjs
 
 Expected: all commands exit 0. The new home banner test passes, the new stylesheet URL is present in rendered layouts, and the service worker precaches and updates the same URL.
 
-- [ ] **Step 6: Commit the implementation**
+- [x] **Step 6: Commit the implementation**
 
 ```bash
 git add app/Views/home/index.php resources/css/app.css public/assets/css/app.css app/Views/layouts/public.php app/Views/layouts/auth.php app/Views/layouts/dashboard.php app/Views/layouts/maintenance.php public/service-worker.js tests/Unit/PwaStaticPolicyTest.php tests/Unit/OrganizerVenueControllerTest.php tests/js/pwa.test.mjs
@@ -244,7 +244,7 @@ git commit -m "fix: redesign homepage cms banners"
 - Consumes: the database-backed active banner at `http://127.0.0.1:8088/`
 - Produces: recorded automated and visual verification evidence in this plan
 
-- [ ] **Step 1: Verify desktop light theme**
+- [x] **Step 1: Verify desktop light theme**
 
 At 1440x900, reload the homepage and confirm:
 
@@ -254,11 +254,11 @@ At 1440x900, reload the homepage and confirm:
 - the announcement has no horizontal overflow;
 - the category rail follows the announcement without a large dead area.
 
-- [ ] **Step 2: Verify desktop dark theme**
+- [x] **Step 2: Verify desktop dark theme**
 
 Switch the same page to dark theme and confirm the surface, border, title, muted copy, link, and focus treatment use the existing theme tokens with no local light panel.
 
-- [ ] **Step 3: Verify mobile light and dark themes**
+- [x] **Step 3: Verify mobile light and dark themes**
 
 At 390x844, reload in both themes and confirm:
 
@@ -268,7 +268,7 @@ At 390x844, reload in both themes and confirm:
 - the page has no horizontal overflow;
 - all tap targets and focus states remain usable.
 
-- [ ] **Step 4: Run the full verification suite**
+- [x] **Step 4: Run the full verification suite**
 
 Run:
 
@@ -282,7 +282,7 @@ git diff --check
 
 Expected: every command exits 0.
 
-- [ ] **Step 5: Record exact evidence and commit plan completion**
+- [x] **Step 5: Record exact evidence and commit plan completion**
 
 Replace the unchecked boxes in this plan with completed boxes, add the exact PHP test count, assertion count, JavaScript test count, and browser viewport results, then commit only this plan:
 
@@ -290,3 +290,17 @@ Replace the unchecked boxes in this plan with completed boxes, add the exact PHP
 git add docs/superpowers/plans/2026-08-13-homepage-cms-banner.md
 git commit -m "docs: complete homepage banner implementation plan"
 ```
+
+## Completion evidence
+
+- Red test: `UiLayoutTest` produced 19 tests, 84 assertions, and the one expected homepage announcement failure before production changes.
+- Focused green tests: `UiLayoutTest` produced 19 tests and 94 assertions; `PwaStaticPolicyTest` produced 4 tests and 51 assertions; `OrganizerVenueControllerTest` produced 15 tests and 98 assertions; focused PWA and asset tests produced 2 passes. All had zero failures.
+- Production asset build: `npm run build:css` completed with Tailwind CSS 4.3.3 and rebuilt local fonts, Leaflet assets, Chart.js, PWA icons, and the minified stylesheet.
+- Full PHP suite: 824 tests, 6097 assertions, 0 failures.
+- Full JavaScript suite: 48 tests, 48 passes, 0 failures.
+- PHP syntax scan: every application, view, script, and test PHP file reported no syntax errors.
+- Composer validation: `composer.json` is valid under `--strict`.
+- Repository whitespace check: `git diff --check` exited 0.
+- Desktop light verification at 1440x900: the live announcement measured 1160px wide and 302px high inside the 1240px shell, with a 759px media region, a 399px content region, and no horizontal overflow.
+- Desktop dark verification at 1440x900: the announcement used the dark surface `rgb(19, 29, 44)`, border `rgb(42, 56, 77)`, heading `rgb(242, 245, 250)`, and no horizontal overflow.
+- Mobile light and dark verification at 390x844: the announcement measured 350px wide and 232px high, the 348px by 152px image stacked above the content, both themes remained readable, and the document had no horizontal overflow.
