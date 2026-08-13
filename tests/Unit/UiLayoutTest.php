@@ -909,6 +909,57 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testAnalyticsDashboardUsesTheSharedResponsiveVisualContract(): void
+    {
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $violations = [];
+
+        foreach ([
+            '.analytics-filter__heading' => ['flex', 'min-w-0', 'flex-col', 'md:flex-row', 'md:items-center', 'md:justify-between'],
+            '.analytics-filter__form' => ['grid', 'min-w-0', 'md:grid-cols-2', 'xl:items-end'],
+            '.analytics-kpi-grid' => ['grid', 'sm:grid-cols-2', 'xl:grid-cols-4'],
+            '.analytics-kpi' => ['min-w-0', 'rounded-[16px]', 'border', 'bg-[var(--surface-raised)]'],
+            '.analytics-kpi > strong' => ['tabular-nums', 'text-3xl'],
+            '.analytics-chart-grid' => ['grid', 'items-start', 'xl:grid-cols-[minmax(0,1.6fr)_minmax(18rem,0.8fr)]'],
+            '.analytics-chart-card' => ['min-w-0', 'rounded-[18px]', 'border', 'bg-[var(--surface-raised)]'],
+            '.analytics-data-disclosure summary' => ['min-h-11', 'cursor-pointer', 'focus-visible:outline-none'],
+            '.analytics-data-disclosure__content' => ['max-h-[28rem]', 'overflow-auto'],
+        ] as $selector => $utilities) {
+            if (!$this->cssRuleApplyContainsUtilities($sourceCss, $selector, $utilities)) {
+                $violations[] = 'source CSS must keep ' . $selector . ' scoped to: ' . implode(', ', $utilities) . '.';
+            }
+        }
+
+        foreach ([
+            '.analytics-filter__heading' => ['display:flex', 'min-width:0', 'flex-direction:column'],
+            '.analytics-kpi-grid' => ['display:grid'],
+            '.analytics-kpi' => ['min-width:0', 'border-radius:16px'],
+            '.analytics-kpi > strong' => ['font-variant-numeric:tabular-nums'],
+            '.analytics-chart-grid' => ['display:grid', 'align-items:flex-start'],
+            '.analytics-chart-card' => ['min-width:0', 'border-radius:18px'],
+            '.analytics-data-disclosure__content' => ['max-height:28rem', 'overflow:auto'],
+        ] as $selector => $tokens) {
+            if (!$this->cssRuleOutsideMediaContainsTokens($compiledCss, $selector, $tokens)) {
+                $violations[] = 'compiled CSS must keep the base ' . $selector . ' contract: ' . implode(', ', $tokens) . '.';
+            }
+        }
+
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '40rem', '.analytics-kpi-grid', ['grid-template-columns:repeat(2,minmax(0,1fr))'])) {
+            $violations[] = 'compiled CSS must render two analytics KPI columns from 40rem.';
+        }
+
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '80rem', '.analytics-kpi-grid', ['grid-template-columns:repeat(4,minmax(0,1fr))'])) {
+            $violations[] = 'compiled CSS must render four analytics KPI columns from 80rem.';
+        }
+
+        if (!$this->cssMediaRuleContainsTokens($compiledCss, '80rem', '.analytics-chart-grid', ['grid-template-columns:minmax(0,1.6fr) minmax(18rem,.8fr)'])) {
+            $violations[] = 'compiled CSS must use the asymmetric content-sized analytics chart grid from 80rem.';
+        }
+
+        $this->assertSame([], $violations, implode("\n", $violations));
+    }
+
     public function testCssBaseRuleParserExcludesMediaRulesButRetainsLayerRules(): void
     {
         $this->assertFalse(
