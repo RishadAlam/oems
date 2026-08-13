@@ -15,7 +15,7 @@ final class DashboardMetricsRepositoryTest extends TestCase
         $connection = new PDO('sqlite::memory:');
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
-        $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL)');
+        $connection->exec("CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, approval_status TEXT NOT NULL DEFAULT 'pending')");
         $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
         $connection->exec("INSERT INTO users (deleted_at) VALUES (NULL), (NULL), ('2026-08-01 09:00:00')");
         $connection->exec('INSERT INTO organizers (user_id) VALUES (1), (3)');
@@ -27,7 +27,40 @@ final class DashboardMetricsRepositoryTest extends TestCase
             'users' => 2,
             'organizers' => 1,
             'events' => 3,
+            'pending_organizers' => 1,
         ], $repository->totals());
+    }
+
+    public function testOrganizerApprovalProjectionsAreScopedOrderedAndExcludeDeletedAccounts(): void
+    {
+        $connection = new PDO('sqlite::memory:');
+        $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $connection->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $connection->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, status TEXT NOT NULL, email_verified_at TEXT NULL, deleted_at TEXT NULL)');
+        $connection->exec('CREATE TABLE organizers (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, organization_name TEXT NOT NULL, approval_status TEXT NOT NULL, rejection_reason TEXT NULL, created_at TEXT NOT NULL)');
+        $connection->exec('CREATE TABLE events (id INTEGER PRIMARY KEY, deleted_at TEXT NULL)');
+        $connection->exec("INSERT INTO users (id, name, email, status, email_verified_at, deleted_at) VALUES
+            (7, 'New Organizer', 'new@example.test', 'active', NULL, NULL),
+            (8, 'Ready Organizer', 'ready@example.test', 'active', '2026-08-09 09:00:00', NULL),
+            (9, 'Deleted Organizer', 'deleted@example.test', 'active', '2026-08-08 09:00:00', '2026-08-11 09:00:00'),
+            (10, 'Approved Organizer', 'approved@example.test', 'active', '2026-08-07 09:00:00', NULL)");
+        $connection->exec("INSERT INTO organizers (id, user_id, organization_name, approval_status, rejection_reason, created_at) VALUES
+            (10, 7, 'New Community', 'pending', NULL, '2026-08-12 09:00:00'),
+            (12, 8, 'Ready Community', 'pending', NULL, '2026-08-10 09:00:00'),
+            (13, 9, 'Deleted Community', 'pending', NULL, '2026-08-09 09:00:00'),
+            (14, 10, 'Approved Community', 'approved', NULL, '2026-08-08 09:00:00')");
+
+        $repository = new DashboardMetricsRepository($connection);
+        $approval = $repository->organizerApprovalForUser(7);
+        $queue = $repository->pendingOrganizerApplications(2);
+
+        $this->assertSame('pending', $approval['approval_status']);
+        $this->assertSame('New Community', $approval['organization_name']);
+        $this->assertSame(null, $approval['email_verified_at']);
+        $this->assertSame(2, $repository->totals()['pending_organizers']);
+        $this->assertSame([12, 10], array_column($queue, 'id'));
+        $this->assertSame('Ready Organizer', $queue[0]['contact_name']);
+        $this->assertSame([], $repository->organizerApprovalForUser(999));
     }
 
     public function testReviewSummariesUseNarrowSqlAggregatesWithParticipantOrganizerAndAdminScope(): void

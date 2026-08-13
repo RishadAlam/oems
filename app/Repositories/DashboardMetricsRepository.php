@@ -15,17 +15,65 @@ final class DashboardMetricsRepository
     public function totals(): array
     {
         $row = $this->connection->query(
-            'SELECT
+            "SELECT
                 (SELECT COUNT(*) FROM users WHERE deleted_at IS NULL) AS users,
                 (SELECT COUNT(*) FROM organizers INNER JOIN users AS organizer_users ON organizer_users.id = organizers.user_id WHERE organizer_users.deleted_at IS NULL) AS organizers,
-                (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL) AS events',
+                (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL) AS events,
+                (SELECT COUNT(*) FROM organizers INNER JOIN users AS pending_organizer_users ON pending_organizer_users.id = organizers.user_id WHERE organizers.approval_status = 'pending' AND pending_organizer_users.deleted_at IS NULL) AS pending_organizers",
         )->fetch();
 
         return [
             'users' => (int) $row['users'],
             'organizers' => (int) $row['organizers'],
             'events' => (int) $row['events'],
+            'pending_organizers' => (int) $row['pending_organizers'],
         ];
+    }
+
+    public function organizerApprovalForUser(int $userId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT organizers.id,
+                    organizers.organization_name,
+                    organizers.approval_status,
+                    organizers.rejection_reason,
+                    organizers.created_at,
+                    users.status AS user_status,
+                    users.email_verified_at
+             FROM organizers
+             INNER JOIN users ON users.id = organizers.user_id
+             WHERE organizers.user_id = :organizer_user_id
+               AND users.deleted_at IS NULL
+             LIMIT 1',
+        );
+        $statement->execute(['organizer_user_id' => $userId]);
+        $row = $statement->fetch();
+
+        return is_array($row) ? $row : [];
+    }
+
+    public function pendingOrganizerApplications(int $limit = 4): array
+    {
+        $safeLimit = max(1, min(20, $limit));
+        $statement = $this->connection->query(
+            "SELECT organizers.id,
+                    organizers.organization_name,
+                    organizers.approval_status,
+                    organizers.created_at,
+                    users.name AS contact_name,
+                    users.email,
+                    users.status AS user_status,
+                    users.email_verified_at
+             FROM organizers
+             INNER JOIN users ON users.id = organizers.user_id
+             WHERE organizers.approval_status = 'pending'
+               AND users.deleted_at IS NULL
+             ORDER BY organizers.created_at ASC, organizers.id ASC
+             LIMIT {$safeLimit}",
+        );
+        $rows = $statement->fetchAll();
+
+        return is_array($rows) ? $rows : [];
     }
 
     public function reviewsForParticipant(int $participantId): array
