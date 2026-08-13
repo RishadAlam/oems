@@ -1048,12 +1048,14 @@
         @apply mt-1 text-xs leading-5 text-[var(--ink-muted)];
     }
 
-    .profile-form-section {
-        @apply grid gap-5 border-b border-[var(--line)] pb-8;
+    .profile-form-section,
+    .organizer-form__section {
+        @apply grid gap-5;
     }
 
-    .profile-form-section:last-of-type {
-        @apply border-b-0 pb-0;
+    .profile-form-section ~ .profile-form-section,
+    .organizer-form__section ~ .organizer-form__section {
+        @apply border-t border-[var(--line)] pt-8;
     }
 
     .profile-form-section__heading {
@@ -1565,14 +1567,6 @@
 
     .organizer-form {
         @apply grid gap-8 p-5 sm:p-7;
-    }
-
-    .organizer-form__section {
-        @apply grid gap-5 border-b border-[var(--line)] pb-8;
-    }
-
-    .organizer-form__section:last-of-type {
-        @apply border-b-0;
     }
 
     .organizer-form__heading {

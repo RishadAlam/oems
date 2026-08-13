@@ -119,7 +119,7 @@ final class UiLayoutTest extends TestCase
 
         foreach (['profile-form-section', 'organizer-form__section'] as $sectionClass) {
             $matched = preg_match(
-                '/\.' . preg_quote($sectionClass, '/') . '\{([^}]*)\}/',
+                '/(?:\.[A-Za-z0-9_-]+,)*\.' . preg_quote($sectionClass, '/') . '(?:,\.[A-Za-z0-9_-]+)*\{([^}]*)\}/',
                 $css,
                 $baseRule,
             );
