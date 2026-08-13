@@ -10,31 +10,39 @@ use RuntimeException;
 
 final class StatusUiTest extends TestCase
 {
-    public function testStatusComponentsMapEveryKnownStateToItsSemanticTone(): void
+    public function testStatusComponentsMapTheCompleteTaxonomyInSourceAndCompiledCss(): void
     {
-        $css = file_get_contents(base_path('resources/css/app.css'));
-
-        if (!is_string($css)) {
-            throw new RuntimeException('Unable to read the source stylesheet.');
-        }
-
-        $expectedGroups = [
-            ['tokens' => ['--info-soft', '--info'], 'states' => ['active', 'published', 'valid', 'sent']],
-            ['tokens' => ['--success-soft', '--success'], 'states' => ['approved', 'confirmed', 'paid', 'completed', 'used', 'replied', 'subscribed', 'present']],
-            ['tokens' => ['--warning-soft', '--warning'], 'states' => ['pending', 'waitlisted', 'queued', 'processing', 'new', 'read']],
-            ['tokens' => ['--error-soft', '--error'], 'states' => ['rejected', 'failed', 'suspended', 'revoked', 'cancelled']],
-            ['tokens' => ['--surface-soft', '--ink-muted'], 'states' => ['draft', 'inactive', 'archived', 'hidden', 'refunded', 'partially_refunded', 'absent', 'none', 'not_checked_in', 'unsubscribed']],
+        $groups = [
+            'info' => ['active', 'published', 'valid', 'sent', 'read', 'info'],
+            'success' => ['approved', 'confirmed', 'paid', 'completed', 'used', 'replied', 'subscribed', 'present', 'success'],
+            'warning' => ['pending', 'waitlisted', 'queued', 'processing', 'new', 'partially_refunded', 'warning'],
+            'danger' => ['rejected', 'failed', 'suspended', 'revoked', 'cancelled', 'danger'],
+            'neutral' => ['draft', 'inactive', 'archived', 'hidden', 'refunded', 'absent', 'none', 'not_checked_in', 'unsubscribed', 'neutral', 'muted'],
+        ];
+        $tokens = [
+            'info' => ['--info', '--info-soft'],
+            'success' => ['--success', '--success-soft'],
+            'warning' => ['--warning', '--warning-soft'],
+            'danger' => ['--error', '--error-soft'],
+            'neutral' => ['--ink-muted', '--surface-soft'],
         ];
 
-        foreach (['status-chip', 'status-badge'] as $component) {
-            foreach ($expectedGroups as $group) {
-                foreach ($group['states'] as $state) {
-                    $rule = $this->statusRule($css, $component, $state);
-                    foreach ($group['tokens'] as $token) {
-                        $this->assertTrue(
-                            str_contains($rule, 'var(' . $token . ')'),
-                            sprintf('%s--%s must use %s.', $component, $state, $token),
-                        );
+        foreach ([
+            'source stylesheet' => 'resources/css/app.css',
+            'compiled stylesheet' => 'public/assets/css/app.css',
+        ] as $label => $path) {
+            $css = $this->stylesheet($path);
+
+            foreach (['status-chip', 'status-badge'] as $component) {
+                foreach ($groups as $tone => $states) {
+                    foreach ($states as $state) {
+                        $rule = $this->statusRule($css, $component, $state);
+                        foreach ($tokens[$tone] as $token) {
+                            $this->assertTrue(
+                                str_contains($rule, 'var(' . $token . ')'),
+                                sprintf('%s %s--%s must use %s in the %s.', $label, $component, $state, $token, $tone),
+                            );
+                        }
                     }
                 }
             }
@@ -145,11 +153,111 @@ final class StatusUiTest extends TestCase
             'maintenanceEnabled' => true,
         ]);
 
-        $this->assertTrue(str_contains($available, 'status-badge status-badge--success">Ready'));
-        $this->assertTrue(str_contains($available, 'status-badge status-badge--neutral">Inactive'));
-        $this->assertTrue(str_contains($restricted, 'status-badge status-badge--danger">Unavailable'));
-        $this->assertTrue(str_contains($restricted, 'status-badge status-badge--warning">Active'));
+        $this->assertSame(1, $this->statusCount($available, 'status-badge--info', 'Ready'));
+        $this->assertSame(3, $this->statusCount($available, 'status-badge--success', 'Passing'));
+        $this->assertSame(1, $this->statusCount($restricted, 'status-badge--danger', 'Unavailable'));
+        $this->assertSame(3, $this->statusCount($restricted, 'status-badge--danger', 'Needs attention'));
+        $this->assertSame(1, $this->statusCount($available, 'status-badge--neutral', 'Inactive'));
+        $this->assertSame(1, $this->statusCount($restricted, 'status-badge--warning', 'Active'));
+        foreach ([$available, $restricted] as $document) {
+            $this->assertFalse(str_contains($document, 'text-emerald-'));
+            $this->assertFalse(str_contains($document, 'text-red-'));
+            $this->assertFalse(preg_match('/\\bdark:[^\\s"\\\']+/', $document) === 1);
+        }
         $this->assertFalse(str_contains($available . $restricted, 'status-pill'));
+    }
+
+    public function testSemanticTokensMeetAaContrastInBothThemes(): void
+    {
+        $css = $this->stylesheet('resources/css/app.css');
+        $pairs = [
+            ['--info', '--info-soft'],
+            ['--success', '--success-soft'],
+            ['--warning', '--warning-soft'],
+            ['--error', '--error-soft'],
+            ['--ink-muted', '--surface-soft'],
+        ];
+
+        foreach (['light' => ':root', 'dark' => '[data-theme="dark"]'] as $theme => $selector) {
+            $tokens = $this->themeTokens($css, $selector);
+
+            foreach ($pairs as [$foreground, $background]) {
+                $ratio = $this->contrastRatio($tokens[$foreground], $tokens[$background]);
+                $this->assertTrue(
+                    $ratio >= 4.5,
+                    sprintf('%s theme %s on %s contrast must be at least 4.5:1; received %.2f:1.', $theme, $foreground, $background, $ratio),
+                );
+            }
+        }
+    }
+
+    public function testViewsDelegateSemanticColorAndThemeAuthorityToSharedComponents(): void
+    {
+        $palette = '(?:emerald|green|red|rose|amber|yellow|orange|blue|sky|cyan|teal)';
+        $pattern = '/\\b(?:text|bg|border)-' . $palette . '-\\d+\\b|\\bdark:[^\\s"\\\']+/';
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('app/Views')));
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $view = file_get_contents($file->getPathname());
+            if (!is_string($view)) {
+                throw new RuntimeException('Unable to read view ' . $file->getPathname() . '.');
+            }
+
+            $this->assertSame(
+                0,
+                preg_match($pattern, $view),
+                'View-level semantic palette or dark-mode utility found in ' . $file->getPathname() . '.',
+            );
+        }
+    }
+
+    public function testRemainingPlainStatusSurfacesRenderSharedStatusComponents(): void
+    {
+        $organizer = $this->render('admin/organizers/show', ['organizer' => [
+            'id' => 1, 'organization_name' => 'Example Organization', 'name' => 'Organizer', 'email' => 'organizer@example.test',
+            'approval_status' => 'pending', 'user_status' => 'active', 'email_verified_at' => '2026-08-13 10:00:00', 'role_slug' => 'organizer',
+        ]]);
+        $user = $this->render('admin/users/show', ['managedUser' => [
+            'id' => 2, 'name' => 'Managed User', 'email' => 'user@example.test', 'status' => 'suspended', 'role_slug' => 'participant', 'email_verified_at' => '2026-08-13 10:00:00',
+        ]]);
+        $contact = $this->render('admin/contact/show', ['message' => [
+            'id' => 3, 'name' => 'Contact', 'email' => 'contact@example.test', 'subject' => 'Question', 'status' => 'read', 'created_at' => '2026-08-13 10:00:00', 'message' => 'Hello',
+        ]]);
+        $payment = $this->render('admin/payments/show', [
+            'payment' => ['id' => 4, 'payment_status' => 'paid', 'registration_status' => 'confirmed', 'transaction_reference' => 'PAY-4', 'participant_name' => 'Participant', 'participant_email' => 'participant@example.test', 'event_title' => 'Example Event', 'organizer_name' => 'Organizer', 'currency' => 'BDT', 'amount' => '100.00', 'payment_method_name' => 'Manual', 'payment_channel' => 'manual', 'created_at' => '2026-08-13 10:00:00'],
+            'paymentAge' => 'today', 'returnFilters' => [], 'actionError' => null, 'confirmation' => null,
+        ]);
+        $analytics = $this->render('admin/analytics/index', [
+            'filterError' => null, 'range' => [], 'filters' => [], 'charts' => [],
+            'summary' => ['lifecycle' => ['draft' => 1, 'pending' => 1, 'approved' => 1, 'rejected' => 1, 'published' => 1, 'completed' => 1, 'cancelled' => 1], 'registrations' => ['pending' => 1, 'confirmed' => 1, 'cancelled' => 1, 'waitlisted' => 1, 'refunded' => 1], 'verified_payments' => [], 'active_users' => 1, 'approved_organizers' => 1, 'pending_event_queue' => 1, 'attendance_count' => 1, 'pending_payment_queue' => 1, 'refund_attention_count' => 1],
+        ]);
+        $favorites = $this->render('participant/favorites/index', ['favorites' => [[
+            'event_id' => 5, 'title' => 'Unavailable Event', 'slug' => 'unavailable-event', 'is_available' => false, 'event_status' => 'cancelled', 'category_name' => 'Music', 'start_display' => 'Tomorrow', 'price_display' => 'BDT 100',
+        ]], 'pagination' => ['page' => 1, 'last_page' => 1]]);
+        $registration = $this->render('participant/registrations/show', ['registration' => [
+            'id' => 6, 'registration_number' => 'REG-6', 'event_title' => 'Registered Event', 'registration_status' => 'confirmed', 'payment_status' => 'paid', 'event_status' => 'published', 'registered_display' => 'Today', 'event_start_display' => 'Tomorrow', 'venue_display' => 'Venue', 'amount_display' => '100.00', 'currency' => 'BDT', 'ticket' => ['id' => 9, 'ticket_number' => 'TICKET-9', 'ticket_status' => 'valid'], 'cancellation_state' => ['allowed' => false, 'reason' => null], 'can_cancel' => false,
+        ]]);
+        $waitlist = $this->render('participant/waitlist/index', ['entries' => [[
+            'id' => 7, 'event_title' => 'Waitlisted Event', 'position' => 1, 'start_display' => 'Tomorrow', 'amount_display' => '100.00', 'currency' => 'BDT',
+        ]]]);
+        $dashboard = $this->render('dashboard/participant', ['metrics' => [], 'workspace' => [
+            'tickets' => [['id' => 8, 'event_title' => 'Ticket Event', 'ticket_number' => 'TICKET-8', 'ticket_status' => 'valid']],
+            'upcoming' => [['id' => 6, 'event_title' => 'Registered Event', 'event_start_date' => 'Tomorrow', 'payment_status' => 'paid']],
+        ], 'unreadNotifications' => 0]);
+
+        $this->assertRenderedStatuses($organizer, [['status-chip--pending', 'Pending'], ['status-chip--active', 'Active'], ['status-badge--success', 'Verified']]);
+        $this->assertRenderedStatuses($user, [['status-chip--suspended', 'Suspended'], ['status-badge--success', 'Verified']]);
+        $this->assertRenderedStatuses($contact, [['status-badge--read', 'Read']]);
+        $this->assertRenderedStatuses($payment, [['status-chip--paid', 'Paid'], ['status-chip--confirmed', 'Confirmed']]);
+        $this->assertRenderedStatuses($analytics, [['status-chip--draft', 'Draft'], ['status-chip--pending', 'Pending', 2], ['status-chip--approved', 'Approved'], ['status-chip--rejected', 'Rejected'], ['status-chip--published', 'Published'], ['status-chip--completed', 'Completed'], ['status-chip--cancelled', 'Cancelled', 2], ['status-chip--waitlisted', 'Waitlisted'], ['status-chip--refunded', 'Refunded']]);
+        $this->assertRenderedStatuses($favorites, [['status-badge--muted', 'Unavailable'], ['status-chip--cancelled', 'Cancelled']]);
+        $this->assertRenderedStatuses($registration, [['status-chip--confirmed', 'Confirmed'], ['status-badge--paid', 'Paid'], ['status-chip--valid', 'Valid']]);
+        $this->assertRenderedStatuses($waitlist, [['status-chip--pending', 'Waitlisted']]);
+        $this->assertRenderedStatuses($dashboard, [['status-chip--valid', 'Valid'], ['status-chip--paid', 'Paid']]);
     }
 
     public function testDetailRowsStayNeutralUntilAStatusComponentAddsMeaning(): void
@@ -171,6 +279,99 @@ final class StatusUiTest extends TestCase
         $this->assertTrue(str_contains($profileNeutral, 'var(--ink-muted)'), 'Inactive account state must be neutral.');
         $this->assertTrue(str_contains($detailDefault, 'var(--ink)'), 'Detail values must use ordinary foreground text.');
         $this->assertFalse(str_contains($detailDefault, 'var(--success)'), 'Detail values must not default to success green.');
+    }
+
+    private function assertRenderedStatuses(string $html, array $expected): void
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, 'Status-bearing view must render parseable HTML.');
+        foreach ($expected as $expectedStatus) {
+            [$class, $label] = $expectedStatus;
+            $count = $expectedStatus[2] ?? 1;
+
+            $this->assertSame(
+                $count,
+                $this->statusCount($html, $class, $label),
+                sprintf('Expected %d %s component(s) for visible status %s.', $count, $class, $label),
+            );
+        }
+    }
+
+    private function statusCount(string $html, string $class, string $label): int
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, 'Status-bearing view must render parseable HTML.');
+        $xpath = new \DOMXPath($document);
+        $matches = $xpath->query(
+            '//*[contains(concat(" ", normalize-space(@class), " "), " ' . $class . ' ")'
+            . ' and normalize-space(.) = "' . $label . '"]',
+        );
+
+        return $matches === false ? 0 : $matches->length;
+    }
+
+    private function stylesheet(string $path): string
+    {
+        $css = file_get_contents(base_path($path));
+
+        if (!is_string($css)) {
+            throw new RuntimeException('Unable to read stylesheet ' . $path . '.');
+        }
+
+        return $css;
+    }
+
+    private function themeTokens(string $css, string $selector): array
+    {
+        $matched = preg_match('/' . preg_quote($selector, '/') . '\\s*\\{([^{}]+)\\}/', $css, $matches);
+        $this->assertSame(1, $matched, 'Missing theme token block for ' . $selector . '.');
+
+        preg_match_all('/(--[a-z-]+)\\s*:\\s*(#[0-9a-fA-F]{6})\\s*;/', $matches[1], $tokenMatches, PREG_SET_ORDER);
+        $tokens = [];
+
+        foreach ($tokenMatches as $token) {
+            $tokens[$token[1]] = $token[2];
+        }
+
+        foreach (['--info', '--info-soft', '--success', '--success-soft', '--warning', '--warning-soft', '--error', '--error-soft', '--ink-muted', '--surface-soft'] as $required) {
+            $this->assertArrayHasKey($required, $tokens, $selector . ' must define ' . $required . '.');
+        }
+
+        return $tokens;
+    }
+
+    private function contrastRatio(string $first, string $second): float
+    {
+        $firstLuminance = $this->relativeLuminance($first);
+        $secondLuminance = $this->relativeLuminance($second);
+
+        return (max($firstLuminance, $secondLuminance) + 0.05) / (min($firstLuminance, $secondLuminance) + 0.05);
+    }
+
+    private function relativeLuminance(string $hex): float
+    {
+        $channels = array_map(
+            static fn (string $channel): float => hexdec($channel) / 255,
+            str_split(ltrim($hex, '#'), 2),
+        );
+        $linear = array_map(
+            static fn (float $channel): float => $channel <= 0.03928
+                ? $channel / 12.92
+                : (($channel + 0.055) / 1.055) ** 2.4,
+            $channels,
+        );
+
+        return (0.2126 * $linear[0]) + (0.7152 * $linear[1]) + (0.0722 * $linear[2]);
     }
 
     private function statusRule(string $css, string $component, string $state): string

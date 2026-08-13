@@ -144,6 +144,14 @@ final class OrganizerOperationsControllerTest extends TestCase
         $this->assertFalse(str_contains($response->body(), 'qr_payload_hash'));
         $this->assertFalse(str_contains($response->body(), 'gateway_response'));
         $this->assertTrue(str_contains($response->body(), 'data-form-kind="filter"'));
+        foreach ([
+            ['status-chip--confirmed', 'Confirmed'],
+            ['status-chip--paid', 'Paid'],
+            ['status-chip--valid', 'Valid'],
+            ['status-chip--not_checked_in', 'Not checked in'],
+        ] as [$class, $label]) {
+            $this->assertSame(1, $this->statusCount($response->body(), $class, $label));
+        }
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/99/participants', '99'))->status());
         $this->assertSame(404, $this->participants->index($this->routed('GET', '/organizer/events/0/participants', '0'))->status());
 
@@ -400,6 +408,24 @@ final class OrganizerOperationsControllerTest extends TestCase
     ): Request {
         return Request::create($method, $uri, query: $query, input: $input, server: $server)
             ->withRouteParameters(['id' => $id]);
+    }
+
+    private function statusCount(string $html, string $class, string $label): int
+    {
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded, 'The participant workspace must render valid parseable HTML.');
+        $xpath = new \DOMXPath($document);
+        $matches = $xpath->query(
+            '//*[contains(concat(" ", normalize-space(@class), " "), " ' . $class . ' ")'
+            . ' and normalize-space(.) = "' . $label . '"]',
+        );
+
+        return $matches === false ? 0 : $matches->length;
     }
 
     private function removeDirectory(string $directory): void
