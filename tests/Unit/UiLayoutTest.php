@@ -60,6 +60,28 @@ final class UiLayoutTest extends TestCase
                 $authenticated,
                 'class="mobile-menu__link" href="/dashboard"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Dashboard</span></a>',
             ));
+
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($authenticated);
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+            $this->assertTrue($loaded);
+
+            $xpath = new \DOMXPath($document);
+            $desktopDashboardLinks = $xpath->query(
+                '//nav[@aria-label="Primary navigation"]//a[@href="/dashboard" and normalize-space(.)="Dashboard"]',
+            );
+            $mobileDashboardLinks = $xpath->query(
+                '//nav[@aria-label="Mobile navigation"]//a[@href="/dashboard" and normalize-space(.)="Dashboard"]',
+            );
+            $allHeaderDashboardLinks = $xpath->query(
+                '//header[contains(concat(" ", normalize-space(@class), " "), " site-header ")]//a[@href="/dashboard" and normalize-space(.)="Dashboard"]',
+            );
+
+            $this->assertSame(1, $desktopDashboardLinks?->length);
+            $this->assertSame(1, $mobileDashboardLinks?->length);
+            $this->assertSame(2, $allHeaderDashboardLinks?->length);
         }
     }
 
