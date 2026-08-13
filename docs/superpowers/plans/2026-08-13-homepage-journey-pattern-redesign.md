@@ -33,7 +33,7 @@ Add assertions to `testHomepageSeparatesDiscoveryParticipantAndOrganizerJourneys
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `rtk php vendor/bin/phpunit tests/Unit/UiLayoutTest.php`
+Run: `rtk php tests/run.php UiLayoutTest`
 
 Expected: FAIL because the current markup still uses `eyebrow--inverse`, numeric markers, and the monolithic dark split-panel CSS.
 
@@ -75,7 +75,11 @@ Replace `20260813-homepage-v4` with `20260813-journeys-v1` in all layout, servic
 
 Run: `rtk npm run build:css`
 
-Run: `rtk php vendor/bin/phpunit tests/Unit/UiLayoutTest.php tests/Unit/PwaStaticPolicyTest.php tests/Unit/OrganizerVenueControllerTest.php`
+Run: `rtk php tests/run.php UiLayoutTest`
+
+Run: `rtk php tests/run.php PwaStaticPolicyTest`
+
+Run: `rtk php tests/run.php OrganizerVenueControllerTest`
 
 Run: `rtk node tests/js/pwa.test.mjs`
 
@@ -96,7 +100,7 @@ Run: `rtk git add app/Views/home/index.php resources/css/app.css public/assets/c
 
 - [ ] **Step 1: Run complete automated verification**
 
-Run: `rtk php vendor/bin/phpunit`
+Run: `rtk php tests/run.php`
 
 Run: `rtk zsh -lc 'for test_file in tests/js/*.test.mjs; do node "$test_file" || exit 1; done'`
 
@@ -109,4 +113,3 @@ Start the local server and inspect `#how-it-works` at desktop, mobile, and 320px
 - [ ] **Step 3: Record results and commit**
 
 Mark the plan checkboxes complete, append the exact test/browser evidence, then run `rtk git add docs/superpowers/plans/2026-08-13-homepage-journey-pattern-redesign.md && rtk git commit -m "docs: record journey redesign verification"`.
-

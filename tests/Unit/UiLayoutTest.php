@@ -260,6 +260,9 @@ final class UiLayoutTest extends TestCase
     {
         $html = $this->renderHome();
 
+        preg_match('/<section id="how-it-works".*?<\/section>/s', $html, $journeySection);
+        $this->assertTrue(isset($journeySection[0]));
+
         $this->assertTrue(str_contains($html, 'aria-labelledby="home-hero-title"'));
         $this->assertTrue(str_contains($html, 'id="browse-categories"'));
         $this->assertTrue(str_contains($html, 'aria-labelledby="home-categories-title"'));
@@ -269,6 +272,15 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="home-journey home-journey--organizer"'));
         $this->assertTrue(str_contains($html, 'For participants'));
         $this->assertTrue(str_contains($html, 'For organizers'));
+        $this->assertTrue(str_contains($journeySection[0], 'class="home-journeys__label"'));
+        $this->assertFalse(str_contains($journeySection[0], 'eyebrow--inverse'));
+        $this->assertTrue(str_contains($journeySection[0], 'aria-labelledby="participant-journey-title"'));
+        $this->assertTrue(str_contains($journeySection[0], 'aria-labelledby="organizer-journey-title"'));
+        $this->assertSame(6, substr_count($journeySection[0], 'class="home-journey__step-icon"'));
+        $this->assertTrue(str_contains($journeySection[0], 'class="ph ph-compass"'));
+        $this->assertTrue(str_contains($journeySection[0], 'class="ph ph-qr-code"'));
+        $this->assertTrue(str_contains($journeySection[0], 'class="ph ph-note-pencil"'));
+        $this->assertTrue(str_contains($journeySection[0], 'class="ph ph-scan"'));
         $this->assertTrue(str_contains($html, 'class="organizer-callout__points"'));
         $this->assertTrue(str_contains($html, 'Manage guests and check-ins'));
     }
@@ -324,6 +336,11 @@ final class UiLayoutTest extends TestCase
     {
         $css = (string) file_get_contents(base_path('resources/css/app.css'));
 
+        preg_match('/\.home-journeys__surface\s*\{([^}]+)\}/', $css, $journeySurfaceRule);
+        preg_match('/\.home-journeys__grid\s*\{([^}]+)\}/', $css, $journeyGridRule);
+        $this->assertTrue(isset($journeySurfaceRule[1]));
+        $this->assertTrue(isset($journeyGridRule[1]));
+
         $this->assertTrue(str_contains($css, '.home-announcement__body h2,'));
         $this->assertTrue(str_contains($css, 'overflow-wrap: anywhere;'));
         $this->assertTrue(str_contains($css, 'lg:h-[clamp(280px,24vw,340px)]'));
@@ -331,16 +348,22 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($css, '@apply grid grid-cols-2'));
         $this->assertTrue(str_contains($css, '.home-featured__grid'));
         $this->assertTrue(str_contains($css, '.home-journeys__grid'));
-        $this->assertTrue(str_contains($css, 'lg:grid-cols-2'));
+        $this->assertTrue(str_contains($journeyGridRule[1], 'gap-5'));
+        $this->assertTrue(str_contains($journeyGridRule[1], 'lg:grid-cols-2'));
+        $this->assertFalse(str_contains($journeyGridRule[1], 'border-t'));
+        $this->assertTrue(str_contains($journeySurfaceRule[1], 'border-[var(--line)]'));
+        $this->assertTrue(str_contains($journeySurfaceRule[1], 'bg-[var(--surface-soft)]'));
+        $this->assertFalse(str_contains($journeySurfaceRule[1], 'bg-[#101a36]'));
         $this->assertFalse(str_contains($css, 'lg:min-h-[590px]'));
         $this->assertTrue(str_contains($css, '.home-featured .event-card {'));
         $this->assertTrue(str_contains($css, '@apply flex h-full flex-col;'));
         $this->assertTrue(str_contains($css, '.home-featured .event-card__footer {'));
         $this->assertTrue(str_contains($css, '@apply mt-auto;'));
-        $this->assertTrue(str_contains($css, '.home-journeys__intro .eyebrow'));
-        $this->assertTrue(str_contains($css, '@apply mb-0 justify-self-start'));
+        $this->assertTrue(str_contains($css, '.home-journeys__label'));
+        $this->assertTrue(str_contains($css, '.home-journey__step-icon'));
+        $this->assertTrue(str_contains($css, '.home-journey__steps li:not(:last-child)::after'));
         $this->assertTrue(str_contains($css, '.organizer-callout > .page-shell'));
-        $this->assertTrue(str_contains($css, 'text-xs font-bold text-white/60'));
+        $this->assertTrue(str_contains($css, 'text-[var(--ink-muted)]'));
     }
 
     public function testRegistrationRoleChoicesAreNativeAndSelfDescribing(): void
