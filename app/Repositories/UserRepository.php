@@ -140,6 +140,24 @@ final class UserRepository implements UserRepositoryInterface
         });
     }
 
+    public function replaceEmailVerificationToken(int $userId, string $tokenHash): bool
+    {
+        $statement = $this->database->connection()->prepare(
+            "UPDATE users
+             SET email_verification_token_hash = :token_hash, updated_at = CURRENT_TIMESTAMP
+             WHERE id = :user_id
+               AND status = 'active'
+               AND email_verified_at IS NULL
+               AND deleted_at IS NULL",
+        );
+        $statement->execute([
+            'token_hash' => $tokenHash,
+            'user_id' => $userId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
     public function updateLastLogin(int $userId): void
     {
         $statement = $this->database->connection()->prepare(

@@ -114,18 +114,80 @@ final class AuthController extends Controller
             (string) $result['verification_token'],
         );
 
-        $this->session->flash('success', 'Account created. Verify your email to continue.');
+        $this->session->flash('old', [
+            'email' => strtolower(trim((string) $data['email'])),
+        ]);
+        $this->session->flash(
+            'success',
+            'Account created. Check your inbox and verify your email before signing in.',
+        );
 
-        return Response::redirect('/login');
+        return Response::redirect('/verify-email/resend');
+    }
+
+    public function showResendVerification(Request $request): Response
+    {
+        return $this->render('auth/resend-verification', [
+            'pageTitle' => 'Resend verification email',
+        ], 'auth');
+    }
+
+    public function resendVerification(Request $request): Response
+    {
+        $data = $request->only(['email']);
+        $data['email'] = strtolower(trim((string) ($data['email'] ?? '')));
+        $errors = Validator::validate($data, [
+            'email' => 'required|email|max:190',
+        ]);
+
+        if ($errors !== []) {
+            return $this->redirectWithErrors('/verify-email/resend', $errors, [
+                'email' => $data['email'] ?? '',
+            ]);
+        }
+
+        $normalizedEmail = (string) $data['email'];
+        $result = $this->authService->requestEmailVerification($normalizedEmail, $request->ip());
+
+        if (($result['mail_dispatch'] ?? null) === 'verification'
+            && is_string($result['verification_token'] ?? null)
+            && is_int($result['user_id'] ?? null)
+            && is_string($result['name'] ?? null)
+            && is_string($result['email'] ?? null)) {
+            $this->accountMailer->sendVerification(
+                $result['user_id'],
+                $result['email'],
+                $result['name'],
+                $result['verification_token'],
+            );
+        } elseif (($result['mail_dispatch'] ?? null) === 'probe') {
+            $this->accountMailer->sendVerificationPrivacyProbe();
+        }
+
+        $this->session->flash('old', ['email' => $normalizedEmail]);
+
+        return $this->redirectWith(
+            '/verify-email/resend',
+            'success',
+            'If the address needs verification, a new link is on its way. Use the newest email you receive.',
+        );
     }
 
     public function verifyEmail(Request $request): Response
     {
         $verified = $this->authService->verifyEmail((string) $request->route('token'));
 
-        return $verified
-            ? $this->redirectWith('/login', 'success', 'Email verified. You can now sign in.')
-            : $this->redirectWith('/login', 'error', 'This verification link is invalid or has already been used.');
+        if (!$verified) {
+            return $this->redirectWith(
+                '/verify-email/resend',
+                'error',
+                'This verification link is invalid, expired, or has already been used. Request a new one below.',
+            );
+        }
+
+        return $this->auth->check()
+            ? $this->redirectWith('/profile', 'success', 'Email verified successfully.')
+            : $this->redirectWith('/login', 'success', 'Email verified. You can now sign in.');
     }
 
     public function showForgotPassword(Request $request): Response

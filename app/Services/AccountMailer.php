@@ -27,22 +27,31 @@ final class AccountMailer
         string $name,
         string $token,
     ): bool {
-        $url = $this->url('/verify-email/' . rawurlencode($token));
-        $safeName = $this->escape($name);
-        $safeUrl = $this->escape($url);
-        $message = new EmailMessage(
-            $recipient,
-            $name,
-            'Verify your OEMS email',
-            '<p>Hello ' . $safeName . ',</p>'
-                . '<p>Verify your email address to activate sign-in for your OEMS account.</p>'
-                . '<p><a href="' . $safeUrl . '">Verify your email</a></p>'
-                . '<p>If you did not create this account, you can ignore this message.</p>',
-            "Hello {$name},\n\nVerify your email to activate sign-in for your OEMS account:\n{$url}\n\n"
-                . 'If you did not create this account, you can ignore this message.',
+        return $this->deliver(
+            $userId,
+            'email_verification',
+            $this->verificationMessage($recipient, $name, $token),
+            $token,
         );
+    }
 
-        return $this->deliver($userId, 'email_verification', $message, $token);
+    public function sendVerificationPrivacyProbe(): bool
+    {
+        $recipient = trim((string) $this->config->get('mail.privacy_sink_address', ''));
+
+        if ($recipient === '') {
+            $recipient = (string) $this->config->get('mail.from_address', 'no-reply@oems.local');
+        }
+
+        $name = (string) $this->config->get('mail.from_name', 'OEMS') . ' privacy sink';
+        $token = bin2hex(random_bytes(32));
+
+        return $this->deliver(
+            null,
+            'email_verification_probe',
+            $this->verificationMessage($recipient, $name, $token),
+            $token,
+        );
     }
 
     public function sendPasswordReset(
@@ -94,6 +103,25 @@ final class AccountMailer
                 . '<p>If you did not request a reset, you can ignore this message.</p>',
             "Hello {$name},\n\nUse this link to choose a new OEMS password. It expires in one hour:\n{$url}\n\n"
                 . 'If you did not request a reset, you can ignore this message.',
+        );
+    }
+
+    private function verificationMessage(string $recipient, string $name, string $token): EmailMessage
+    {
+        $url = $this->url('/verify-email/' . rawurlencode($token));
+        $safeName = $this->escape($name);
+        $safeUrl = $this->escape($url);
+
+        return new EmailMessage(
+            $recipient,
+            $name,
+            'Verify your OEMS email',
+            '<p>Hello ' . $safeName . ',</p>'
+                . '<p>Verify your email address to activate sign-in for your OEMS account.</p>'
+                . '<p><a href="' . $safeUrl . '">Verify your email</a></p>'
+                . '<p>If you did not create this account, you can ignore this message.</p>',
+            "Hello {$name},\n\nVerify your email to activate sign-in for your OEMS account:\n{$url}\n\n"
+                . 'If you did not create this account, you can ignore this message.',
         );
     }
 

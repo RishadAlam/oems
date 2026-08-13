@@ -162,6 +162,62 @@ final class AuthService
         return $this->users->markEmailVerified(hash('sha256', $token)) !== null;
     }
 
+    public function requestEmailVerification(
+        string $email,
+        string $ipAddress = '127.0.0.1',
+    ): array {
+        $normalizedEmail = strtolower(trim($email));
+        $emailRateLimitKey = 'verification-resend:email:' . hash('sha256', $normalizedEmail);
+        $ipRateLimitKey = 'verification-resend:ip:' . hash('sha256', $ipAddress);
+
+        if ($this->rateLimiter !== null) {
+            $ipAllowed = $this->rateLimiter->consumeAttempt($ipRateLimitKey);
+            $emailAllowed = $this->rateLimiter->consumeAttempt($emailRateLimitKey);
+
+            if (!$ipAllowed || !$emailAllowed) {
+                return $this->genericEmailVerificationResult('none');
+            }
+        }
+
+        $user = $this->users->findByEmail($normalizedEmail);
+
+        if ($user === null
+            || ($user['status'] ?? 'inactive') !== 'active'
+            || ($user['email_verified_at'] ?? null) !== null) {
+            return $this->genericEmailVerificationResult('probe');
+        }
+
+        $token = bin2hex(random_bytes(32));
+
+        if (!$this->users->replaceEmailVerificationToken(
+            (int) $user['id'],
+            hash('sha256', $token),
+        )) {
+            return $this->genericEmailVerificationResult('probe');
+        }
+
+        return [
+            'success' => true,
+            'verification_token' => $token,
+            'user_id' => (int) $user['id'],
+            'name' => (string) $user['name'],
+            'email' => (string) $user['email'],
+            'mail_dispatch' => 'verification',
+        ];
+    }
+
+    private function genericEmailVerificationResult(string $mailDispatch): array
+    {
+        return [
+            'success' => true,
+            'verification_token' => null,
+            'user_id' => null,
+            'name' => null,
+            'email' => null,
+            'mail_dispatch' => $mailDispatch,
+        ];
+    }
+
     public function requestPasswordReset(string $email, string $ipAddress = '127.0.0.1'): array
     {
         $normalizedEmail = strtolower(trim($email));

@@ -70,6 +70,22 @@ final class FakeUserRepository implements UserRepositoryInterface
         return null;
     }
 
+    public function replaceEmailVerificationToken(int $userId, string $tokenHash): bool
+    {
+        $user = $this->users[$userId] ?? null;
+
+        if (!is_array($user)
+            || ($user['status'] ?? 'inactive') !== 'active'
+            || ($user['email_verified_at'] ?? null) !== null
+            || ($user['deleted_at'] ?? null) !== null) {
+            return false;
+        }
+
+        $this->users[$userId]['email_verification_token_hash'] = $tokenHash;
+
+        return true;
+    }
+
     public function updateLastLogin(int $userId): void
     {
         $this->users[$userId]['last_login_at'] = (new DateTimeImmutable())->format('Y-m-d H:i:s');

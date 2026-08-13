@@ -79,7 +79,9 @@ return static function (Router $router): void {
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf'], 'login.submit');
     $router->get('/register', [AuthController::class, 'showRegister'], ['guest'], 'register');
     $router->post('/register', [AuthController::class, 'register'], ['guest', 'csrf'], 'register.submit');
-    $router->get('/verify-email/{token}', [AuthController::class, 'verifyEmail'], ['guest'], 'verify-email');
+    $router->get('/verify-email/resend', [AuthController::class, 'showResendVerification'], name: 'verification.notice');
+    $router->post('/verify-email/resend', [AuthController::class, 'resendVerification'], ['csrf'], 'verification.resend');
+    $router->get('/verify-email/{token}', [AuthController::class, 'verifyEmail'], name: 'verify-email');
     $router->get('/forgot-password', [AuthController::class, 'showForgotPassword'], ['guest'], 'password.request');
     $router->post('/forgot-password', [AuthController::class, 'sendResetLink'], ['guest', 'csrf'], 'password.email');
     $router->get('/reset-password/{token}', [AuthController::class, 'showResetPassword'], ['guest'], 'password.reset');

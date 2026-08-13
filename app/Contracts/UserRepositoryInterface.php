@@ -18,6 +18,8 @@ interface UserRepositoryInterface
 
     public function markEmailVerified(string $tokenHash): ?array;
 
+    public function replaceEmailVerificationToken(int $userId, string $tokenHash): bool;
+
     public function updateLastLogin(int $userId): void;
 
     public function updatePassword(int $userId, string $passwordHash): void;
