@@ -1170,11 +1170,20 @@
     }
 
     .dashboard-sidebar {
-        @apply fixed inset-y-0 left-0 z-50 hidden w-[264px] flex-col border-r border-[var(--line)] bg-[var(--surface-raised)] px-5 pb-6 shadow-[var(--shadow-soft)] lg:flex lg:shadow-none;
+        @apply fixed inset-y-0 left-0 z-50 hidden w-[264px] flex-col overflow-hidden border-r border-[var(--line)] bg-[var(--surface-raised)] px-5 pb-6 shadow-[var(--shadow-soft)] lg:flex lg:shadow-none;
     }
 
     .dashboard-sidebar.is-open {
         @apply flex;
+    }
+
+    .dashboard-sidebar__scroll {
+        @apply mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1;
+        scrollbar-gutter: stable;
+    }
+
+    .dashboard-sidebar__footer {
+        @apply shrink-0 border-t border-[var(--line)] pt-5;
     }
 
     .dashboard-sidebar__label,

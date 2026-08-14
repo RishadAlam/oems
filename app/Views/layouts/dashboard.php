@@ -10,7 +10,7 @@
     <title><?= e($pageTitle ?? 'Dashboard') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
     <?php if (!empty($leafletEnabled)): ?><link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"><?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-verification-recovery-v2">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-sidebar-scroll-v1">
     <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/dashboard-sidebar.js" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
@@ -65,11 +65,11 @@
     <a class="skip-link" href="#dashboard-content">Skip to content</a>
     <div class="min-h-[100dvh] lg:grid lg:grid-cols-[264px_1fr]">
         <aside id="dashboard-sidebar" class="dashboard-sidebar" data-dashboard-sidebar aria-label="Workspace navigation">
-            <div class="flex h-[72px] items-center justify-between">
+            <div class="flex h-[72px] shrink-0 items-center justify-between">
                 <?php require base_path('app/Views/components/brand.php'); ?>
                 <button class="icon-button lg:hidden" type="button" data-dashboard-close aria-controls="dashboard-sidebar" aria-label="Close navigation" title="Close navigation"><i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
-            <div class="mt-6">
+            <div class="dashboard-sidebar__scroll">
                 <p class="dashboard-sidebar__label">Workspace</p>
                 <nav class="mt-3 grid gap-1" aria-label="Dashboard navigation">
                     <a class="dashboard-nav-link<?= $overviewActive ? ' dashboard-nav-link--active' : '' ?>" href="/dashboard"<?= $overviewActive ? ' aria-current="page"' : '' ?>><i class="ph ph-squares-four" aria-hidden="true"></i><span>Overview</span></a>
@@ -112,7 +112,7 @@
                     <a class="dashboard-nav-link<?= $currentPath === '/settings/password' ? ' dashboard-nav-link--active' : '' ?>" href="/settings/password"<?= $currentPath === '/settings/password' ? ' aria-current="page"' : '' ?>><i class="ph ph-shield-check" aria-hidden="true"></i><span>Security</span></a>
                 </nav>
             </div>
-            <div class="mt-auto border-t border-[var(--line)] pt-5">
+            <div class="dashboard-sidebar__footer">
                 <div class="dashboard-user">
                     <span class="dashboard-user__avatar" aria-hidden="true"><?= e($userInitials !== '' ? $userInitials : 'O') ?></span>
                     <span class="min-w-0"><strong><?= e($userName) ?></strong><small><?= e($currentUser['email'] ?? '') ?></small></span>

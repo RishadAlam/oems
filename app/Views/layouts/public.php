@@ -36,7 +36,7 @@ $layoutOrganizerMenuIcon = $layoutHasCurrentUser ? 'ph-squares-four' : 'ph-micro
     <?php if (!empty($leafletEnabled)): ?>
         <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
     <?php endif; ?>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-verification-recovery-v2">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260814-sidebar-scroll-v1">
     <?php if (isset($jsonLd) && is_array($jsonLd)): ?>
         <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) ?></script>
     <?php endif; ?>
