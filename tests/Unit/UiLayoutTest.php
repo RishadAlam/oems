@@ -351,12 +351,12 @@ final class UiLayoutTest extends TestCase
     public function testOperationalListsUseTheSharedResponsiveTableContract(): void
     {
         $views = [
-            'app/Views/admin/newsletter/index.php' => ['Newsletter campaigns', 'Action'],
-            'app/Views/admin/contact/index.php' => ['Contact messages', 'Action'],
-            'app/Views/organizer/coupons/index.php' => ['Organizer coupons', 'Actions'],
+            'app/Views/admin/newsletter/index.php' => ['Newsletter campaigns', 'Action', 'Campaign'],
+            'app/Views/admin/contact/index.php' => ['Contact messages', 'Action', 'Sender'],
+            'app/Views/organizer/coupons/index.php' => ['Organizer coupons', 'Actions', null],
         ];
 
-        foreach ($views as $view => [$caption, $actionLabel]) {
+        foreach ($views as $view => [$caption, $actionLabel, $primaryLabel]) {
             $source = (string) file_get_contents(base_path($view));
             $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
             $document = new \DOMDocument();
@@ -399,6 +399,20 @@ final class UiLayoutTest extends TestCase
             $this->assertSame(1, $captions?->length, $view . ' must expose one descriptive table caption.');
             $this->assertSame(1, $actions?->length, $view . ' must identify its responsive action cell.');
             $this->assertSame(0, $legacyWrappers?->length, $view . ' must not use the unstyled legacy wrapper.');
+
+            if ($primaryLabel !== null) {
+                $primaryContent = $xpath->query(
+                    './/td[@data-label="' . $primaryLabel . '"]'
+                    . '/div[contains(concat(" ", normalize-space(@class), " "), " organizer-table__primary ")]',
+                    $table,
+                );
+
+                $this->assertSame(
+                    1,
+                    $primaryContent?->length,
+                    $view . ' must group multi-line primary content for the mobile label/value grid.',
+                );
+            }
         }
     }
 
