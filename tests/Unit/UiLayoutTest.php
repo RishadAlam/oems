@@ -348,6 +348,60 @@ final class UiLayoutTest extends TestCase
         $this->assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testOperationalListsUseTheSharedResponsiveTableContract(): void
+    {
+        $views = [
+            'app/Views/admin/newsletter/index.php' => ['Newsletter campaigns', 'Action'],
+            'app/Views/admin/contact/index.php' => ['Contact messages', 'Action'],
+            'app/Views/organizer/coupons/index.php' => ['Organizer coupons', 'Actions'],
+        ];
+
+        foreach ($views as $view => [$caption, $actionLabel]) {
+            $source = (string) file_get_contents(base_path($view));
+            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($markup);
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+
+            $this->assertTrue($loaded, $view . ' must contain parseable table markup.');
+            $xpath = new \DOMXPath($document);
+            $tables = $xpath->query(
+                '//div[contains(concat(" ", normalize-space(@class), " "), " organizer-table-wrap ")]'
+                . '/table[contains(concat(" ", normalize-space(@class), " "), " operations-table ")]'
+                . '[contains(concat(" ", normalize-space(@class), " "), " organizer-table ")]',
+            );
+
+            $this->assertSame(
+                1,
+                $tables?->length,
+                $view . ' must adopt the shared responsive operations table.',
+            );
+
+            $table = $tables?->item(0);
+            if (!$table instanceof \DOMElement) {
+                continue;
+            }
+
+            $captions = $xpath->query(
+                './caption[contains(concat(" ", normalize-space(@class), " "), " sr-only ") and normalize-space(.)="' . $caption . '"]',
+                $table,
+            );
+            $actions = $xpath->query(
+                './/td[contains(concat(" ", normalize-space(@class), " "), " organizer-table__action ") and @data-label="' . $actionLabel . '"]',
+                $table,
+            );
+            $legacyWrappers = $xpath->query(
+                '//*[contains(concat(" ", normalize-space(@class), " "), " table-shell ")]',
+            );
+
+            $this->assertSame(1, $captions?->length, $view . ' must expose one descriptive table caption.');
+            $this->assertSame(1, $actions?->length, $view . ' must identify its responsive action cell.');
+            $this->assertSame(0, $legacyWrappers?->length, $view . ' must not use the unstyled legacy wrapper.');
+        }
+    }
+
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
     {
         $views = [
