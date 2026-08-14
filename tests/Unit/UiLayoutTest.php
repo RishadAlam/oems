@@ -1279,6 +1279,91 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'href="/register?role=organizer" class="button button--quiet"'));
     }
 
+    public function testHomepageFeaturedEventsUseBalancedResponsiveCards(): void
+    {
+        $html = $this->renderHome([
+            'featuredEvents' => [
+                [
+                    'title' => 'Dhaka Tech Summit 2026',
+                    'slug' => 'dhaka-tech-summit-2026',
+                    'category' => 'Technology',
+                    'date' => 'Sep 18, 2026',
+                    'datetime' => '2026-09-18T09:00:00+06:00',
+                    'time' => '9:00 AM',
+                    'venue' => 'Bangabandhu International Conference Center, Sher-e-Bangla Nagar, Dhaka, Bangladesh',
+                    'price' => '৳2,500',
+                    'image' => '/assets/images/event-technology.webp',
+                    'alt' => 'People attending the Dhaka Tech Summit',
+                ],
+                [
+                    'title' => 'Startup Growth Forum 2026 with founders and product leaders',
+                    'slug' => 'startup-growth-forum-2026',
+                    'category' => 'Business',
+                    'date' => 'Oct 5, 2026',
+                    'datetime' => '2026-10-05T10:00:00+06:00',
+                    'time' => '10:00 AM',
+                    'venue' => 'Dhaka, Bangladesh',
+                    'price' => '৳1,200',
+                    'image' => '/assets/images/event-business.webp',
+                    'alt' => 'A team collaborating at the Startup Growth Forum',
+                ],
+            ],
+        ]);
+
+        $dom = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $dom->loadHTML($html);
+        libxml_clear_errors();
+        $xpath = new \DOMXPath($dom);
+        $cards = $xpath->query('//section[contains(concat(" ", normalize-space(@class), " "), " home-featured ")]//article[contains(concat(" ", normalize-space(@class), " "), " home-event-card ")]');
+
+        $this->assertSame(2, $cards?->length ?? 0);
+        $this->assertFalse(str_contains($html, 'event-card--wide'));
+
+        if ($cards !== false) {
+            foreach ($cards as $card) {
+                $this->assertSame(1, $xpath->query('.//time', $card)?->length ?? 0);
+                $this->assertSame(1, $xpath->query('.//address', $card)?->length ?? 0);
+                $this->assertSame(2, $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " event-card__meta ")]', $card)?->length ?? 0);
+            }
+        }
+
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+
+        $this->assertTrue($this->cssRuleApplyContainsUtilities(
+            $sourceCss,
+            '.home-featured__grid',
+            ['grid-cols-1', 'md:grid-cols-2'],
+        ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-featured__grid',
+            ['grid-template-columns:repeat(1,minmax(0,1fr))'],
+        ));
+        $this->assertTrue($this->cssMediaRuleContainsTokens(
+            $compiledCss,
+            '48rem',
+            '.home-featured__grid',
+            ['grid-template-columns:repeat(2,minmax(0,1fr))'],
+        ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-featured .event-card__media img',
+            ['aspect-ratio:16/9'],
+        ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-event-card h3',
+            ['display:-webkit-box', '-webkit-box-orient:vertical', '-webkit-line-clamp:2', 'overflow:hidden', 'min-height:'],
+        ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-event-card .event-card__footer',
+            ['margin-top:auto'],
+        ));
+    }
+
     public function testHomepageSeparatesDiscoveryParticipantAndOrganizerJourneys(): void
     {
         $html = $this->renderHome();
