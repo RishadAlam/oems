@@ -11,8 +11,8 @@
         <div class="organizer-table-wrap mt-6"><table class="operations-table organizer-table"><caption class="sr-only">Organizer coupons</caption><thead><tr><th>Code</th><th>Scope</th><th>Discount</th><th>Usage</th><th>Status</th><th>Actions</th></tr></thead><tbody>
         <?php foreach ($coupons as $coupon): ?>
             <tr>
-                <td data-label="Code"><strong><?= e($coupon['code']) ?></strong></td>
-                <td data-label="Scope"><?= e($coupon['event_title'] ?? 'All owned events') ?></td>
+                <td class="[overflow-wrap:anywhere]" data-label="Code"><strong><?= e($coupon['code']) ?></strong></td>
+                <td class="[overflow-wrap:anywhere]" data-label="Scope"><?= e($coupon['event_title'] ?? 'All owned events') ?></td>
                 <td data-label="Discount"><?= e($coupon['discount_type'] === 'percentage' ? rtrim(rtrim((string) $coupon['discount_value'], '0'), '.') . '%' : (string) $coupon['discount_value'] . ($coupon['event_currency'] === null ? ' event currency' : ' ' . (string) $coupon['event_currency'])) ?></td>
                 <td data-label="Usage"><?= e((int) $coupon['used_count']) ?><?= $coupon['usage_limit'] === null ? '' : ' of ' . e((int) $coupon['usage_limit']) ?></td>
                 <td data-label="Status"><span class="status-badge <?= !empty($coupon['is_active']) ? 'status-badge--active' : 'status-badge--inactive' ?>"><?= !empty($coupon['is_active']) ? 'Active' : 'Inactive' ?></span></td>
