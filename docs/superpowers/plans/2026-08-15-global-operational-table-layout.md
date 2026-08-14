@@ -202,7 +202,7 @@ Run:
 ```bash
 rtk php tests/run.php UiLayoutTest
 rtk php tests/run.php StatusUiTest
-rtk composer test:syntax
+rtk composer check:syntax
 ```
 
 Expected: markup assertions pass; CSS and banner presentation assertions may remain RED until Task 3.
@@ -367,8 +367,8 @@ rtk php tests/run.php CmsControllerTest
 rtk php tests/run.php PwaStaticPolicyTest
 rtk php tests/run.php OrganizerVenueControllerTest
 rtk node tests/js/pwa.test.mjs
-rtk composer test:syntax
-rtk composer test:forms
+rtk composer check:syntax
+rtk npm run test:forms
 rtk npm run test:assets
 ```
 
@@ -420,10 +420,10 @@ Run:
 
 ```bash
 rtk composer test
-rtk npm test
+rtk node tests/js/pwa.test.mjs
 rtk npm run test:assets
-rtk composer test:forms
-rtk composer test:syntax
+rtk npm run test:forms
+rtk composer check:syntax
 rtk git diff --check
 ```
 
