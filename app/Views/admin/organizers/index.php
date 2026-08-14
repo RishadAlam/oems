@@ -46,12 +46,12 @@ $query = static function (int $targetPage) use ($search, $approval, $pagination)
         <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-buildings" aria-hidden="true"></i></span><strong>No organizers match these filters</strong><p>Clear one or more filters to widen the organizer search.</p><a class="button button--quiet" href="/admin/organizers">Clear filters</a></div>
     <?php else: ?>
         <div class="organizer-table-wrap">
-            <table class="organizer-table">
+            <table class="operations-table organizer-table">
                 <caption class="sr-only">Administrator organizer directory</caption>
-                <thead><tr><th scope="col">Organization</th><th scope="col">Contact</th><th scope="col">Events</th><th scope="col">Approval</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">Organization</th><th scope="col">Contact</th><th scope="col">Events</th><th scope="col">Approval</th><th scope="col">Action</th></tr></thead>
                 <tbody><?php foreach ($items as $organizer): ?><?php $state = (string) ($organizer['approval_status'] ?? ''); $accountStatus = (string) ($organizer['user_status'] ?? ''); ?><tr>
                     <td data-label="Organization"><strong><?= e($organizer['organization_name'] ?? 'Unnamed organization') ?></strong><small>Account: <span class="status-chip status-chip--<?= e(status_modifier($accountStatus, 'account')) ?>"><?= e(oems_status_label($accountStatus)) ?></span></small></td>
-                    <td data-label="Contact"><strong><?= e($organizer['name'] ?? 'Unknown contact') ?></strong><small><?= e($organizer['email'] ?? '') ?></small></td>
+                    <td data-label="Contact"><strong><?= e($organizer['name'] ?? 'Unknown contact') ?></strong><small class="organizer-table__value"><?= e($organizer['email'] ?? '') ?></small></td>
                     <td data-label="Events"><?= e((int) ($organizer['event_count'] ?? 0)) ?></td>
                     <td data-label="Approval"><span class="status-chip status-chip--<?= e(status_modifier($state, 'organizer_approval')) ?>"><?= e(oems_status_label($state)) ?></span></td>
                     <td class="organizer-table__action" data-label="Action"><a class="text-link" href="/admin/organizers/<?= e($organizer['id']) ?>">Review <i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>

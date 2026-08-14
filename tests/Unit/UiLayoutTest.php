@@ -358,7 +358,7 @@ final class UiLayoutTest extends TestCase
 
         foreach ($views as $view => [$caption, $actionLabel, $primaryLabel, $unbrokenValueLabels]) {
             $source = (string) file_get_contents(base_path($view));
-            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
+            $markup = $this->tableMarkup($source);
             $document = new \DOMDocument();
             $previousErrors = libxml_use_internal_errors(true);
             $loaded = $document->loadHTML($markup);
@@ -481,7 +481,7 @@ final class UiLayoutTest extends TestCase
             $legacyActionSource = preg_replace('/\badmin-table-actions\b/', '', $source) ?? $source;
             $this->assertSame(0, preg_match('/class="[^"]*\btable-actions\b[^"]*"/', $legacyActionSource), $view . ' must replace the legacy .table-actions wrapper with .admin-table-actions.');
 
-            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
+            $markup = $this->tableMarkup($source);
             $document = new \DOMDocument();
             $previousErrors = libxml_use_internal_errors(true);
             $loaded = $document->loadHTML($markup);
@@ -532,6 +532,29 @@ final class UiLayoutTest extends TestCase
         }
 
         $this->assertSame(25, $tableCount, 'The declared operational-table manifest must cover every table-bearing view.');
+    }
+
+    public function testTableMarkupParserRetainsDynamicLabelsAndRejectsEmptyLabels(): void
+    {
+        $dynamic = $this->tableMarkup('<table><caption>Dynamic report</caption><thead><tr><th scope="col"><?= e($label) ?></th></tr></thead><tbody><tr><td data-label="<?= e($label) ?>">Value</td></tr></tbody></table>');
+        $empty = $this->tableMarkup('<table><caption>Empty report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="">Value</td></tr></tbody></table>');
+
+        $dynamicDocument = new \DOMDocument();
+        $emptyDocument = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $dynamicLoaded = $dynamicDocument->loadHTML($dynamic);
+        $emptyLoaded = $emptyDocument->loadHTML($empty);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($dynamicLoaded);
+        $this->assertTrue($emptyLoaded);
+
+        $dynamicXPath = new \DOMXPath($dynamicDocument);
+        $emptyXPath = new \DOMXPath($emptyDocument);
+        $this->assertSame(1, $dynamicXPath->query('//td[@data-label="__DYNAMIC__"]')?->length);
+        $this->assertSame(0, $dynamicXPath->query('//td[not(@data-label) or normalize-space(@data-label)=""]')?->length);
+        $this->assertSame(1, $emptyXPath->query('//td[not(@data-label) or normalize-space(@data-label)=""]')?->length);
     }
 
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
@@ -1767,6 +1790,13 @@ final class UiLayoutTest extends TestCase
             str_contains($haystack, $needle),
             $message !== '' ? $message : sprintf('Expected %s to contain %s.', var_export($haystack, true), var_export($needle, true)),
         );
+    }
+
+    private function tableMarkup(string $source): string
+    {
+        $withDynamicEchoes = preg_replace('/<\?=\s*.*?\?>/s', '__DYNAMIC__', $source) ?? $source;
+
+        return preg_replace('/<\?(?:php|=).*?\?>/s', '', $withDynamicEchoes) ?? '';
     }
 
     private function visibleTableText(\DOMNode $node): string

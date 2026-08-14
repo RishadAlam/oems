@@ -22,7 +22,7 @@
         <div class="organizer-table-wrap mt-6">
             <table class="operations-table organizer-table">
                 <caption class="sr-only">Announcement delivery history for <?= e($event['title'] ?? 'this event') ?></caption>
-                <thead><tr><th>Announcement</th><th>Audience</th><th>Sent by</th><th>Sent</th></tr></thead>
+                <thead><tr><th scope="col">Announcement</th><th scope="col">Audience</th><th scope="col">Sent by</th><th scope="col">Sent</th></tr></thead>
                 <tbody>
                 <?php foreach ($announcements as $announcement): ?>
                     <?php $count = (int) ($announcement['recipient_count'] ?? 0); ?>

@@ -58,9 +58,9 @@ $statusLabels = [
         </div>
     <?php else: ?>
         <div class="organizer-table-wrap">
-            <table class="organizer-table">
+            <table class="operations-table organizer-table">
                 <caption class="sr-only">Organizer events</caption>
-                <thead><tr><th scope="col">Event</th><th scope="col">Schedule</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">Event</th><th scope="col">Schedule</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($events as $event): ?>
                     <?php $eventStatus = (string) ($event['status'] ?? ''); ?>

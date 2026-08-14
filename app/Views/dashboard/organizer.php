@@ -101,9 +101,9 @@ $statusLabels = [
             </div>
         <?php else: ?>
             <div class="organizer-table-wrap mt-6">
-                <table class="organizer-table">
+                <table class="operations-table organizer-table">
                     <caption class="sr-only">Recent organizer events and next actions</caption>
-                    <thead><tr><th scope="col">Event</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Next action</span></th></tr></thead>
+                    <thead><tr><th scope="col">Event</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                     <tbody>
                     <?php foreach ($events as $event): ?>
                         <?php

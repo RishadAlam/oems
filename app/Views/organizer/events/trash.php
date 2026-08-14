@@ -5,9 +5,9 @@
     <?php if ($events === []): ?>
         <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-check-circle" aria-hidden="true"></i></span><strong>No deleted events</strong><p>Deleted events that belong to this organizer will appear here.</p><a class="button button--primary" href="/organizer/events">Manage events</a></div>
     <?php else: ?>
-        <div class="organizer-table-wrap mt-6"><table class="operations-table organizer-table"><caption class="sr-only">Organizer deleted events</caption><thead><tr><th>Event</th><th>Lifecycle</th><th>Deleted</th><th>Registration history</th><th><span class="sr-only">Recovery action</span></th></tr></thead><tbody>
+        <div class="organizer-table-wrap mt-6"><table class="operations-table organizer-table"><caption class="sr-only">Organizer deleted events</caption><thead><tr><th scope="col">Event</th><th scope="col">Lifecycle</th><th scope="col">Deleted</th><th scope="col">Registration history</th><th scope="col">Action</th></tr></thead><tbody>
         <?php foreach ($events as $event): ?><?php $eventStatus = (string) ($event['status'] ?? ''); ?><tr>
-            <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><small><?= e($event['slug'] ?? '') ?></small></td>
+            <td data-label="Event"><strong><?= e($event['title'] ?? 'Untitled event') ?></strong><small class="organizer-table__value"><?= e($event['slug'] ?? '') ?></small></td>
             <td data-label="Lifecycle"><span class="status-chip status-chip--<?= e(status_modifier($eventStatus, 'event')) ?>"><?= e(oems_status_label($eventStatus)) ?></span></td>
             <td data-label="Deleted"><time datetime="<?= e(str_replace(' ', 'T', (string) ($event['deleted_at'] ?? ''))) ?>"><?= e($event['deleted_at'] ?? '') ?></time></td>
             <td data-label="Registration history"><?= e((int) ($event['registration_count'] ?? 0)) ?></td>

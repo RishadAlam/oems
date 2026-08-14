@@ -45,9 +45,9 @@ $statusLabels = [
         <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-check-circle" aria-hidden="true"></i></span><strong>No events in this queue</strong><p>Choose another status or return later for new submissions.</p></div>
     <?php else: ?>
         <div class="organizer-table-wrap">
-            <table class="organizer-table">
+            <table class="operations-table organizer-table">
                 <caption class="sr-only">Administrator event moderation queue</caption>
-                <thead><tr><th scope="col">Event</th><th scope="col">Organizer</th><th scope="col">Schedule</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">Event</th><th scope="col">Organizer</th><th scope="col">Schedule</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($events as $event): ?>
                     <?php $eventStatus = (string) ($event['status'] ?? ''); ?>

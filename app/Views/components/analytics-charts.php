@@ -85,7 +85,7 @@ $categoryNoun = $categoryCount === 1 ? 'category' : 'categories';
                     <div class="analytics-data-disclosure__content organizer-table-wrap">
                         <table class="operations-table organizer-table analytics-data-table">
                             <caption class="sr-only">Timeline chart source data</caption>
-                            <thead><tr><th>Period</th><th>Events</th><th>Registrations</th><th>Attendance</th><?php foreach (array_keys($chartPayments) as $currency): ?><th>Paid <?= e($currency) ?></th><?php endforeach; ?></tr></thead>
+                            <thead><tr><th scope="col">Period</th><th scope="col">Events</th><th scope="col">Registrations</th><th scope="col">Attendance</th><?php foreach (array_keys($chartPayments) as $currency): ?><th scope="col">Paid <?= e($currency) ?></th><?php endforeach; ?></tr></thead>
                             <tbody>
                             <?php foreach ($chartLabels as $index => $label): ?>
                                 <tr>
@@ -129,7 +129,7 @@ $categoryNoun = $categoryCount === 1 ? 'category' : 'categories';
                     <div class="analytics-data-disclosure__content organizer-table-wrap">
                         <table class="operations-table organizer-table analytics-data-table">
                             <caption class="sr-only">Category chart source data</caption>
-                            <thead><tr><th>Category</th><th>Registrations</th></tr></thead>
+                            <thead><tr><th scope="col">Category</th><th scope="col">Registrations</th></tr></thead>
                             <tbody><?php foreach ($categoryLabels as $index => $label): ?><tr><td data-label="Category"><strong><?= e($label) ?></strong></td><td data-label="Registrations"><?= e((int) ($categoryCounts[$index] ?? 0)) ?></td></tr><?php endforeach; ?></tbody>
                         </table>
                     </div>

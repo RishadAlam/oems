@@ -49,14 +49,14 @@ $query = static function (int $targetPage) use ($search, $role, $status, $pagina
         <div class="empty-state"><span class="empty-state__icon"><i class="ph ph-user-focus" aria-hidden="true"></i></span><strong>No users match these filters</strong><p>Clear one or more filters to widen the account search.</p><a class="button button--quiet" href="/admin/users">Clear filters</a></div>
     <?php else: ?>
         <div class="organizer-table-wrap">
-            <table class="organizer-table">
+            <table class="operations-table organizer-table">
                 <caption class="sr-only">Administrator user directory</caption>
-                <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Verification</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Verification</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                 <tbody>
                 <?php foreach ($items as $user): ?>
                     <?php $userStatus = (string) ($user['status'] ?? ''); ?>
                     <tr>
-                        <td data-label="Account"><strong><?= e($user['name'] ?? 'Unnamed user') ?></strong><small><?= e($user['email'] ?? '') ?></small></td>
+                        <td data-label="Account"><strong><?= e($user['name'] ?? 'Unnamed user') ?></strong><small class="organizer-table__value"><?= e($user['email'] ?? '') ?></small></td>
                         <td data-label="Role"><?= e($user['role_name'] ?? ucfirst((string) ($user['role_slug'] ?? 'member'))) ?></td>
                         <td data-label="Verification"><span class="status-chip <?= !empty($user['email_verified_at']) ? 'status-chip--success' : 'status-chip--warning' ?>"><?= !empty($user['email_verified_at']) ? 'Email verified' : 'Email unverified' ?></span></td>
                         <td data-label="Status"><span class="status-chip status-chip--<?= e(status_modifier($userStatus, 'account')) ?>"><?= e(oems_status_label($userStatus)) ?></span></td>
