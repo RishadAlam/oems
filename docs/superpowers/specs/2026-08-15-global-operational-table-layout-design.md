@@ -67,11 +67,11 @@ Every operational data table must use this hierarchy:
     <tbody>
       <tr>
         <td data-label="Record">
-          <div class="organizer-table__primary organizer-table__value">...</div>
+          <div class="organizer-table__primary organizer-table__value"><strong>Record title</strong><small>Record details</small></div>
         </td>
-        <td data-label="Status">...</td>
+        <td data-label="Status"><span class="status-chip status-chip--neutral">Draft</span></td>
         <td class="organizer-table__action" data-label="Actions">
-          <div class="admin-table-actions">...</div>
+          <div class="admin-table-actions"><a class="button button--quiet button--compact" href="/admin/categories/1/edit">Edit</a></div>
         </td>
       </tr>
     </tbody>
@@ -121,11 +121,14 @@ The banner row will use structured content:
 - valid timestamps rendered through `<time>` using `M j, Y, g:i A`;
 - missing start rendered as `Immediately`;
 - missing end rendered as `No end date`;
-- delivery state derived at render time:
+- delivery state derived by a pure presenter using one controller-provided clock in the configured application timezone:
   - Disabled when `is_active` is false;
   - Scheduled when enabled and start is in the future;
   - Ended when enabled and end is in the past;
-  - Live when enabled and within its delivery window.
+  - Live when enabled and within its delivery window;
+  - Unknown when an enabled legacy row has a malformed or reversed schedule.
+
+Start and end equality with the current instant are inside the live window, matching the repository's inclusive public-visibility boundaries. Strict parsing accepts only stored `Y-m-d H:i:s` values. Machine-readable `<time>` values include the configured UTC offset. Malformed or inconsistent legacy schedules render `Schedule unavailable` and no `<time>` element; the UI never guesses, rewrites, or loosely parses a stored date.
 
 This separates public delivery truth from the persisted enable flag without changing storage or activation routes.
 
@@ -134,7 +137,7 @@ This separates public delivery truth from the persisted enable flag without chan
 - Reuse existing OEMS surfaces, borders, status tones, radii, and button components.
 - Do not add shadows, gradients, animations, or new dependencies.
 - Keep rows compact and vertically centered.
-- Use semantic status chips: Live uses success, Scheduled uses warning, Ended and Disabled use neutral.
+- Use semantic status chips: Live uses success, Scheduled uses warning, and Ended, Disabled, and Unknown use neutral.
 - Keep destructive Disable/Deactivate actions in the existing danger button treatment.
 - Use tabular date numerals only where already inherited from the project typography.
 
@@ -181,6 +184,7 @@ Automated coverage must prove:
 - `.table-actions` no longer appears;
 - the shared source and compiled CSS contain desktop containment, safe values, mobile label/value placement, and responsive action-group rules;
 - CMS banner states render truthfully for disabled, scheduled, ended, and live fixtures;
+- malformed, non-scalar, reversed, and exact-boundary schedule fixtures are deterministic under a frozen `Asia/Dhaka` clock;
 - existing CSRF and action form behavior remains intact;
 - asset versions and service-worker precache references match.
 

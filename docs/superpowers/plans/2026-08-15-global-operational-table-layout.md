@@ -4,7 +4,7 @@
 
 **Goal:** Make every OEMS operational table structurally consistent, responsive, accessible, overflow-safe, and professionally aligned, including truthful banner delivery states.
 
-**Architecture:** Preserve the existing PHP view and Tailwind-based OEMS design system. Enforce one static markup contract across all 25 operational tables, keep flex behavior inside action groups instead of table cells, and strengthen the shared desktop/mobile CSS. Derive banner delivery presentation in the CMS view without changing persisted state or action endpoints.
+**Architecture:** Preserve the existing PHP view and Tailwind-based OEMS design system. Enforce one static markup contract across all 25 operational tables, keep flex behavior inside action groups instead of table cells, and strengthen the shared desktop/mobile CSS. Derive banner delivery presentation through a pure strict presenter fed one configured-timezone clock by the CMS controller, without changing persisted state or action endpoints.
 
 **Tech Stack:** PHP 8.2+, custom OEMS MVC/views, Tailwind CSS 4 source utilities, compiled CSS in `public/assets/css/app.css`, PHPUnit-style OEMS test runner, Node-based PWA assertions, service worker static cache.
 
@@ -219,6 +219,9 @@ rtk git commit -m "fix: standardize operational table markup"
 ### Task 3: Publish the responsive CSS and truthful banner presentation
 
 **Files:**
+- Create: `app/Support/CmsBannerPresenter.php`
+- Create: `tests/Unit/CmsBannerPresenterTest.php`
+- Modify: `app/Controllers/AdminCmsController.php`
 - Modify: `resources/css/app.css`
 - Modify: `app/Views/admin/cms/index.php`
 - Modify: `public/assets/css/app.css` (generated)
@@ -236,9 +239,46 @@ rtk git commit -m "fix: standardize operational table markup"
 
 **Interfaces:**
 - Consumes: standardized table markup from Task 2.
-- Produces: source/compiled responsive layout parity and accurate CMS banner delivery presentation.
+- Produces: `CmsBannerPresenter::present(array $banner, DateTimeImmutable $now, DateTimeZone $timezone): array`, source/compiled responsive layout parity, and accurate CMS banner delivery presentation.
 
-- [ ] **Step 1: Strengthen the shared desktop CSS**
+- [ ] **Step 1: Add strict presenter and controller-boundary RED tests**
+
+Create `CmsBannerPresenterTest` with a frozen `2026-08-15 12:00:00 Asia/Dhaka` instant. Hand-written fixtures must prove:
+
+```php
+$this->assertSame('Live', $presenter->present($live, $now, $timezone)['delivery']['label']);
+$this->assertSame('Scheduled', $presenter->present($future, $now, $timezone)['delivery']['label']);
+$this->assertSame('Ended', $presenter->present($past, $now, $timezone)['delivery']['label']);
+$this->assertSame('Disabled', $presenter->present($disabled, $now, $timezone)['delivery']['label']);
+```
+
+Also require exact-start and exact-end equality to be Live, null bounds to produce `Immediately` and `No end date`, malformed/non-scalar/reversed active schedules to return neutral `Unknown` plus `Schedule unavailable`, and valid ISO values to contain `+06:00`. Update the existing controller render expectation from `2099-01-01T10:00:00` to `2099-01-01T10:00:00+06:00`, then extend `CmsControllerTest` so rendered malformed schedule rows contain no `<time>` and do not throw.
+
+Run:
+
+```bash
+rtk php tests/run.php CmsBannerPresenterTest
+rtk php tests/run.php CmsControllerTest
+```
+
+Expected: presenter test fails because the class does not exist; controller test fails because raw rows are still passed directly to the view.
+
+- [ ] **Step 2: Implement the pure banner presenter and controller mapping**
+
+Create this public API:
+
+```php
+final class CmsBannerPresenter
+{
+    public function present(array $banner, DateTimeImmutable $now, DateTimeZone $timezone): array;
+}
+```
+
+Strictly parse scalar strings with `DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $value, $timezone)` and reject parse warnings/errors or a reformatted value that differs from the input. Disabled takes precedence over schedule validity. For enabled rows, return Unknown when either supplied bound is invalid or when `end <= start`; otherwise use strict public-window comparisons (`start > now` Scheduled, `end < now` Ended, equality Live). Format valid machine values as `Y-m-d\TH:i:sP` and display values as `M j, Y, g:i A`.
+
+Inject `CmsBannerPresenter` into `AdminCmsController`. In `index()`, construct one `DateTimeZone` from `$this->config->get('timezone', 'UTC')`, one `DateTimeImmutable('now', $timezone)`, and map every raw banner through the presenter before rendering.
+
+- [ ] **Step 3: Strengthen the shared desktop CSS**
 
 Update the existing component rules:
 
@@ -261,7 +301,7 @@ Update the existing component rules:
 }
 ```
 
-- [ ] **Step 2: Fix mobile grid placement and actions**
+- [ ] **Step 4: Fix mobile grid placement and actions**
 
 Inside the existing max-width 767px media block add:
 
@@ -290,34 +330,22 @@ Inside the existing max-width 767px media block add:
 
 Delete the legacy `td.admin-table-actions::before` rule.
 
-- [ ] **Step 3: Derive and render banner delivery state**
+- [ ] **Step 5: Render the presented banner schedule and delivery state**
 
-At the top of `admin/cms/index.php`, define local pure closures that safely parse optional timestamps and return display metadata:
-
-```php
-$bannerDate = static function (?string $value): array {
-    if ($value === null || trim($value) === '') return ['iso' => '', 'display' => ''];
-    try {
-        $date = new DateTimeImmutable($value);
-        return ['iso' => $date->format('Y-m-d\TH:i:s'), 'display' => $date->format('M j, Y, g:i A')];
-    } catch (Throwable) {
-        return ['iso' => '', 'display' => trim($value)];
-    }
-};
-```
-
-Derive state using one `$bannerNow = new DateTimeImmutable('now')` per render:
+Read only the presenter's `schedule` and `delivery` structures in `admin/cms/index.php`. A valid bound renders a labelled semantic time:
 
 ```php
-if (!$active) ['label' => 'Disabled', 'tone' => 'neutral'];
-elseif ($start !== null && $start > $bannerNow) ['label' => 'Scheduled', 'tone' => 'warning'];
-elseif ($end !== null && $end < $bannerNow) ['label' => 'Ended', 'tone' => 'neutral'];
-else ['label' => 'Live', 'tone' => 'success'];
+<span class="organizer-table__meta-label">Starts</span>
+<time datetime="<?= e($banner['schedule']['starts']['iso']) ?>"><?= e($banner['schedule']['starts']['display']) ?></time>
 ```
 
-Render labelled `Starts` and `Ends` rows and semantic `<time>` elements. If a persisted date cannot be parsed, show its escaped raw value and label the delivery state `Needs review` with warning tone; never invent or rewrite a date.
+Missing bounds render `Immediately` or `No end date`. Invalid or reversed legacy schedules render `Schedule unavailable` without a `<time>`. Render the presenter's semantic tone directly:
 
-- [ ] **Step 4: Build CSS and publish one cache version**
+```php
+<span class="status-chip status-chip--<?= e($banner['delivery']['tone']) ?>"><?= e($banner['delivery']['label']) ?></span>
+```
+
+- [ ] **Step 6: Build CSS and publish one cache version**
 
 Run:
 
@@ -327,13 +355,14 @@ rtk npm run build:css
 
 Replace `20260815-operations-table-v1` with `20260815-table-layout-v2` in all four layouts, the service-worker cache name/asset URL, and the three pinned test files.
 
-- [ ] **Step 5: Run focused GREEN gates**
+- [ ] **Step 7: Run focused GREEN gates**
 
 Run:
 
 ```bash
 rtk php tests/run.php UiLayoutTest
 rtk php tests/run.php StatusUiTest
+rtk php tests/run.php CmsBannerPresenterTest
 rtk php tests/run.php CmsControllerTest
 rtk php tests/run.php PwaStaticPolicyTest
 rtk php tests/run.php OrganizerVenueControllerTest
@@ -345,10 +374,10 @@ rtk npm run test:assets
 
 Expected: all pass with source/compiled CSS and asset-version parity.
 
-- [ ] **Step 6: Commit the published implementation**
+- [ ] **Step 8: Commit the published implementation**
 
 ```bash
-rtk git add resources/css/app.css public/assets/css/app.css app/Views/admin/cms/index.php app/Views/layouts public/service-worker.js tests
+rtk git add app/Support/CmsBannerPresenter.php app/Controllers/AdminCmsController.php resources/css/app.css public/assets/css/app.css app/Views/admin/cms/index.php app/Views/layouts public/service-worker.js tests
 rtk git commit -m "fix: publish resilient operational table layout"
 ```
 
