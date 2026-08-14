@@ -2007,10 +2007,6 @@
         overflow-wrap: anywhere;
     }
 
-    .organizer-table tbody tr:last-child td {
-        @apply border-b-0;
-    }
-
     .organizer-table td strong,
     .organizer-table td small {
         @apply block;
@@ -2939,6 +2935,12 @@
     .event-discovery-layout[data-event-discovery-view="map"]:not(.event-discovery-layout--empty) > .event-map-panel {
         position: sticky;
         top: 6rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .organizer-table tbody tr:last-child td {
+        border-bottom-width: 0;
     }
 }
 

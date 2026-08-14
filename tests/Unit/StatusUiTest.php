@@ -154,13 +154,9 @@ final class StatusUiTest extends TestCase
             'compiled stylesheet' => 'public/assets/css/app.css',
         ] as $label => $path) {
             $css = $this->stylesheet($path);
-            $this->assertFalse(
-                $this->cssRuleHasDeclarationsOutsideMedia(
-                    $css,
-                    '.organizer-table td:last-child',
-                    ['border-bottom-width' => '0'],
-                ),
-                $label . ' must not remove the desktop row divider from every row action cell.',
+            $this->assertTrue(
+                $this->operationalTableBorderContractPublished($css),
+                $label . ' must keep the final-row reset desktop-only and preserve mobile card dividers.',
             );
 
             if ($label === 'source stylesheet') {
@@ -169,26 +165,15 @@ final class StatusUiTest extends TestCase
                     'The source table-cell rule must not regenerate a desktop td:last-child border reset.',
                 );
             }
-
-            $mobileCss = $this->mediaCssBodies($css, 'max-width', '767px');
-            $mobileResetPublished = false;
-
-            foreach ($mobileCss as $mediaBody) {
-                if ($this->cssRuleHasDeclarations(
-                    $mediaBody,
-                    '.organizer-table td:last-child',
-                    ['border-bottom-width' => '0'],
-                )) {
-                    $mobileResetPublished = true;
-                    break;
-                }
-            }
-
-            $this->assertTrue(
-                $mobileResetPublished,
-                $label . ' must remove only the final cell divider inside each mobile card.',
-            );
         }
+
+        $brokenCascade = '.organizer-table tbody tr:last-child td{border-bottom-width:0}'
+            . '@media (min-width:768px){.organizer-table tbody tr:last-child td{border-bottom-width:0}}'
+            . '@media (max-width:767px){.organizer-table td{border-bottom:1px solid var(--line)}.organizer-table td:last-child{border-bottom-width:0}}';
+        $this->assertFalse(
+            $this->operationalTableBorderContractPublished($brokenCascade),
+            'The contract guard must reject a final-row reset that leaks into the mobile cascade.',
+        );
     }
 
     public function testAccountAndCategoryViewsRenderTheirRealStatusNames(): void
@@ -984,6 +969,60 @@ final class StatusUiTest extends TestCase
     private function cssRuleHasDeclarations(string $css, string $selector, array $requiredDeclarations): bool
     {
         return $this->cssRuleBodiesHaveDeclarations($this->cssRuleBodies($css, $selector), $requiredDeclarations);
+    }
+
+    private function operationalTableBorderContractPublished(string $css): bool
+    {
+        if ($this->cssRuleHasDeclarationsOutsideMedia(
+            $css,
+            '.organizer-table tbody tr:last-child td',
+            ['border-bottom-width' => '0'],
+        )) {
+            return false;
+        }
+
+        $desktopResetPublished = false;
+
+        foreach ($this->mediaCssBodies($css, 'min-width', '768px') as $desktopCss) {
+            if ($this->cssRuleHasDeclarations(
+                $desktopCss,
+                '.organizer-table tbody tr:last-child td',
+                ['border-bottom-width' => '0'],
+            )) {
+                $desktopResetPublished = true;
+                break;
+            }
+        }
+
+        if (!$desktopResetPublished) {
+            return false;
+        }
+
+        $mobileCellBorderPublished = false;
+        $mobileLastCellResetPublished = false;
+
+        foreach ($this->mediaCssBodies($css, 'max-width', '767px') as $mobileCss) {
+            if ($this->cssRuleHasDeclarations(
+                $mobileCss,
+                '.organizer-table tbody tr:last-child td',
+                ['border-bottom-width' => '0'],
+            )) {
+                return false;
+            }
+
+            $mobileCellBorderPublished = $mobileCellBorderPublished || $this->cssRuleHasDeclarations(
+                $mobileCss,
+                '.organizer-table td',
+                ['border-bottom' => '1px solid var(--line)'],
+            );
+            $mobileLastCellResetPublished = $mobileLastCellResetPublished || $this->cssRuleHasDeclarations(
+                $mobileCss,
+                '.organizer-table td:last-child',
+                ['border-bottom-width' => '0'],
+            );
+        }
+
+        return $mobileCellBorderPublished && $mobileLastCellResetPublished;
     }
 
     private function cssRuleHasDeclarationsOutsideMedia(string $css, string $selector, array $requiredDeclarations): bool
