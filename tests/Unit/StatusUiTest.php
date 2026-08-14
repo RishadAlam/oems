@@ -86,7 +86,7 @@ final class StatusUiTest extends TestCase
 
             foreach ($desktopRules as $selector => $declarations) {
                 $this->assertTrue(
-                    $this->cssRuleHasDeclarations($css, $selector, $declarations),
+                    $this->cssRuleHasDeclarationsOutsideMedia($css, $selector, $declarations),
                     $label . ' must publish the desktop ' . $selector . ' table layout contract.',
                 );
             }
@@ -110,12 +110,38 @@ final class StatusUiTest extends TestCase
                 );
             }
 
-            $this->assertSame(
-                0,
-                preg_match('/\.organizer-table\s+td\.admin-table-actions::before\s*\{/', $css),
+            $this->assertFalse(
+                $this->cssHasSelector($css, '.organizer-table td.admin-table-actions::before'),
                 $label . ' must not hide mobile action labels through the legacy td.admin-table-actions selector.',
             );
         }
+    }
+
+    public function testOperationalTableCssParserRecognizesNormalizedCompiledPseudoElements(): void
+    {
+        $compiledCss = '@media (max-width:767px){.organizer-table td:before,.other-cell:before{grid-column:1;grid-row:1}.organizer-table td.admin-table-actions:before,.other-cell:before{display:none}}.operations-table{min-width:760px}';
+        $mobileCss = $this->mediaCssBodies($compiledCss, 'max-width', '767px');
+
+        $this->assertTrue(
+            $this->cssRuleHasDeclarations(
+                $mobileCss[0] ?? '',
+                '.organizer-table td::before',
+                ['grid-column' => '1', 'grid-row' => '1'],
+            ),
+            'The compiled single-colon pseudo-element selector must satisfy the mobile label placement contract.',
+        );
+        $this->assertTrue(
+            $this->cssHasSelector($compiledCss, '.organizer-table td.admin-table-actions::before'),
+            'The legacy action-label guard must find normalized single-colon selectors in selector lists.',
+        );
+        $this->assertTrue(
+            $this->cssRuleHasDeclarationsOutsideMedia($compiledCss, '.operations-table', ['min-width' => '760px']),
+            'Desktop table declarations outside the mobile breakpoint must satisfy the desktop contract.',
+        );
+        $this->assertFalse(
+            $this->cssRuleHasDeclarationsOutsideMedia('@media (max-width:767px){.operations-table{min-width:760px}}', '.operations-table', ['min-width' => '760px']),
+            'A desktop table declaration inside only the mobile breakpoint must not satisfy the desktop contract.',
+        );
     }
 
     public function testAccountAndCategoryViewsRenderTheirRealStatusNames(): void
@@ -905,17 +931,17 @@ final class StatusUiTest extends TestCase
 
     private function cssRuleHasDeclarations(string $css, string $selector, array $requiredDeclarations): bool
     {
-        $matched = preg_match_all(
-            '/(?:\\A|(?<=[{}]))\\s*' . preg_quote($selector, '/') . '\\s*\\{([^{}]*)\\}/',
-            $css,
-            $rules,
-        );
+        return $this->cssRuleBodiesHaveDeclarations($this->cssRuleBodies($css, $selector), $requiredDeclarations);
+    }
 
-        if ($matched === false || $matched === 0) {
-            return false;
-        }
+    private function cssRuleHasDeclarationsOutsideMedia(string $css, string $selector, array $requiredDeclarations): bool
+    {
+        return $this->cssRuleBodiesHaveDeclarations($this->cssRuleBodiesOutsideMedia($css, $selector), $requiredDeclarations);
+    }
 
-        foreach ($rules[1] as $rule) {
+    private function cssRuleBodiesHaveDeclarations(array $rules, array $requiredDeclarations): bool
+    {
+        foreach ($rules as $rule) {
             $declarations = [];
 
             foreach (explode(';', $rule) as $declaration) {
@@ -928,21 +954,120 @@ final class StatusUiTest extends TestCase
                 }
             }
 
-            $matchesRequired = true;
-
             foreach ($requiredDeclarations as $property => $value) {
                 if (($declarations[$property] ?? null) !== $value) {
-                    $matchesRequired = false;
-                    break;
+                    continue 2;
                 }
             }
 
-            if ($matchesRequired) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function cssRuleBodies(string $css, string $selector): array
+    {
+        preg_match_all('/([^{}]+)\\{([^{}]*)\\}/', $css, $rules, PREG_SET_ORDER);
+
+        return array_values(array_map(
+            static fn (array $rule): string => $rule[2],
+            array_filter(
+                $rules,
+                fn (array $rule): bool => $this->cssSelectorListContains($rule[1], $selector),
+            ),
+        ));
+    }
+
+    private function cssRuleBodiesOutsideMedia(string $css, string $selector): array
+    {
+        $bodies = [];
+        $frames = [];
+        $statementStart = 0;
+        $length = strlen($css);
+
+        for ($index = 0; $index < $length; $index++) {
+            if ($css[$index] === '/' && ($css[$index + 1] ?? '') === '*') {
+                $commentEnd = strpos($css, '*/', $index + 2);
+                $index = $commentEnd === false ? $length : $commentEnd + 1;
+                continue;
+            }
+
+            if ($css[$index] === '"' || $css[$index] === "'") {
+                $quote = $css[$index];
+
+                for ($index++; $index < $length; $index++) {
+                    if ($css[$index] === '\\') {
+                        $index++;
+                    } elseif (($css[$index] ?? '') === $quote) {
+                        break;
+                    }
+                }
+
+                continue;
+            }
+
+            if ($css[$index] === '{') {
+                $prelude = trim(substr($css, $statementStart, $index - $statementStart));
+                $parentIsInMedia = $frames === [] ? false : $frames[array_key_last($frames)]['inMedia'];
+                $isAtRule = str_starts_with(ltrim($prelude), '@');
+                $frames[] = [
+                    'bodyStart' => $index + 1,
+                    'inMedia' => $parentIsInMedia || preg_match('/\\A@media\\b/i', $prelude) === 1,
+                    'selector' => $isAtRule ? null : $prelude,
+                ];
+                $statementStart = $index + 1;
+                continue;
+            }
+
+            if ($css[$index] === '}') {
+                $frame = array_pop($frames);
+
+                if (
+                    is_array($frame)
+                    && $frame['inMedia'] === false
+                    && is_string($frame['selector'])
+                    && $this->cssSelectorListContains($frame['selector'], $selector)
+                ) {
+                    $bodies[] = substr($css, $frame['bodyStart'], $index - $frame['bodyStart']);
+                }
+
+                $statementStart = $index + 1;
+                continue;
+            }
+
+            if ($css[$index] === ';') {
+                $statementStart = $index + 1;
+            }
+        }
+
+        return $bodies;
+    }
+
+    private function cssHasSelector(string $css, string $selector): bool
+    {
+        return $this->cssRuleBodies($css, $selector) !== [];
+    }
+
+    private function cssSelectorListContains(string $selectorList, string $selector): bool
+    {
+        $expected = $this->normalizeCssSelector($selector);
+
+        foreach (explode(',', $selectorList) as $candidate) {
+            if ($this->normalizeCssSelector($candidate) === $expected) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private function normalizeCssSelector(string $selector): string
+    {
+        $normalized = preg_replace('/\\s+/', ' ', trim($selector)) ?? trim($selector);
+        $normalized = preg_replace('/\\s*([>+~])\\s*/', '$1', $normalized) ?? $normalized;
+
+        return str_replace('::before', ':before', $normalized);
     }
 
     private function mediaCssBodies(string $css, string $property, string $value): array
