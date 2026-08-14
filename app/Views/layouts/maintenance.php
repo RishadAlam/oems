@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f5f7fb">
     <title><?= e($pageTitle ?? 'Maintenance') ?> | OEMS</title>
     <script src="/assets/js/theme.js"></script>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260815-home-event-card-v3">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260815-operations-table-v1">
     <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
 </head>
 <body class="min-h-[100dvh] bg-[var(--surface-soft)] text-[var(--ink)] antialiased">

@@ -432,7 +432,10 @@ final class UiLayoutTest extends TestCase
 
         $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
         $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
-        $wrapContract = ['min-width:0', 'overflow-wrap:anywhere'];
+        $wrapContract = [
+            ['min-width:0', 'min-width: 0'],
+            ['overflow-wrap:anywhere', 'overflow-wrap: anywhere'],
+        ];
 
         $this->assertTrue(
             $this->cssRuleOutsideMediaContainsTokens($sourceCss, '.organizer-table__value', $wrapContract),

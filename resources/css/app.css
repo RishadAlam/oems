@@ -2022,6 +2022,11 @@
         @apply mt-1 text-xs text-[var(--ink-muted)];
     }
 
+    .organizer-table__value {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
     .organizer-table__action {
         @apply text-right;
     }

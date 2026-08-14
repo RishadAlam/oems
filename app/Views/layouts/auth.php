@@ -8,7 +8,7 @@
     <link rel="icon" href="/assets/icons/oems-192.png" type="image/png">
     <title><?= e($pageTitle ?? 'Account') ?> | <?= e($siteSettings['site_name'] ?? $app['name']) ?></title>
     <script src="/assets/js/theme.js?v=20260811-form-controls-fix"></script>
-    <link rel="stylesheet" href="/assets/css/app.css?v=20260815-home-event-card-v3">
+    <link rel="stylesheet" href="/assets/css/app.css?v=20260815-operations-table-v1">
     <script src="/assets/js/app.js?v=20260812-form-system" defer></script>
     <script src="/assets/js/pwa.js?v=20260811-form-controls-fix" defer></script>
 </head>
