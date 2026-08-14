@@ -1334,7 +1334,7 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue($this->cssRuleApplyContainsUtilities(
             $sourceCss,
             '.home-featured__grid',
-            ['grid-cols-1', 'md:grid-cols-2'],
+            ['grid-cols-1', 'lg:grid-cols-2'],
         ));
         $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
             $compiledCss,
@@ -1343,7 +1343,7 @@ final class UiLayoutTest extends TestCase
         ));
         $this->assertTrue($this->cssMediaRuleContainsTokens(
             $compiledCss,
-            '48rem',
+            '64rem',
             '.home-featured__grid',
             ['grid-template-columns:repeat(2,minmax(0,1fr))'],
         ));
@@ -1365,12 +1365,12 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
             $compiledCss,
             '.home-event-card h3 a',
-            ['display:inline-flex', 'min-height:2.75rem', 'align-items:center'],
+            ['display:inline-flex', ['min-height:2.75rem', 'min-height:calc(var(--spacing) * 11)'], 'align-items:center'],
         ));
         $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
             $compiledCss,
             '.home-event-card .event-card__footer .text-link',
-            ['min-height:2.75rem'],
+            [['min-height:2.75rem', 'min-height:calc(var(--spacing) * 11)']],
         ));
     }
 
