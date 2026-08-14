@@ -110,6 +110,52 @@ final class CmsControllerTest extends TestCase
         $this->assertSame(1, count($this->cms->banners));
     }
 
+    public function testBannerDeliveryStatesRenderSemanticStatusAndScheduleDetails(): void
+    {
+        $this->cms->banners = [
+            1 => ['id' => 1, 'title' => 'Live', 'is_active' => 1, 'starts_at' => null, 'ends_at' => null],
+            2 => ['id' => 2, 'title' => 'Scheduled', 'is_active' => 1, 'starts_at' => '2099-01-01 10:00:00', 'ends_at' => null],
+            3 => ['id' => 3, 'title' => 'Ended', 'is_active' => 1, 'starts_at' => '2000-01-01 10:00:00', 'ends_at' => '2001-01-01 10:00:00'],
+            4 => ['id' => 4, 'title' => 'Disabled', 'is_active' => 0, 'starts_at' => null, 'ends_at' => null],
+        ];
+        $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService());
+
+        $response = $controller->index(Request::create('GET', '/admin/cms'));
+        $html = $response->body();
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertSame(200, $response->status());
+        $this->assertTrue($loaded, 'CMS banners must render as parseable HTML.');
+        $xpath = new \DOMXPath($document);
+
+        foreach ([
+            'Live' => 'success',
+            'Scheduled' => 'warning',
+            'Ended' => 'neutral',
+            'Disabled' => 'neutral',
+        ] as $state => $modifier) {
+            $states = $xpath->query(
+                '//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "' . $state . '"]]/td[@data-label="Status"]'
+                . '//*[contains(concat(" ", normalize-space(@class), " "), " status-chip ")'
+                . ' and contains(concat(" ", normalize-space(@class), " "), " status-chip--' . $modifier . ' ")'
+                . ' and normalize-space(.) = "' . $state . '"]',
+            );
+
+            $this->assertSame(1, $states?->length, $state . ' banners must render exactly one ' . $modifier . ' delivery-state chip.');
+        }
+
+        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"]//*[normalize-space(.) = "Starts"]')?->length);
+        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"]//*[normalize-space(.) = "Ends"]')?->length);
+        $this->assertSame(1, $xpath->query('//time[@datetime="2099-01-01T10:00:00"]')?->length);
+        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"][contains(normalize-space(.), "Immediately")]')?->length);
+        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"][contains(normalize-space(.), "No end date")]')?->length);
+        $this->assertFalse(str_contains($html, 'Active banner'), 'Banner delivery state must not fall back to the old raw Active banner contract.');
+    }
+
     private function cmsService(): CmsService
     {
         return new CmsService($this->cms, new ImageUploadService($this->uploadRoot, '/uploads/banners', requireHttpUpload: false));

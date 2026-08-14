@@ -447,6 +447,93 @@ final class UiLayoutTest extends TestCase
         );
     }
 
+    public function testEveryOperationalTableUsesTheGlobalResponsiveContract(): void
+    {
+        $views = [
+            'app/Views/admin/analytics/index.php' => 2,
+            'app/Views/admin/blog/index.php' => 1,
+            'app/Views/admin/categories/index.php' => 1,
+            'app/Views/admin/cms/index.php' => 3,
+            'app/Views/admin/contact/index.php' => 1,
+            'app/Views/admin/events/index.php' => 1,
+            'app/Views/admin/events/trash.php' => 1,
+            'app/Views/admin/newsletter/index.php' => 1,
+            'app/Views/admin/organizers/index.php' => 1,
+            'app/Views/admin/payments/index.php' => 1,
+            'app/Views/admin/reports/index.php' => 1,
+            'app/Views/admin/users/index.php' => 1,
+            'app/Views/components/analytics-charts.php' => 2,
+            'app/Views/dashboard/organizer.php' => 1,
+            'app/Views/organizer/analytics/index.php' => 1,
+            'app/Views/organizer/announcements/index.php' => 1,
+            'app/Views/organizer/coupons/index.php' => 1,
+            'app/Views/organizer/events/index.php' => 1,
+            'app/Views/organizer/events/trash.php' => 1,
+            'app/Views/organizer/participants/index.php' => 1,
+            'app/Views/organizer/venues/index.php' => 1,
+        ];
+        $tableCount = 0;
+
+        foreach ($views as $view => $expectedTableCount) {
+            $source = file_get_contents(base_path($view));
+            $this->assertTrue(is_string($source), $view . ' must be readable.');
+            $this->assertSame(0, preg_match('/<td[^>]*\badmin-table-actions\b/', $source), $view . ' must move action layout from the table cell into a nested action group.');
+            $legacyActionSource = preg_replace('/\badmin-table-actions\b/', '', $source) ?? $source;
+            $this->assertSame(0, preg_match('/class="[^"]*\btable-actions\b[^"]*"/', $legacyActionSource), $view . ' must replace the legacy .table-actions wrapper with .admin-table-actions.');
+
+            $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
+            $document = new \DOMDocument();
+            $previousErrors = libxml_use_internal_errors(true);
+            $loaded = $document->loadHTML($markup);
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrors);
+
+            $this->assertTrue($loaded, $view . ' must contain parseable table markup.');
+            $xpath = new \DOMXPath($document);
+            $tables = $xpath->query('//table');
+            $this->assertSame($expectedTableCount, $tables?->length, $view . ' must keep its declared operational-table inventory.');
+
+            foreach ($tables ?: [] as $table) {
+                if (!$table instanceof \DOMElement) {
+                    continue;
+                }
+
+                $tableCount++;
+                $this->assertStringContainsString('operations-table organizer-table', $table->getAttribute('class'), $view . ' tables must adopt the shared operations-table organizer-table class contract.');
+                $this->assertSame(1, $xpath->query('./caption[normalize-space(.) != ""]', $table)?->length, $view . ' tables must expose one non-empty caption.');
+                $this->assertSame(0, $xpath->query('.//th[not(@scope="col")]', $table)?->length, $view . ' table headers must declare scope="col".');
+                $this->assertSame(0, $xpath->query('.//td[not(@data-label) or normalize-space(@data-label)=""]', $table)?->length, $view . ' table cells must provide a non-empty mobile data-label.');
+
+                $actionCells = $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " organizer-table__action ")]', $table);
+
+                foreach ($actionCells ?: [] as $actionCell) {
+                    if (!$actionCell instanceof \DOMElement) {
+                        continue;
+                    }
+
+                    $column = ($xpath->query('./preceding-sibling::td', $actionCell)?->length ?? 0) + 1;
+                    $headers = $xpath->query('./thead/tr/th[position() = ' . $column . ']', $table);
+                    $this->assertSame(1, $headers?->length, $view . ' action cells must retain a corresponding table header.');
+
+                    $header = $headers?->item(0);
+                    $this->assertTrue(
+                        $header instanceof \DOMElement && in_array($this->visibleTableText($header), ['Action', 'Actions'], true),
+                        $view . ' action columns must expose a visible Action or Actions header.',
+                    );
+
+                    $interactiveActions = $xpath->query('.//a | .//button | .//input[translate(@type, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz") = "submit"]', $actionCell);
+
+                    if (($interactiveActions?->length ?? 0) > 1) {
+                        $groups = $xpath->query('.//*[contains(concat(" ", normalize-space(@class), " "), " admin-table-actions ")]', $actionCell);
+                        $this->assertSame(1, $groups?->length, $view . ' must group multiple interactive actions inside a nested .admin-table-actions wrapper.');
+                    }
+                }
+            }
+        }
+
+        $this->assertSame(25, $tableCount, 'The declared operational-table manifest must cover every table-bearing view.');
+    }
+
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
     {
         $views = [
@@ -1672,6 +1759,36 @@ final class UiLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, 'class="ph ph-map-trifold" aria-hidden="true"'));
         $this->assertTrue(str_contains($html, 'href="/"'));
         $this->assertTrue(str_contains($html, 'Return home'));
+    }
+
+    private function assertStringContainsString(string $needle, string $haystack, string $message = ''): void
+    {
+        $this->assertTrue(
+            str_contains($haystack, $needle),
+            $message !== '' ? $message : sprintf('Expected %s to contain %s.', var_export($haystack, true), var_export($needle, true)),
+        );
+    }
+
+    private function visibleTableText(\DOMNode $node): string
+    {
+        if ($node instanceof \DOMText) {
+            return $node->textContent;
+        }
+
+        if (
+            $node instanceof \DOMElement
+            && preg_match('/(?:^|\s)sr-only(?:\s|$)/', $node->getAttribute('class')) === 1
+        ) {
+            return '';
+        }
+
+        $text = '';
+
+        foreach ($node->childNodes as $child) {
+            $text .= $this->visibleTableText($child);
+        }
+
+        return trim(preg_replace('/\s+/', ' ', $text) ?? '');
     }
 
     private function resultSummaryMarkupViolations(

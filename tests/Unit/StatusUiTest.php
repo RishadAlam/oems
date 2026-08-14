@@ -63,6 +63,61 @@ final class StatusUiTest extends TestCase
         $this->assertTrue(str_contains($matches[1], 'var(--ink-muted)'), 'Unknown statuses must have neutral readable text.');
     }
 
+    public function testOperationalTableCssPublishesDesktopAndMobileLayoutContract(): void
+    {
+        $desktopRules = [
+            '.operations-table' => ['min-width' => '760px'],
+            '.organizer-table td' => ['overflow-wrap' => 'anywhere'],
+            '.organizer-table__action' => ['width' => '1%', 'white-space' => 'nowrap'],
+            '.admin-table-actions' => ['flex-wrap' => 'nowrap', 'min-width' => 'max-content'],
+        ];
+        $mobileRules = [
+            '.organizer-table td::before' => ['grid-column' => '1', 'grid-row' => '1'],
+            '.organizer-table td > *' => ['grid-column' => '2', 'min-width' => '0'],
+            '.organizer-table td.organizer-table__action' => ['width' => '100%', 'white-space' => 'normal'],
+            '.organizer-table td.organizer-table__action .admin-table-actions' => ['min-width' => '0', 'flex-wrap' => 'wrap'],
+        ];
+
+        foreach ([
+            'source stylesheet' => 'resources/css/app.css',
+            'compiled stylesheet' => 'public/assets/css/app.css',
+        ] as $label => $path) {
+            $css = $this->stylesheet($path);
+
+            foreach ($desktopRules as $selector => $declarations) {
+                $this->assertTrue(
+                    $this->cssRuleHasDeclarations($css, $selector, $declarations),
+                    $label . ' must publish the desktop ' . $selector . ' table layout contract.',
+                );
+            }
+
+            $mobileCss = $this->mediaCssBodies($css, 'max-width', '767px');
+            $this->assertNotSame([], $mobileCss, $label . ' must publish the mobile operational-table breakpoint.');
+
+            foreach ($mobileRules as $selector => $declarations) {
+                $published = false;
+
+                foreach ($mobileCss as $mediaBody) {
+                    if ($this->cssRuleHasDeclarations($mediaBody, $selector, $declarations)) {
+                        $published = true;
+                        break;
+                    }
+                }
+
+                $this->assertTrue(
+                    $published,
+                    $label . ' must publish the mobile ' . $selector . ' table layout contract.',
+                );
+            }
+
+            $this->assertSame(
+                0,
+                preg_match('/\.organizer-table\s+td\.admin-table-actions::before\s*\{/', $css),
+                $label . ' must not hide mobile action labels through the legacy td.admin-table-actions selector.',
+            );
+        }
+    }
+
     public function testAccountAndCategoryViewsRenderTheirRealStatusNames(): void
     {
         $users = $this->render('admin/users/index', [
@@ -846,6 +901,84 @@ final class StatusUiTest extends TestCase
         }
 
         return $css;
+    }
+
+    private function cssRuleHasDeclarations(string $css, string $selector, array $requiredDeclarations): bool
+    {
+        $matched = preg_match_all(
+            '/(?:\\A|(?<=[{}]))\\s*' . preg_quote($selector, '/') . '\\s*\\{([^{}]*)\\}/',
+            $css,
+            $rules,
+        );
+
+        if ($matched === false || $matched === 0) {
+            return false;
+        }
+
+        foreach ($rules[1] as $rule) {
+            $declarations = [];
+
+            foreach (explode(';', $rule) as $declaration) {
+                [$property, $value] = array_pad(explode(':', $declaration, 2), 2, '');
+                $property = trim($property);
+                $value = trim($value);
+
+                if ($property !== '' && $value !== '') {
+                    $declarations[$property] = $value;
+                }
+            }
+
+            $matchesRequired = true;
+
+            foreach ($requiredDeclarations as $property => $value) {
+                if (($declarations[$property] ?? null) !== $value) {
+                    $matchesRequired = false;
+                    break;
+                }
+            }
+
+            if ($matchesRequired) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function mediaCssBodies(string $css, string $property, string $value): array
+    {
+        $matched = preg_match_all(
+            '/@media\\s*\\(\\s*' . preg_quote($property, '/') . '\\s*:\\s*' . preg_quote($value, '/') . '\\s*\\)\\s*\\{/',
+            $css,
+            $mediaQueries,
+            PREG_OFFSET_CAPTURE,
+        );
+
+        if ($matched === false || $matched === 0) {
+            return [];
+        }
+
+        $bodies = [];
+
+        foreach ($mediaQueries[0] as [$query, $start]) {
+            $openBrace = $start + strrpos($query, '{');
+            $depth = 0;
+
+            for ($index = $openBrace, $length = strlen($css); $index < $length; $index++) {
+                if ($css[$index] === '{') {
+                    $depth++;
+                } elseif ($css[$index] === '}') {
+                    $depth--;
+
+                    if ($depth === 0) {
+                        $bodies[] = substr($css, $openBrace + 1, $index - $openBrace - 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $bodies;
     }
 
     private function themeTokens(string $css, string $selector): array
