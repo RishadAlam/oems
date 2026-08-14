@@ -120,7 +120,7 @@ return static function (Router $router): void {
     $router->get('/participant/events/{id}/review', [ParticipantReviewController::class, 'create'], ['role:participant'], 'participant.reviews.create');
     $router->post('/participant/events/{id}/review', [ParticipantReviewController::class, 'store'], ['role:participant', 'csrf'], 'participant.reviews.store');
     $router->get('/organizer/dashboard', [DashboardController::class, 'organizer'], ['role:organizer'], 'organizer.dashboard');
-    $router->get('/organizer/check-in', [OrganizerCheckInController::class, 'verify'], ['role:organizer'], 'organizer.check-in.verify');
+    $router->get('/organizer/check-in', [OrganizerCheckInController::class, 'verify'], ['role:participant,organizer,super-admin'], 'organizer.check-in.verify');
     $router->get('/organizer/analytics', [OrganizerAnalyticsController::class, 'index'], ['role:organizer'], 'organizer.analytics.index');
     $router->get('/organizer/analytics.csv', [OrganizerAnalyticsController::class, 'export'], ['role:organizer'], 'organizer.analytics.export');
     $router->get('/organizer/analytics.pdf', [OrganizerAnalyticsController::class, 'pdf'], ['role:organizer'], 'organizer.analytics.pdf');

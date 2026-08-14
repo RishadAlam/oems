@@ -91,6 +91,18 @@ final class FakeTicketRepository implements TicketRepositoryInterface
             : null;
     }
 
+    public function findForParticipantByTokenDigest(int $participantId, string $tokenDigest): ?array
+    {
+        foreach ($this->tickets as $ticket) {
+            if ((int) ($ticket['participant_id'] ?? 0) === $participantId
+                && ($ticket['qr_payload_hash'] ?? null) === $tokenDigest) {
+                return $this->publicTicket($ticket);
+            }
+        }
+
+        return null;
+    }
+
     public function findForOrganizerByTokenDigest(int $organizerId, string $tokenDigest): ?array
     {
         return $this->findForOrganizer($organizerId, 'qr_payload_hash', $tokenDigest);

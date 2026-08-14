@@ -50,9 +50,39 @@ final class OrganizerCheckInController extends Controller
         $userId = $this->auth->id();
         $submitted = $request->query('token');
         $rawToken = is_scalar($submitted) ? trim((string) $submitted) : '';
-        $candidate = $userId === null
-            ? null
-            : $this->tickets->checkInCandidateByToken($userId, $rawToken);
+
+        if ($userId === null) {
+            $rawToken = null;
+
+            return Response::redirect('/login');
+        }
+
+        if ($this->auth->hasRole('participant')) {
+            $ticketId = $this->tickets->participantTicketIdByToken($userId, $rawToken);
+            $rawToken = null;
+
+            if ($ticketId === null) {
+                $this->session->flash('error', 'This QR code is invalid or does not belong to your account.');
+
+                return Response::redirect('/participant/tickets');
+            }
+
+            $this->session->flash(
+                'info',
+                'This is your ticket QR. Event staff must scan it from an organizer account to check you in.',
+            );
+
+            return Response::redirect('/participant/tickets/' . $ticketId);
+        }
+
+        if ($this->auth->hasRole('super-admin')) {
+            $rawToken = null;
+            $this->session->flash('info', 'Ticket check-in must be completed by the event organizer.');
+
+            return Response::redirect('/admin/dashboard');
+        }
+
+        $candidate = $this->tickets->checkInCandidateByToken($userId, $rawToken);
         $rawToken = null;
 
         if ($candidate === null) {

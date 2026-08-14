@@ -18,6 +18,8 @@ interface TicketRepositoryInterface
 
     public function findForParticipant(int $participantId, int $ticketId): ?array;
 
+    public function findForParticipantByTokenDigest(int $participantId, string $tokenDigest): ?array;
+
     public function findForOrganizerByTokenDigest(int $organizerId, string $tokenDigest): ?array;
 
     public function findForOrganizerByNumber(int $organizerId, string $ticketNumber): ?array;

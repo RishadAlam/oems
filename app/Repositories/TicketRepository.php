@@ -112,6 +112,20 @@ final class TicketRepository implements TicketRepositoryInterface
         return $this->rowOrNull($statement->fetch());
     }
 
+    public function findForParticipantByTokenDigest(int $participantId, string $tokenDigest): ?array
+    {
+        $statement = $this->connection->prepare(
+            $this->ticketSelect()
+            . ' WHERE registrations.user_id = :user_id AND tickets.qr_payload_hash = :token_digest LIMIT 1',
+        );
+        $statement->execute([
+            'user_id' => $participantId,
+            'token_digest' => $tokenDigest,
+        ]);
+
+        return $this->rowOrNull($statement->fetch());
+    }
+
     public function findForOrganizerByTokenDigest(int $organizerId, string $tokenDigest): ?array
     {
         return $this->findForOrganizer($organizerId, 'tickets.qr_payload_hash', $tokenDigest);

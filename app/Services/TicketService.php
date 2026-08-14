@@ -191,6 +191,21 @@ final class TicketService
         ];
     }
 
+    public function participantTicketIdByToken(int $participantId, string $rawToken): ?int
+    {
+        if ($participantId <= 0 || preg_match('/\A[a-f0-9]{64}\z/i', $rawToken) !== 1) {
+            return null;
+        }
+
+        $ticket = $this->tickets->findForParticipantByTokenDigest(
+            $participantId,
+            hash('sha256', strtolower($rawToken)),
+        );
+        $ticketId = (int) ($ticket['id'] ?? 0);
+
+        return $ticketId > 0 ? $ticketId : null;
+    }
+
     public function checkIn(
         int $organizerId,
         int $eventId,
