@@ -1362,6 +1362,16 @@ final class UiLayoutTest extends TestCase
             '.home-event-card .event-card__footer',
             ['margin-top:auto'],
         ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-event-card h3 a',
+            ['display:inline-flex', 'min-height:2.75rem', 'align-items:center'],
+        ));
+        $this->assertTrue($this->cssRuleOutsideMediaContainsTokens(
+            $compiledCss,
+            '.home-event-card .event-card__footer .text-link',
+            ['min-height:2.75rem'],
+        ));
     }
 
     public function testHomepageSeparatesDiscoveryParticipantAndOrganizerJourneys(): void
@@ -1465,7 +1475,7 @@ final class UiLayoutTest extends TestCase
         $this->assertFalse(str_contains($css, 'lg:min-h-[590px]'));
         $this->assertTrue(str_contains($css, '.home-featured .event-card {'));
         $this->assertTrue(str_contains($css, '@apply flex h-full flex-col;'));
-        $this->assertTrue(str_contains($css, '.home-featured .event-card__footer {'));
+        $this->assertTrue(str_contains($css, '.home-event-card .event-card__footer {'));
         $this->assertTrue(str_contains($css, '@apply mt-auto;'));
         $this->assertTrue(str_contains($css, '.home-journeys__label'));
         $this->assertTrue(str_contains($css, '.home-journey__step-icon'));
