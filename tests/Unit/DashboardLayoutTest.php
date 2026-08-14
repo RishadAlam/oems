@@ -145,6 +145,46 @@ final class DashboardLayoutTest extends TestCase
         $this->assertTrue(str_contains($html, '<script src="/assets/js/dashboard-sidebar.js" defer></script>'));
     }
 
+    public function testAdminSidebarKeepsNavigationInAnIndependentScrollableRegion(): void
+    {
+        $html = $this->renderAdminDashboard();
+        $document = new \DOMDocument();
+        $previousErrors = libxml_use_internal_errors(true);
+        $loaded = $document->loadHTML($html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousErrors);
+
+        $this->assertTrue($loaded);
+        $xpath = new \DOMXPath($document);
+        $scrollRegions = $xpath->query(
+            '//*[@id="dashboard-sidebar"]/*[contains(concat(" ", normalize-space(@class), " "), " dashboard-sidebar__scroll ")]',
+        );
+        $footers = $xpath->query(
+            '//*[@id="dashboard-sidebar"]/*[contains(concat(" ", normalize-space(@class), " "), " dashboard-sidebar__footer ")]',
+        );
+
+        $this->assertSame(1, $scrollRegions === false ? 0 : $scrollRegions->length);
+        $this->assertSame(1, $footers === false ? 0 : $footers->length);
+        $this->assertSame(1, $xpath->query('.//nav[@aria-label="Dashboard navigation"]', $scrollRegions?->item(0))?->length ?? 0);
+        $this->assertSame(0, $xpath->query('.//form[@action="/logout"]', $scrollRegions?->item(0))?->length ?? 0);
+        $this->assertSame(1, $xpath->query('.//form[@action="/logout"]', $footers?->item(0))?->length ?? 0);
+
+        $stylesheet = file_get_contents(base_path('public/assets/css/app.css'));
+        $this->assertTrue(is_string($stylesheet));
+        $this->assertTrue(
+            str_contains($stylesheet, '.dashboard-sidebar__scroll{')
+                && str_contains($stylesheet, 'min-height:0')
+                && str_contains($stylesheet, 'overflow-y:auto')
+                && str_contains($stylesheet, 'overscroll-behavior:contain'),
+            'The committed stylesheet must let the menu scroll within the viewport.',
+        );
+        $this->assertTrue(
+            str_contains($stylesheet, '.dashboard-sidebar__footer{')
+                && str_contains($stylesheet, 'flex-shrink:0'),
+            'The account controls must remain outside the scrolling menu.',
+        );
+    }
+
     public function testDashboardNavigationUsesDecorativeIconsWithoutChangingLinkNames(): void
     {
         $html = $this->renderAdminDashboard();
