@@ -417,8 +417,8 @@ final class UiLayoutTest extends TestCase
             foreach ($unbrokenValueLabels as $valueLabel) {
                 $anywhereValues = $xpath->query(
                     './/td[@data-label="' . $valueLabel . '"]'
-                    . '[contains(concat(" ", normalize-space(@class), " "), " [overflow-wrap:anywhere] ")'
-                    . ' or .//*[contains(concat(" ", normalize-space(@class), " "), " [overflow-wrap:anywhere] ")]]',
+                    . '[contains(concat(" ", normalize-space(@class), " "), " organizer-table__value ")'
+                    . ' or .//*[contains(concat(" ", normalize-space(@class), " "), " organizer-table__value ")]]',
                     $table,
                 );
 
@@ -429,6 +429,19 @@ final class UiLayoutTest extends TestCase
                 );
             }
         }
+
+        $sourceCss = (string) file_get_contents(base_path('resources/css/app.css'));
+        $compiledCss = (string) file_get_contents(base_path('public/assets/css/app.css'));
+        $wrapContract = ['min-width:0', 'overflow-wrap:anywhere'];
+
+        $this->assertTrue(
+            $this->cssRuleOutsideMediaContainsTokens($sourceCss, '.organizer-table__value', $wrapContract),
+            'Source CSS must define the shared unbroken table-value wrapping contract.',
+        );
+        $this->assertTrue(
+            $this->cssRuleOutsideMediaContainsTokens($compiledCss, '.organizer-table__value', $wrapContract),
+            'Compiled CSS must publish the shared unbroken table-value wrapping contract.',
+        );
     }
 
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
