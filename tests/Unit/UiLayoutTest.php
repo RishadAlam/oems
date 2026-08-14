@@ -502,7 +502,7 @@ final class UiLayoutTest extends TestCase
                 $this->assertStringContainsString('operations-table organizer-table', $table->getAttribute('class'), $view . ' tables must adopt the shared operations-table organizer-table class contract.');
                 $this->assertSame(1, $xpath->query('./caption[normalize-space(.) != ""]', $table)?->length, $view . ' tables must expose one non-empty caption.');
                 $this->assertSame(0, $xpath->query('.//th[not(@scope="col")]', $table)?->length, $view . ' table headers must declare scope="col".');
-                $this->assertSame(0, $xpath->query('.//td[not(@data-label) or normalize-space(@data-label)=""]', $table)?->length, $view . ' table cells must provide a non-empty mobile data-label.');
+                $this->assertSame([], $this->tableDataLabelViolations($xpath, $table, $view));
 
                 $actionCells = $xpath->query('.//td[contains(concat(" ", normalize-space(@class), " "), " organizer-table__action ")]', $table);
 
@@ -534,27 +534,39 @@ final class UiLayoutTest extends TestCase
         $this->assertSame(25, $tableCount, 'The declared operational-table manifest must cover every table-bearing view.');
     }
 
-    public function testTableMarkupParserRetainsDynamicLabelsAndRejectsEmptyLabels(): void
+    public function testTableMarkupParserPreservesMatchingDynamicLabelsAndRejectsInvalidLabels(): void
     {
-        $dynamic = $this->tableMarkup('<table><caption>Dynamic report</caption><thead><tr><th scope="col"><?= e($label) ?></th></tr></thead><tbody><tr><td data-label="<?= e($label) ?>">Value</td></tr></tbody></table>');
-        $empty = $this->tableMarkup('<table><caption>Empty report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="">Value</td></tr></tbody></table>');
+        $matching = $this->tableMarkup('<table><caption>Dynamic report</caption><thead><tr><th scope="col"><?= e($label) ?></th></tr></thead><tbody><tr><td data-label="<?= e($label) ?>">Value</td></tr></tbody></table>');
+        $emptyEcho = $this->tableMarkup('<table><caption>Empty report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="<?= \'\' ?>">Value</td></tr></tbody></table>');
+        $mismatched = $this->tableMarkup('<table><caption>Mismatched report</caption><thead><tr><th scope="col"><?= e($header) ?></th></tr></thead><tbody><tr><td data-label="<?= e($other) ?>">Value</td></tr></tbody></table>');
 
-        $dynamicDocument = new \DOMDocument();
-        $emptyDocument = new \DOMDocument();
+        $matchingDocument = new \DOMDocument();
+        $emptyEchoDocument = new \DOMDocument();
+        $mismatchedDocument = new \DOMDocument();
         $previousErrors = libxml_use_internal_errors(true);
-        $dynamicLoaded = $dynamicDocument->loadHTML($dynamic);
-        $emptyLoaded = $emptyDocument->loadHTML($empty);
+        $matchingLoaded = $matchingDocument->loadHTML($matching);
+        $emptyEchoLoaded = $emptyEchoDocument->loadHTML($emptyEcho);
+        $mismatchedLoaded = $mismatchedDocument->loadHTML($mismatched);
         libxml_clear_errors();
         libxml_use_internal_errors($previousErrors);
 
-        $this->assertTrue($dynamicLoaded);
-        $this->assertTrue($emptyLoaded);
+        $this->assertTrue($matchingLoaded);
+        $this->assertTrue($emptyEchoLoaded);
+        $this->assertTrue($mismatchedLoaded);
 
-        $dynamicXPath = new \DOMXPath($dynamicDocument);
-        $emptyXPath = new \DOMXPath($emptyDocument);
-        $this->assertSame(1, $dynamicXPath->query('//td[@data-label="__DYNAMIC__"]')?->length);
-        $this->assertSame(0, $dynamicXPath->query('//td[not(@data-label) or normalize-space(@data-label)=""]')?->length);
-        $this->assertSame(1, $emptyXPath->query('//td[not(@data-label) or normalize-space(@data-label)=""]')?->length);
+        $matchingXPath = new \DOMXPath($matchingDocument);
+        $emptyEchoXPath = new \DOMXPath($emptyEchoDocument);
+        $mismatchedXPath = new \DOMXPath($mismatchedDocument);
+        $matchingTable = $matchingXPath->query('//table')?->item(0);
+        $emptyEchoTable = $emptyEchoXPath->query('//table')?->item(0);
+        $mismatchedTable = $mismatchedXPath->query('//table')?->item(0);
+
+        $this->assertTrue($matchingTable instanceof \DOMElement);
+        $this->assertTrue($emptyEchoTable instanceof \DOMElement);
+        $this->assertTrue($mismatchedTable instanceof \DOMElement);
+        $this->assertSame([], $this->tableDataLabelViolations($matchingXPath, $matchingTable, 'matching fixture'));
+        $this->assertTrue($this->tableDataLabelViolations($emptyEchoXPath, $emptyEchoTable, 'empty echo fixture') !== []);
+        $this->assertTrue($this->tableDataLabelViolations($mismatchedXPath, $mismatchedTable, 'mismatched fixture') !== []);
     }
 
     public function testEveryFilteredResultCountUsesTheSharedSemanticSummary(): void
@@ -1794,9 +1806,58 @@ final class UiLayoutTest extends TestCase
 
     private function tableMarkup(string $source): string
     {
-        $withDynamicEchoes = preg_replace('/<\?=\s*.*?\?>/s', '__DYNAMIC__', $source) ?? $source;
+        $withDynamicEchoes = preg_replace_callback(
+            '/<\?=\s*(.*?)\s*\?>/s',
+            function (array $match): string {
+                $expression = $this->normalizeTableText($match[1]);
+
+                if (preg_match('/^(?:e\()?([\'\"])\1\)?$/', $expression) === 1) {
+                    return '';
+                }
+
+                return '__DYNAMIC_' . hash('sha256', $expression) . '__';
+            },
+            $source,
+        ) ?? $source;
 
         return preg_replace('/<\?(?:php|=).*?\?>/s', '', $withDynamicEchoes) ?? '';
+    }
+
+    private function tableDataLabelViolations(\DOMXPath $xpath, \DOMElement $table, string $view): array
+    {
+        $violations = [];
+        $cells = $xpath->query('.//td', $table);
+
+        foreach ($cells ?: [] as $cell) {
+            if (!$cell instanceof \DOMElement) {
+                continue;
+            }
+
+            $label = $this->normalizeTableText($cell->getAttribute('data-label'));
+            if ($label === '') {
+                $violations[] = $view . ' table cells must provide a non-empty mobile data-label.';
+                continue;
+            }
+
+            $column = ($xpath->query('./preceding-sibling::td', $cell)?->length ?? 0) + 1;
+            $headers = $xpath->query('./thead/tr/th[position() = ' . $column . ']', $table);
+            if ($headers === false || $headers->length !== 1 || !$headers->item(0) instanceof \DOMElement) {
+                $violations[] = $view . ' table cells must retain a corresponding table header.';
+                continue;
+            }
+
+            $header = $this->visibleTableText($headers->item(0));
+            if ($label !== $header) {
+                $violations[] = $view . ' table cell data-labels must match their corresponding visible header.';
+            }
+        }
+
+        return $violations;
+    }
+
+    private function normalizeTableText(string $text): string
+    {
+        return trim(preg_replace('/\s+/', ' ', $text) ?? '');
     }
 
     private function visibleTableText(\DOMNode $node): string
@@ -1818,7 +1879,7 @@ final class UiLayoutTest extends TestCase
             $text .= $this->visibleTableText($child);
         }
 
-        return trim(preg_replace('/\s+/', ' ', $text) ?? '');
+        return $this->normalizeTableText($text);
     }
 
     private function resultSummaryMarkupViolations(
