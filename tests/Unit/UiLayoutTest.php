@@ -351,12 +351,12 @@ final class UiLayoutTest extends TestCase
     public function testOperationalListsUseTheSharedResponsiveTableContract(): void
     {
         $views = [
-            'app/Views/admin/newsletter/index.php' => ['Newsletter campaigns', 'Action', 'Campaign'],
-            'app/Views/admin/contact/index.php' => ['Contact messages', 'Action', 'Sender'],
-            'app/Views/organizer/coupons/index.php' => ['Organizer coupons', 'Actions', null],
+            'app/Views/admin/newsletter/index.php' => ['Newsletter campaigns', 'Action', 'Campaign', ['Campaign']],
+            'app/Views/admin/contact/index.php' => ['Contact messages', 'Action', 'Sender', ['Sender', 'Subject']],
+            'app/Views/organizer/coupons/index.php' => ['Organizer coupons', 'Actions', null, ['Code', 'Scope']],
         ];
 
-        foreach ($views as $view => [$caption, $actionLabel, $primaryLabel]) {
+        foreach ($views as $view => [$caption, $actionLabel, $primaryLabel, $unbrokenValueLabels]) {
             $source = (string) file_get_contents(base_path($view));
             $markup = preg_replace('/<\?(?:php|=).*?\?>/s', '', $source) ?? '';
             $document = new \DOMDocument();
@@ -411,6 +411,21 @@ final class UiLayoutTest extends TestCase
                     1,
                     $primaryContent?->length,
                     $view . ' must group multi-line primary content for the mobile label/value grid.',
+                );
+            }
+
+            foreach ($unbrokenValueLabels as $valueLabel) {
+                $anywhereValues = $xpath->query(
+                    './/td[@data-label="' . $valueLabel . '"]'
+                    . '[contains(concat(" ", normalize-space(@class), " "), " [overflow-wrap:anywhere] ")'
+                    . ' or .//*[contains(concat(" ", normalize-space(@class), " "), " [overflow-wrap:anywhere] ")]]',
+                    $table,
+                );
+
+                $this->assertSame(
+                    1,
+                    $anywhereValues?->length,
+                    $view . ' must wrap maximum-length unbroken ' . strtolower($valueLabel) . ' values.',
                 );
             }
         }
