@@ -538,34 +538,64 @@ final class UiLayoutTest extends TestCase
     {
         $matching = $this->tableMarkup('<table><caption>Dynamic report</caption><thead><tr><th scope="col"><?= e($label) ?></th></tr></thead><tbody><tr><td data-label="<?= e($label) ?>">Value</td></tr></tbody></table>');
         $emptyEcho = $this->tableMarkup('<table><caption>Empty report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="<?= \'\' ?>">Value</td></tr></tbody></table>');
+        $whitespaceEcho = $this->tableMarkup('<table><caption>Whitespace report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="<?= \' \' ?>">Value</td></tr></tbody></table>');
+        $wrappedEmptyEcho = $this->tableMarkup('<table><caption>Wrapped empty report</caption><thead><tr><th scope="col">Label</th></tr></thead><tbody><tr><td data-label="<?= e( \'\' ) ?>">Value</td></tr></tbody></table>');
+        $spacedLiteralMismatch = $this->tableMarkup('<table><caption>Spaced literal report</caption><thead><tr><th scope="col"><?= \'A B\' ?></th></tr></thead><tbody><tr><td data-label="<?= \'AB\' ?>">Value</td></tr></tbody></table>');
         $mismatched = $this->tableMarkup('<table><caption>Mismatched report</caption><thead><tr><th scope="col"><?= e($header) ?></th></tr></thead><tbody><tr><td data-label="<?= e($other) ?>">Value</td></tr></tbody></table>');
 
         $matchingDocument = new \DOMDocument();
         $emptyEchoDocument = new \DOMDocument();
+        $whitespaceEchoDocument = new \DOMDocument();
+        $wrappedEmptyEchoDocument = new \DOMDocument();
+        $spacedLiteralMismatchDocument = new \DOMDocument();
         $mismatchedDocument = new \DOMDocument();
         $previousErrors = libxml_use_internal_errors(true);
         $matchingLoaded = $matchingDocument->loadHTML($matching);
         $emptyEchoLoaded = $emptyEchoDocument->loadHTML($emptyEcho);
+        $whitespaceEchoLoaded = $whitespaceEchoDocument->loadHTML($whitespaceEcho);
+        $wrappedEmptyEchoLoaded = $wrappedEmptyEchoDocument->loadHTML($wrappedEmptyEcho);
+        $spacedLiteralMismatchLoaded = $spacedLiteralMismatchDocument->loadHTML($spacedLiteralMismatch);
         $mismatchedLoaded = $mismatchedDocument->loadHTML($mismatched);
         libxml_clear_errors();
         libxml_use_internal_errors($previousErrors);
 
         $this->assertTrue($matchingLoaded);
         $this->assertTrue($emptyEchoLoaded);
+        $this->assertTrue($whitespaceEchoLoaded);
+        $this->assertTrue($wrappedEmptyEchoLoaded);
+        $this->assertTrue($spacedLiteralMismatchLoaded);
         $this->assertTrue($mismatchedLoaded);
 
         $matchingXPath = new \DOMXPath($matchingDocument);
         $emptyEchoXPath = new \DOMXPath($emptyEchoDocument);
+        $whitespaceEchoXPath = new \DOMXPath($whitespaceEchoDocument);
+        $wrappedEmptyEchoXPath = new \DOMXPath($wrappedEmptyEchoDocument);
+        $spacedLiteralMismatchXPath = new \DOMXPath($spacedLiteralMismatchDocument);
         $mismatchedXPath = new \DOMXPath($mismatchedDocument);
         $matchingTable = $matchingXPath->query('//table')?->item(0);
         $emptyEchoTable = $emptyEchoXPath->query('//table')?->item(0);
+        $whitespaceEchoTable = $whitespaceEchoXPath->query('//table')?->item(0);
+        $wrappedEmptyEchoTable = $wrappedEmptyEchoXPath->query('//table')?->item(0);
+        $spacedLiteralMismatchTable = $spacedLiteralMismatchXPath->query('//table')?->item(0);
         $mismatchedTable = $mismatchedXPath->query('//table')?->item(0);
 
         $this->assertTrue($matchingTable instanceof \DOMElement);
         $this->assertTrue($emptyEchoTable instanceof \DOMElement);
+        $this->assertTrue($whitespaceEchoTable instanceof \DOMElement);
+        $this->assertTrue($wrappedEmptyEchoTable instanceof \DOMElement);
+        $this->assertTrue($spacedLiteralMismatchTable instanceof \DOMElement);
         $this->assertTrue($mismatchedTable instanceof \DOMElement);
         $this->assertSame([], $this->tableDataLabelViolations($matchingXPath, $matchingTable, 'matching fixture'));
         $this->assertTrue($this->tableDataLabelViolations($emptyEchoXPath, $emptyEchoTable, 'empty echo fixture') !== []);
+        $whitespaceCell = $whitespaceEchoXPath->query('//td')?->item(0);
+        $wrappedEmptyCell = $wrappedEmptyEchoXPath->query('//td')?->item(0);
+        $this->assertTrue($whitespaceCell instanceof \DOMElement);
+        $this->assertTrue($wrappedEmptyCell instanceof \DOMElement);
+        $this->assertSame('', $whitespaceCell->getAttribute('data-label'));
+        $this->assertSame('', $wrappedEmptyCell->getAttribute('data-label'));
+        $this->assertTrue($this->tableDataLabelViolations($whitespaceEchoXPath, $whitespaceEchoTable, 'whitespace echo fixture') !== []);
+        $this->assertTrue($this->tableDataLabelViolations($wrappedEmptyEchoXPath, $wrappedEmptyEchoTable, 'wrapped empty echo fixture') !== []);
+        $this->assertTrue($this->tableDataLabelViolations($spacedLiteralMismatchXPath, $spacedLiteralMismatchTable, 'spaced literal mismatch fixture') !== []);
         $this->assertTrue($this->tableDataLabelViolations($mismatchedXPath, $mismatchedTable, 'mismatched fixture') !== []);
     }
 
@@ -1811,8 +1841,12 @@ final class UiLayoutTest extends TestCase
             function (array $match): string {
                 $expression = $this->normalizeTableText($match[1]);
 
-                if (preg_match('/^(?:e\()?([\'\"])\1\)?$/', $expression) === 1) {
-                    return '';
+                if (preg_match('/^(?:([\'\"])(.*?)\1|e\s*\(\s*([\'\"])(.*?)\3\s*\))$/s', $expression, $literal) === 1) {
+                    $literalValue = $literal[1] !== '' ? $literal[2] : $literal[4];
+
+                    if ($this->normalizeTableText($literalValue) === '') {
+                        return '';
+                    }
                 }
 
                 return '__DYNAMIC_' . hash('sha256', $expression) . '__';
