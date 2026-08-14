@@ -1865,7 +1865,7 @@
     }
 
     .operations-table {
-        @apply min-w-[760px];
+        min-width: 760px;
     }
 
     .rating-control {
@@ -2003,6 +2003,8 @@
 
     .organizer-table td {
         @apply border-b border-[var(--line)] px-4 py-4 align-middle last:border-b-0;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 
     .organizer-table tbody tr:last-child td {
@@ -2029,6 +2031,20 @@
 
     .organizer-table__action {
         @apply text-right;
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    .organizer-table__schedule {
+        @apply grid gap-2;
+    }
+
+    .organizer-table__schedule > span {
+        @apply grid gap-0.5;
+    }
+
+    .organizer-table__meta-label {
+        @apply text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[var(--ink-muted)];
     }
 
     .status-chip,
@@ -2489,7 +2505,9 @@
     }
 
     .admin-table-actions {
-        @apply flex flex-wrap items-center justify-end gap-2;
+        @apply flex items-center justify-end gap-2;
+        flex-wrap: nowrap;
+        min-width: max-content;
     }
 
     .admin-table-actions form {
@@ -3021,21 +3039,32 @@
 
     .organizer-table td::before {
         content: attr(data-label);
+        grid-column: 1;
+        grid-row: 1;
         font-size: 0.72rem;
         font-weight: 700;
         color: var(--ink-muted);
     }
 
+    .organizer-table td > * {
+        grid-column: 2;
+        min-width: 0;
+    }
+
     .organizer-table td.organizer-table__action {
         display: grid;
         justify-content: stretch;
+        width: 100%;
+        white-space: normal;
     }
 
     .organizer-table td.organizer-table__action .text-link {
         justify-self: end;
     }
 
-    .organizer-table td.admin-table-actions::before {
-        display: none;
+    .organizer-table td.organizer-table__action .admin-table-actions {
+        width: 100%;
+        min-width: 0;
+        flex-wrap: wrap;
     }
 }

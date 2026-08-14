@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace OEMS\Tests\Unit;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use OEMS\App\Support\CmsBannerPresenter;
 use OEMS\Core\View;
 use OEMS\Tests\Support\TestCase;
 use RuntimeException;
@@ -119,7 +122,7 @@ final class StatusUiTest extends TestCase
 
     public function testOperationalTableCssParserRecognizesNormalizedCompiledPseudoElements(): void
     {
-        $compiledCss = '@media (max-width:767px){.organizer-table td:before,.other-cell:before{grid-column:1;grid-row:1}.organizer-table td.admin-table-actions:before,.other-cell:before{display:none}}.operations-table{min-width:760px}';
+        $compiledCss = '@media (max-width:767px){.organizer-table td:before,.other-cell:before{grid-area:1/1}.organizer-table td.admin-table-actions:before,.other-cell:before{display:none}}.operations-table{min-width:760px}';
         $mobileCss = $this->mediaCssBodies($compiledCss, 'max-width', '767px');
 
         $this->assertTrue(
@@ -128,7 +131,7 @@ final class StatusUiTest extends TestCase
                 '.organizer-table td::before',
                 ['grid-column' => '1', 'grid-row' => '1'],
             ),
-            'The compiled single-colon pseudo-element selector must satisfy the mobile label placement contract.',
+            'The compiled single-colon pseudo-element and grid-area shorthand must satisfy the mobile label placement contract.',
         );
         $this->assertTrue(
             $this->cssHasSelector($compiledCss, '.organizer-table td.admin-table-actions::before'),
@@ -175,6 +178,9 @@ final class StatusUiTest extends TestCase
 
     public function testCmsViewsRenderPublicationAndAvailabilityStatesWithoutColorProxies(): void
     {
+        $timezone = new DateTimeZone('Asia/Dhaka');
+        $now = new DateTimeImmutable('2026-08-15 12:00:00', $timezone);
+        $presenter = new CmsBannerPresenter();
         $html = $this->render('admin/cms/index', [
             'pages' => [
                 ['title' => 'About', 'slug' => 'about', 'status' => 'published'],
@@ -185,8 +191,8 @@ final class StatusUiTest extends TestCase
                 ['id' => 2, 'question' => 'Inactive question', 'sort_order' => 2, 'is_active' => false],
             ],
             'banners' => [
-                ['id' => 1, 'title' => 'Active banner', 'is_active' => true],
-                ['id' => 2, 'title' => 'Inactive banner', 'is_active' => false],
+                $presenter->present(['id' => 1, 'title' => 'Active banner', 'is_active' => 1, 'location' => 'home', 'starts_at' => null, 'ends_at' => null], $now, $timezone),
+                $presenter->present(['id' => 2, 'title' => 'Inactive banner', 'is_active' => 0, 'location' => 'home', 'starts_at' => null, 'ends_at' => null], $now, $timezone),
             ],
         ]);
 
@@ -194,6 +200,8 @@ final class StatusUiTest extends TestCase
         $this->assertTrue(str_contains($html, 'status-chip--draft'));
         $this->assertTrue(str_contains($html, 'status-chip--active'));
         $this->assertTrue(str_contains($html, 'status-chip--inactive'));
+        $this->assertTrue(str_contains($html, 'status-chip--success'));
+        $this->assertTrue(str_contains($html, 'status-chip--neutral'));
         $this->assertFalse(str_contains($html, 'status-chip--approved'));
         $this->assertFalse(str_contains($html, 'status-chip--pending'));
         $this->assertFalse(str_contains($html, 'status-chip--cancelled'));
@@ -951,6 +959,15 @@ final class StatusUiTest extends TestCase
 
                 if ($property !== '' && $value !== '') {
                     $declarations[$property] = $value;
+                }
+            }
+
+            if (isset($declarations['grid-area'])) {
+                $gridArea = preg_split('/\s*\/\s*/', $declarations['grid-area']);
+
+                if (is_array($gridArea) && count($gridArea) >= 2) {
+                    $declarations['grid-row'] ??= $gridArea[0];
+                    $declarations['grid-column'] ??= $gridArea[1];
                 }
             }
 

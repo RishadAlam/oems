@@ -10,6 +10,7 @@ use OEMS\App\Controllers\PublicContentController;
 use OEMS\App\Services\CmsService;
 use OEMS\App\Services\ImageUploadService;
 use OEMS\App\Services\PlatformSettingsService;
+use OEMS\App\Support\CmsBannerPresenter;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Request;
@@ -97,7 +98,7 @@ final class CmsControllerTest extends TestCase
 
     public function testAdminCmsRejectsMalformedIdsAndUnknownSlugsWithoutMutation(): void
     {
-        $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService());
+        $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService(), new CmsBannerPresenter());
 
         $faq = $controller->editFaq($this->routed('GET', '/admin/cms/faqs/0/edit', ['id' => '0']));
         $banner = $controller->updateBanner($this->routed('POST', '/admin/cms/banners/nope', ['id' => 'nope']));
@@ -117,8 +118,10 @@ final class CmsControllerTest extends TestCase
             2 => ['id' => 2, 'title' => 'Scheduled', 'is_active' => 1, 'starts_at' => '2099-01-01 10:00:00', 'ends_at' => null],
             3 => ['id' => 3, 'title' => 'Ended', 'is_active' => 1, 'starts_at' => '2000-01-01 10:00:00', 'ends_at' => '2001-01-01 10:00:00'],
             4 => ['id' => 4, 'title' => 'Disabled', 'is_active' => 0, 'starts_at' => null, 'ends_at' => null],
+            5 => ['id' => 5, 'title' => 'Malformed', 'is_active' => 1, 'starts_at' => '2026-02-30 10:00:00', 'ends_at' => null],
+            6 => ['id' => 6, 'title' => 'Disabled malformed', 'is_active' => '0', 'starts_at' => 'not-a-date', 'ends_at' => null],
         ];
-        $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService());
+        $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService(), new CmsBannerPresenter());
 
         $response = $controller->index(Request::create('GET', '/admin/cms'));
         $html = $response->body();
@@ -148,12 +151,21 @@ final class CmsControllerTest extends TestCase
             $this->assertSame(1, $states?->length, $state . ' banners must render exactly one ' . $modifier . ' delivery-state chip.');
         }
 
-        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"]//*[normalize-space(.) = "Starts"]')?->length);
-        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"]//*[normalize-space(.) = "Ends"]')?->length);
-        $this->assertSame(1, $xpath->query('//time[@datetime="2099-01-01T10:00:00"]')?->length);
-        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"][contains(normalize-space(.), "Immediately")]')?->length);
-        $this->assertSame(1, $xpath->query('//td[@data-label="Schedule"][contains(normalize-space(.), "No end date")]')?->length);
-        $this->assertFalse(str_contains($html, 'Active banner'), 'Banner delivery state must not fall back to the old raw Active banner contract.');
+        $this->assertSame(1, $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Scheduled"]]/td[@data-label="Schedule"]//*[normalize-space(.) = "Starts"]')?->length);
+        $this->assertSame(1, $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Scheduled"]]/td[@data-label="Schedule"]//*[normalize-space(.) = "Ends"]')?->length);
+        $this->assertSame(1, $xpath->query('//time[@datetime="2099-01-01T10:00:00+06:00"]')?->length);
+        $this->assertSame(1, $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Live"]]/td[@data-label="Schedule"][contains(normalize-space(.), "Immediately")]')?->length);
+        $this->assertSame(1, $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Scheduled"]]/td[@data-label="Schedule"][contains(normalize-space(.), "No end date")]')?->length);
+        $malformedRow = $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Malformed"]]')->item(0);
+        $this->assertNotNull($malformedRow);
+        $this->assertSame(1, $xpath->query('.//td[@data-label="Schedule"][normalize-space(.) = "Schedule unavailable"]', $malformedRow)?->length);
+        $this->assertSame(0, $xpath->query('.//time', $malformedRow)?->length);
+        $disabledMalformedRow = $xpath->query('//tr[td[@data-label="Banner"]//strong[normalize-space(.) = "Disabled malformed"]]')->item(0);
+        $this->assertNotNull($disabledMalformedRow);
+        $this->assertSame(1, $xpath->query('.//td[@data-label="Schedule"][normalize-space(.) = "Schedule unavailable"]', $disabledMalformedRow)?->length);
+        $this->assertSame(0, $xpath->query('.//time', $disabledMalformedRow)?->length);
+        $this->assertSame(1, $xpath->query('.//td[@data-label="Status"]//*[normalize-space(.) = "Disabled"]', $disabledMalformedRow)?->length);
+        $this->assertSame(0, $xpath->query('//td[@data-label="Status"]//*[normalize-space(.) = "Active banner"]')?->length, 'Banner delivery state must not fall back to the old raw Active banner contract.');
     }
 
     private function cmsService(): CmsService
@@ -161,6 +173,6 @@ final class CmsControllerTest extends TestCase
         return new CmsService($this->cms, new ImageUploadService($this->uploadRoot, '/uploads/banners', requireHttpUpload: false));
     }
     private function view(): View { return new View(base_path('app/Views')); }
-    private function config(): Config { return new Config(['name' => 'OEMS', 'url' => 'http://localhost:8000']); }
+    private function config(): Config { return new Config(['name' => 'OEMS', 'url' => 'http://localhost:8000', 'timezone' => 'Asia/Dhaka']); }
     private function routed(string $method, string $uri, array $params): Request { return Request::create($method, $uri)->withRouteParameters($params); }
 }

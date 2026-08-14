@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace OEMS\App\Controllers;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OEMS\App\Contracts\CmsRepositoryInterface;
 use OEMS\App\Services\CmsService;
+use OEMS\App\Support\CmsBannerPresenter;
 use OEMS\Core\Auth;
 use OEMS\Core\Config;
 use OEMS\Core\Controller;
@@ -21,18 +24,31 @@ final class AdminCmsController extends Controller
     private const FAQ_FIELDS = ['question', 'answer', 'category', 'sort_order'];
     private const BANNER_FIELDS = ['title', 'subtitle', 'link_url', 'starts_at', 'ends_at', 'sort_order'];
 
-    public function __construct(View $view, Session $session, Security $security, Auth $auth, Config $config, private readonly CmsRepositoryInterface $cms, private readonly CmsService $service)
+    public function __construct(View $view, Session $session, Security $security, Auth $auth, Config $config, private readonly CmsRepositoryInterface $cms, private readonly CmsService $service, private readonly CmsBannerPresenter $bannerPresenter)
     {
         parent::__construct($view, $session, $security, $auth, $config);
     }
 
     public function index(Request $request): Response
     {
+        $timezone = new DateTimeZone((string) $this->config->get('timezone', 'UTC'));
+        $now = new DateTimeImmutable('now', $timezone);
+        $now = $now->setTime(
+            (int) $now->format('H'),
+            (int) $now->format('i'),
+            (int) $now->format('s'),
+            0,
+        );
+        $banners = array_map(
+            fn (array $banner): array => $this->bannerPresenter->present($banner, $now, $timezone),
+            $this->cms->allBanners(),
+        );
+
         return $this->render('admin/cms/index', [
             'pageTitle' => 'Content management',
             'pages' => $this->cms->fixedPages(CmsService::PAGE_SLUGS),
             'faqs' => $this->cms->allFaqs(),
-            'banners' => $this->cms->allBanners(),
+            'banners' => $banners,
         ], 'dashboard');
     }
 
