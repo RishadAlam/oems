@@ -518,7 +518,7 @@
     }
 
     .home-featured__grid {
-        @apply mt-10 grid items-stretch gap-6 lg:grid-cols-[minmax(0,1.18fr)_minmax(21rem,0.82fr)];
+        @apply mt-10 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2;
     }
 
     .home-featured .event-card {
@@ -529,16 +529,8 @@
         @apply flex flex-1 flex-col;
     }
 
-    .home-featured .event-card__footer {
-        @apply mt-auto;
-    }
-
     .home-featured .event-card__media img {
-        @apply aspect-[16/10];
-    }
-
-    .home-featured .event-card:not(.event-card--wide) .event-card__details {
-        @apply sm:grid-cols-1 xl:grid-cols-2;
+        @apply aspect-[16/9];
     }
 
     .event-card {
@@ -551,10 +543,6 @@
 
     .event-card__media img {
         @apply aspect-[4/3] h-full w-full object-cover transition duration-500 hover:scale-[1.02];
-    }
-
-    .event-card--wide .event-card__media img {
-        @apply lg:aspect-[1.65/1];
     }
 
     .event-card__body {
@@ -601,6 +589,50 @@
 
     .event-card__actions {
         @apply flex flex-wrap items-center justify-end gap-3;
+    }
+
+    .home-event-card h3 {
+        @apply text-xl leading-[1.25] tracking-[-0.025em] sm:text-2xl;
+        min-height: 2.5em;
+        display: -webkit-box;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .home-event-card h3 a {
+        @apply inline-flex min-h-11 items-center;
+    }
+
+    .home-event-card .event-card__details {
+        @apply grid-cols-1 gap-3 lg:grid-cols-2;
+    }
+
+    .home-event-card .event-card__meta,
+    .home-event-card .event-card__meta > span {
+        @apply min-w-0;
+    }
+
+    .home-event-card .event-card__meta time,
+    .home-event-card .event-card__meta address {
+        @apply text-sm leading-5;
+    }
+
+    .home-event-card .event-card__meta address {
+        display: -webkit-box;
+        overflow: hidden;
+        overflow-wrap: anywhere;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .home-event-card .event-card__footer {
+        @apply mt-auto;
+    }
+
+    .home-event-card .event-card__footer .text-link {
+        @apply min-h-11;
     }
 
     .favorite-control,

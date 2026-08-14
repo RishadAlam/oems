@@ -22,7 +22,7 @@ OEMS will borrow the information hierarchy, not the visual branding, from these 
 
 Render the two featured events as equal editorial cards in a responsive grid.
 
-- One column below 768px and two equal columns from 768px.
+- One column below 1024px and two equal columns from 1024px.
 - Both images use the same 16:9 crop and reserved aspect ratio.
 - The body begins with category, then a two-line title.
 - Date/time and location use compact icon-led rows with no redundant `Date` or `Place` mini-labels.
@@ -47,7 +47,6 @@ Render the two featured events as equal editorial cards in a responsive grid.
 3. Titles are clamped to two lines with a reserved minimum height.
 4. Metadata uses one compact shared row per date and location.
 5. Footer alignment is stable for different title and venue lengths.
-6. Layout has no horizontal overflow at 390, 768, 1280, or 2048 CSS pixels.
+6. Layout has no horizontal overflow at 390, 768, 1280, or 2048 CSS pixels; 768px keeps one readable column.
 7. Existing event links, favorite behavior, semantic metadata, and empty state pass unchanged.
 8. Source and compiled CSS stay synchronized and asset cache versions are bumped.
-

@@ -116,8 +116,8 @@
             </div>
         <?php else: ?>
         <div class="home-featured__grid">
-            <?php foreach ($featuredEvents as $index => $event): ?>
-                <article class="event-card <?= $index === 0 ? 'event-card--wide' : '' ?>" data-reveal>
+            <?php foreach ($featuredEvents as $event): ?>
+                <article class="event-card home-event-card" data-reveal>
                     <a href="/events/<?= e($event['slug']) ?>" class="event-card__media" aria-label="View <?= e($event['title']) ?>">
                         <img
                             src="<?= e($event['image']) ?>"
@@ -131,8 +131,8 @@
                         <p class="event-card__category"><?= e($event['category']) ?></p>
                         <h3><a href="/events/<?= e($event['slug']) ?>"><?= e($event['title']) ?></a></h3>
                         <div class="event-card__details">
-                            <div><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><small>Date</small><time datetime="<?= e($event['datetime']) ?>"><?= e($event['date']) ?> at <?= e($event['time']) ?></time></span></div>
-                            <div><i class="ph ph-map-pin" aria-hidden="true"></i><span><small>Place</small><address><?= e($event['venue']) ?></address></span></div>
+                            <div class="event-card__meta"><i class="ph ph-calendar-blank" aria-hidden="true"></i><span><time datetime="<?= e($event['datetime']) ?>"><?= e($event['date']) ?> at <?= e($event['time']) ?></time></span></div>
+                            <div class="event-card__meta"><i class="ph ph-map-pin" aria-hidden="true"></i><span><address><?= e($event['venue']) ?></address></span></div>
                         </div>
                         <div class="event-card__footer">
                             <strong class="text-sm"><?= e($event['price']) ?></strong>

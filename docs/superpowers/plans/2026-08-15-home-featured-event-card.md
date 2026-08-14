@@ -66,7 +66,7 @@ Remove the index-based wide modifier, add `home-event-card`, and replace redunda
 
 - [ ] **Step 2: Implement the homepage CSS contract**
 
-Use one column by default and two equal columns from 768px. Give both media elements 16:9 geometry, clamp titles to two lines, allow metadata to wrap safely, and keep the footer at the bottom. Remove obsolete homepage wide-card rules.
+Use one column by default and two equal columns from 1024px. Give both media elements 16:9 geometry, clamp titles to two lines, allow metadata to wrap safely, and keep the footer at the bottom. Remove obsolete homepage wide-card rules.
 
 - [ ] **Step 3: Publish assets**
 
