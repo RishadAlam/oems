@@ -114,12 +114,12 @@ final class CmsControllerTest extends TestCase
     public function testBannerDeliveryStatesRenderSemanticStatusAndScheduleDetails(): void
     {
         $this->cms->banners = [
-            1 => ['id' => 1, 'title' => 'Live', 'is_active' => 1, 'starts_at' => null, 'ends_at' => null],
-            2 => ['id' => 2, 'title' => 'Scheduled', 'is_active' => 1, 'starts_at' => '2099-01-01 10:00:00', 'ends_at' => null],
-            3 => ['id' => 3, 'title' => 'Ended', 'is_active' => 1, 'starts_at' => '2000-01-01 10:00:00', 'ends_at' => '2001-01-01 10:00:00'],
-            4 => ['id' => 4, 'title' => 'Disabled', 'is_active' => 0, 'starts_at' => null, 'ends_at' => null],
-            5 => ['id' => 5, 'title' => 'Malformed', 'is_active' => 1, 'starts_at' => '2026-02-30 10:00:00', 'ends_at' => null],
-            6 => ['id' => 6, 'title' => 'Disabled malformed', 'is_active' => '0', 'starts_at' => 'not-a-date', 'ends_at' => null],
+            1 => ['id' => 1, 'title' => 'Live', 'is_active' => 1, 'location' => 'home', 'starts_at' => null, 'ends_at' => null],
+            2 => ['id' => 2, 'title' => 'Scheduled', 'is_active' => 1, 'location' => 'home', 'starts_at' => '2099-01-01 10:00:00', 'ends_at' => null],
+            3 => ['id' => 3, 'title' => 'Ended', 'is_active' => 1, 'location' => 'home', 'starts_at' => '2000-01-01 10:00:00', 'ends_at' => '2001-01-01 10:00:00'],
+            4 => ['id' => 4, 'title' => 'Disabled', 'is_active' => 0, 'location' => 'home', 'starts_at' => null, 'ends_at' => null],
+            5 => ['id' => 5, 'title' => 'Malformed', 'is_active' => 1, 'location' => 'home', 'starts_at' => '2026-02-30 10:00:00', 'ends_at' => null],
+            6 => ['id' => 6, 'title' => 'Disabled malformed', 'is_active' => '0', 'location' => 'home', 'starts_at' => 'not-a-date', 'ends_at' => null],
         ];
         $controller = new AdminCmsController($this->view(), $this->session, $this->security, $this->auth, $this->config(), $this->cms, $this->cmsService(), new CmsBannerPresenter());
 

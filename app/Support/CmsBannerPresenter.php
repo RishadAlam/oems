@@ -129,7 +129,7 @@ final class CmsBannerPresenter
     private function homeEligible(array $banner): bool
     {
         if (!array_key_exists('location', $banner)) {
-            return true;
+            return false;
         }
 
         $location = $banner['location'];

@@ -120,10 +120,12 @@ final class CmsBannerPresenterTest extends TestCase
             $this->assertSame('Unknown', $this->presenter->present($nonHome, $this->now, $this->timezone)['delivery']['label']);
         }
 
+        $missingLocation = $this->banner();
+        unset($missingLocation['location']);
         $this->assertSame(
-            'Live',
-            $this->presenter->present($this->banner(), $this->now, $this->timezone)['delivery']['label'],
-            'Location-less hand-written fixtures remain home-banner fixtures for backward compatibility.',
+            'Unknown',
+            $this->presenter->present($missingLocation, $this->now, $this->timezone)['delivery']['label'],
+            'Missing location evidence must fail closed instead of claiming public delivery.',
         );
     }
 
@@ -193,6 +195,7 @@ final class CmsBannerPresenterTest extends TestCase
             'id' => 7,
             'title' => 'Banner',
             'is_active' => $active,
+            'location' => 'home',
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
         ];

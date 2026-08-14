@@ -147,6 +147,50 @@ final class StatusUiTest extends TestCase
         );
     }
 
+    public function testOperationalTableBordersStayRowAlignedOnDesktopAndCardAlignedOnMobile(): void
+    {
+        foreach ([
+            'source stylesheet' => 'resources/css/app.css',
+            'compiled stylesheet' => 'public/assets/css/app.css',
+        ] as $label => $path) {
+            $css = $this->stylesheet($path);
+            $this->assertFalse(
+                $this->cssRuleHasDeclarationsOutsideMedia(
+                    $css,
+                    '.organizer-table td:last-child',
+                    ['border-bottom-width' => '0'],
+                ),
+                $label . ' must not remove the desktop row divider from every row action cell.',
+            );
+
+            if ($label === 'source stylesheet') {
+                $this->assertFalse(
+                    str_contains($css, 'last:border-b-0'),
+                    'The source table-cell rule must not regenerate a desktop td:last-child border reset.',
+                );
+            }
+
+            $mobileCss = $this->mediaCssBodies($css, 'max-width', '767px');
+            $mobileResetPublished = false;
+
+            foreach ($mobileCss as $mediaBody) {
+                if ($this->cssRuleHasDeclarations(
+                    $mediaBody,
+                    '.organizer-table td:last-child',
+                    ['border-bottom-width' => '0'],
+                )) {
+                    $mobileResetPublished = true;
+                    break;
+                }
+            }
+
+            $this->assertTrue(
+                $mobileResetPublished,
+                $label . ' must remove only the final cell divider inside each mobile card.',
+            );
+        }
+    }
+
     public function testAccountAndCategoryViewsRenderTheirRealStatusNames(): void
     {
         $users = $this->render('admin/users/index', [
